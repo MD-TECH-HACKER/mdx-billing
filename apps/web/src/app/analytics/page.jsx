@@ -72,7 +72,6 @@ import {
   ComposedChart,
   Scatter,
 } from "recharts";
-import DashboardShell from "@/components/DashboardShell";
 import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
 import { formatMoney } from "@/utils/currency";
@@ -1184,7 +1183,7 @@ export default function AnalyticsPage() {
    * RENDER
    * ═══════════════════════════════════════════════════════════════════════ */
   return (
-    <DashboardShell currentPath="/analytics" allowedRoles={["owner", "manager"]}>
+    <>
       <style>{animationStyles}</style>
 
       {/* ── Page Header ── */}
@@ -2121,6 +2120,6 @@ export default function AnalyticsPage() {
       <div style={{ textAlign: "center", padding: "20px 0", fontSize: "12px", color: "var(--text-dim2)" }}>
         Powered by <span style={{ color: ACCENT, fontWeight: 600 }}>MDX Billing</span> · Premium Shop Management
       </div>
-    </DashboardShell>
+    </>
   );
 }

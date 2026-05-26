@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Mail, Plus, Shield, Trash2, UserCog } from "lucide-react";
-import DashboardShell from "@/components/DashboardShell";
 import { Badge, Button, Card, ConfirmDialog, Input, Modal, Select } from "@/components/ui";
 import { showToast } from "@/components/Toast";
 import useUser from "@/utils/useUser";
@@ -81,7 +79,7 @@ export default function TeamPage() {
   const members = query.data?.members || [];
 
   return (
-    <DashboardShell currentPath="/team" allowedRoles={["owner"]}>
+    <>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
           <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">Team Access</h1>
@@ -166,6 +164,6 @@ export default function TeamPage() {
         onClose={() => setRemoving(null)}
         onConfirm={() => removeMember.mutate(removing)}
       />
-    </DashboardShell>
+    </>
   );
 }

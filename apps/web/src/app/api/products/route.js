@@ -6,17 +6,23 @@ import {
   writeAuditEvent,
 } from "@/app/api/utils/shopAccess";
 import { canAccess } from "@/app/api/utils/permissions";
-import { sanitizeProductUnit } from "@/utils/productUnits";
+import { ensureBusinessFeatureSchema } from "@/app/api/utils/businessSchema";
+import {
+  sanitizeConversionRate,
+  sanitizeProductUnit,
+  toBaseQuantity,
+} from "@/utils/productUnits";
 
 export async function GET(request) {
   try {
     const context = await requireShopAccess(request, "product.read");
+    await ensureBusinessFeatureSchema();
     const url = new URL(request.url);
     const search = url.searchParams.get("search");
     const category = url.searchParams.get("category");
     const columns = canAccess(context.role, "analytics.profit")
       ? "*"
-      : "product_id, shop_id, image_url, title, description, selling_price, stock, category, sku, primary_unit, secondary_unit, created_at, updated_at";
+      : "product_id, shop_id, image_url, title, description, selling_price, stock, stock_base_unit, opening_stock_base_unit, sold_base_unit, low_stock_base_unit, category, sku, primary_unit, secondary_unit, conversion_rate, hsn_sac, tax_rate, created_at, updated_at";
     let query = `SELECT ${columns} FROM products WHERE shop_id = $1`;
     const values = [context.shopId];
 
@@ -42,6 +48,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const context = await requireShopAccess(request, "product.write");
+    await ensureBusinessFeatureSchema();
     const body = await request.json();
     const title = (body.title || "").toString().trim().slice(0, 150);
 
@@ -54,7 +61,7 @@ export async function POST(request) {
     const imageUrl = (body.imageUrl || "").toString().trim() || null;
     const sellingPrice = Math.max(0, Number(body.sellingPrice) || 0);
     const costPrice = Math.max(0, Number(body.costPrice) || 0);
-    const stock = Math.max(0, parseInt(body.stock, 10) || 0);
+    const openingStock = Math.max(0, Number(body.openingStock ?? body.stock) || 0);
     const category =
       (body.category || "").toString().trim().slice(0, 50) || null;
     const sku = (body.sku || "").toString().trim().slice(0, 50) || null;
@@ -64,20 +71,63 @@ export async function POST(request) {
     const secondaryUnit = sanitizeProductUnit(body.secondaryUnit, {
       fallback: null,
     });
+    const conversionRate =
+      secondaryUnit && secondaryUnit !== primaryUnit
+        ? sanitizeConversionRate(body.conversionRate)
+        : null;
+    const unitModel = {
+      primary_unit: primaryUnit,
+      secondary_unit: conversionRate ? secondaryUnit : null,
+      conversion_rate: conversionRate,
+    };
+    const openingStockBaseUnit = toBaseQuantity(openingStock, primaryUnit, unitModel);
+    const lowStock = Math.max(0, Number(body.lowStockAlertQuantity ?? body.reorderLevel) || 0);
+    const lowStockBaseUnit = toBaseQuantity(lowStock, primaryUnit, unitModel);
+    const hsnSac = (body.hsnSac || "").toString().trim().slice(0, 30) || null;
+    const taxRate = Math.max(0, Math.min(100, Number(body.taxRate) || 0));
+    const supplierId = Number.isInteger(Number.parseInt(body.supplierId, 10))
+      ? Number.parseInt(body.supplierId, 10)
+      : null;
 
     const created = await sql`
       INSERT INTO products
-        (owner_id, shop_id, image_url, title, description, selling_price, cost_price, stock, category, sku, primary_unit, secondary_unit)
+        (owner_id, shop_id, image_url, title, description, selling_price, cost_price, stock,
+         opening_stock_base_unit, stock_base_unit, sold_base_unit, low_stock_base_unit,
+         category, sku, primary_unit, secondary_unit, conversion_rate, hsn_sac, tax_rate, supplier_id)
       VALUES
-        (${context.shopOwnerId}, ${context.shopId}, ${imageUrl}, ${title}, ${description}, ${sellingPrice}, ${costPrice}, ${stock}, ${category}, ${sku}, ${primaryUnit}, ${secondaryUnit})
+        (${context.shopOwnerId}, ${context.shopId}, ${imageUrl}, ${title}, ${description}, ${sellingPrice}, ${costPrice}, ${openingStock},
+         ${openingStockBaseUnit}, ${openingStockBaseUnit}, 0, ${lowStockBaseUnit},
+         ${category}, ${sku}, ${primaryUnit}, ${conversionRate ? secondaryUnit : null}, ${conversionRate}, ${hsnSac}, ${taxRate}, ${supplierId})
       RETURNING *
     `;
+    if (conversionRate) {
+      await sql`
+        INSERT INTO unit_conversions
+          (shop_id, product_id, from_unit, to_unit, conversion_rate)
+        VALUES
+          (${context.shopId}, ${created[0].product_id}, ${primaryUnit}, ${secondaryUnit}, ${conversionRate})
+        ON CONFLICT (product_id, from_unit, to_unit)
+        DO UPDATE SET conversion_rate = EXCLUDED.conversion_rate, active = TRUE, updated_at = NOW()
+      `;
+    }
+    if (openingStockBaseUnit > 0) {
+      await sql`
+        INSERT INTO stock_movements
+          (shop_id, product_id, product_name_snapshot, movement_type, quantity_change,
+           quantity_base_unit, display_quantity, unit, old_stock_base_unit, new_stock_base_unit,
+           reason, owner_id, created_by)
+        VALUES
+          (${context.shopId}, ${created[0].product_id}, ${title}, 'opening_stock', ${openingStockBaseUnit},
+           ${openingStockBaseUnit}, ${openingStock}, ${primaryUnit}, 0, ${openingStockBaseUnit},
+           'Opening stock', ${context.shopOwnerId}, ${context.userId})
+      `;
+    }
     await writeAuditEvent(
       context,
       "product.create",
       "product",
       created[0].product_id,
-      { title, stock },
+      { title, openingStockBaseUnit },
     );
 
     return Response.json({ product: created[0] }, { status: 201 });

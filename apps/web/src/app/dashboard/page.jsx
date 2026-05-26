@@ -69,7 +69,6 @@ import {
   RadialBarChart,
   RadialBar,
 } from "recharts";
-import DashboardShell from "@/components/DashboardShell";
 import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
 import useProfile from "@/utils/useProfile";
@@ -1552,7 +1551,7 @@ export default function DashboardPage() {
    * RENDER
    * ═══════════════════════════════════════════════════════════════════ */
   return (
-    <DashboardShell currentPath="/dashboard" allowedRoles={["owner", "manager"]}>
+    <>
       {/* Keyframe animation styles */}
       <style>{`
         @keyframes fadeInDown {
@@ -2912,6 +2911,6 @@ export default function DashboardPage() {
         <span style={{ fontWeight: 600, color: ACCENT }}>MDX Billing</span>{" "}
         · Premium Shop Management
       </div>
-    </DashboardShell>
+    </>
   );
 }

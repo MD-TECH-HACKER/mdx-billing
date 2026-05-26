@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, PackagePlus, Plus, TrendingUp, X } from "lucide-react";
-import DashboardShell from "@/components/DashboardShell";
 import { Badge, Button, Card, Input, Modal, Select, Textarea } from "@/components/ui";
 import { showToast } from "@/components/Toast";
 import useShop from "@/utils/useShop";
@@ -119,7 +118,7 @@ export default function PurchasesPage() {
   };
 
   return (
-    <DashboardShell currentPath="/purchases" allowedRoles={["owner", "manager"]}>
+    <>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
           <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">Purchases & Stock In</h1>
@@ -234,6 +233,6 @@ export default function PurchasesPage() {
           </Button>
         </form>
       </Modal>
-    </DashboardShell>
+    </>
   );
 }

@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Receipt, Trash2, Wallet } from "lucide-react";
-import DashboardShell from "@/components/DashboardShell";
 import { Button, Card, ConfirmDialog, Input, Modal, Select, Textarea } from "@/components/ui";
 import { showToast } from "@/components/Toast";
 import useShop from "@/utils/useShop";
@@ -77,7 +75,7 @@ export default function ExpensesPage() {
   });
 
   return (
-    <DashboardShell currentPath="/expenses" allowedRoles={["owner", "manager"]}>
+    <>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
           <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">Expenses</h1>
@@ -150,6 +148,6 @@ export default function ExpensesPage() {
         onClose={() => setDeleting(null)}
         onConfirm={() => remove.mutate(deleting)}
       />
-    </DashboardShell>
+    </>
   );
 }

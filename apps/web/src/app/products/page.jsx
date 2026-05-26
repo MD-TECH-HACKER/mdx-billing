@@ -11,7 +11,6 @@ import {
   Upload,
   ShoppingBag,
 } from "lucide-react";
-import DashboardShell from "@/components/DashboardShell";
 import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
 import useUpload from "@/utils/useUpload";
@@ -563,7 +562,7 @@ export default function ProductsPage() {
   };
 
   return (
-    <DashboardShell currentPath="/products">
+    <>
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
         <div>
           <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
@@ -728,6 +727,6 @@ export default function ProductsPage() {
           setDeleting(null);
         }}
       /> : null}
-    </DashboardShell>
+    </>
   );
 }

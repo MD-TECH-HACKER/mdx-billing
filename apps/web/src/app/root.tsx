@@ -324,7 +324,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>MDX Billing — Premium Shop App</title>
+        <title>⌬ 𝙈𝘿𝙓 𝗕𝗜𝗟𝗟𝗜𝗡𝗚 𝗔𝗣𝗣 ⌬</title>
         <meta name="description" content="Manage products, billing, sales, customers and analytics — all in one place. Fast, secure and built for your business." />
         <meta property="og:title" content="MDX Billing — Premium Shop App" />
         <meta property="og:description" content="Manage products, billing, sales, customers and analytics — all in one place. Fast, secure and built for your business." />

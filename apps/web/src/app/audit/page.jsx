@@ -1,6 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Activity, ShieldCheck } from "lucide-react";
-import DashboardShell from "@/components/DashboardShell";
 import { Badge, Card, Skeleton } from "@/components/ui";
 import useUser from "@/utils/useUser";
 import { shopHeaders } from "@/utils/shopContext";
@@ -19,7 +17,7 @@ export default function AuditPage() {
   const events = query.data?.events || [];
 
   return (
-    <DashboardShell currentPath="/audit" allowedRoles={["owner"]}>
+    <>
       <div className="mb-5">
         <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">Security Audit Log</h1>
         <p className="t-muted text-sm">Owner-only record of sensitive shop and financial actions.</p>
@@ -59,6 +57,6 @@ export default function AuditPage() {
           ))}
         </div>
       )}
-    </DashboardShell>
+    </>
   );
 }

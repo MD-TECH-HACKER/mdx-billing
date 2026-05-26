@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, MapPin, Pencil, Phone, Trash2, UserRound } from "lucide-react";
-import DashboardShell from "@/components/DashboardShell";
 import { Button, Card, ConfirmDialog, Input, Modal, SearchInput, Textarea } from "@/components/ui";
 import { showToast } from "@/components/Toast";
 import useShop from "@/utils/useShop";
@@ -111,7 +109,7 @@ export default function PartyDirectoryPage({
   };
 
   return (
-    <DashboardShell currentPath={currentPath} allowedRoles={allowedRoles}>
+    <>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
           <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">{title}</h1>
@@ -207,6 +205,6 @@ export default function PartyDirectoryPage({
         onClose={() => setDeleting(null)}
         onConfirm={() => remove.mutate(deleting)}
       />
-    </DashboardShell>
+    </>
   );
 }

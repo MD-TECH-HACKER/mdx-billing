@@ -1,8 +1,8 @@
 // Themed dashboard shell — sidebar (desktop) + bottom nav (mobile) + top bar.
 // Reacts to theme tokens, supports prefetching, and works as a single shared layout.
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useLocation } from "react-router";
 import {
   LayoutDashboard,
   Package,
@@ -73,12 +73,15 @@ function prefetchRoute(qc, href) {
   }
 }
 
+const BASE_TITLE = "\u232C \uD835\uDE48\uD835\uDE3F\uD835\uDE53 \uD835\uDDD5\uD835\uDDDC\uD835\uDDDF\uD835\uDDDF\uD835\uDDDC\uD835\uDDE1\uD835\uDDDA \uD835\uDDD4\uD835\uDDE3\uD835\uDDE3 \u232C";
+
 export default function DashboardShell({
   children,
-  currentPath = "",
   requireShop = true,
   allowedRoles,
 }) {
+  const location = useLocation();
+  const currentPath = location.pathname;
   const { data: user, loading: userLoading } = useUser();
   const { shop, role, loading: shopLoading } = useShop({ enabled: !!user });
   const { count: cartCount } = useCart();
@@ -106,6 +109,16 @@ export default function DashboardShell({
   useEffect(() => {
     initTheme();
   }, []);
+
+  // Dynamic page title
+  useEffect(() => {
+    const match = NAV.find(
+      (n) => currentPath === n.href || (n.href !== "/dashboard" && currentPath.startsWith(n.href))
+    );
+    document.title = match
+      ? `${BASE_TITLE} | ${match.label}`
+      : BASE_TITLE;
+  }, [currentPath]);
 
   // gate
   useEffect(() => {

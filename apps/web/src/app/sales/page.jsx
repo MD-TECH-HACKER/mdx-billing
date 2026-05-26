@@ -8,7 +8,6 @@ import {
   Calendar,
   Printer,
 } from "lucide-react";
-import DashboardShell from "@/components/DashboardShell";
 import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
 import { showToast } from "@/components/Toast";
@@ -110,7 +109,7 @@ export default function SalesPage() {
     s === "paid" ? "success" : s === "pending" ? "warning" : "accent";
 
   return (
-    <DashboardShell currentPath="/sales">
+    <>
       <div className="mb-5">
         <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">
           Sales & Receipts
@@ -288,6 +287,6 @@ export default function SalesPage() {
           setDeleting(null);
         }}
       /> : null}
-    </DashboardShell>
+    </>
   );
 }

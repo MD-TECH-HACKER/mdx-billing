@@ -9,7 +9,6 @@ import {
   Package,
   ArrowRight,
 } from "lucide-react";
-import DashboardShell from "@/components/DashboardShell";
 import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
 import useCart from "@/utils/useCart";
@@ -132,7 +131,7 @@ export default function BillingPage() {
   };
 
   return (
-    <DashboardShell currentPath="/billing">
+    <>
       <div className="mb-5">
         <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">
           Billing & Checkout
@@ -341,7 +340,7 @@ export default function BillingPage() {
           </div>
         </div>
       )}
-    </DashboardShell>
+    </>
   );
 }
 

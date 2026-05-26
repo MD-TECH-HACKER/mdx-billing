@@ -15,7 +15,6 @@ import {
   Plus,
   Check as CheckIcon,
 } from "lucide-react";
-import DashboardShell from "@/components/DashboardShell";
 import useUser from "@/utils/useUser";
 import useUpload from "@/utils/useUpload";
 import useShop from "@/utils/useShop";
@@ -200,13 +199,13 @@ export default function SettingsPage() {
 
   if (!form) {
     return (
-      <DashboardShell currentPath="/settings" allowedRoles={["owner"]}>
+      <>
         <div className="space-y-4 max-w-3xl">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-40" />
           ))}
         </div>
-      </DashboardShell>
+      </>
     );
   }
 
@@ -223,7 +222,7 @@ export default function SettingsPage() {
   const currentCur = getCurrencyInfo(form.currency);
 
   return (
-    <DashboardShell currentPath="/settings" allowedRoles={["owner"]}>
+    <>
       <div className="mb-5">
         <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">
           Settings
@@ -621,6 +620,6 @@ export default function SettingsPage() {
           </div>
         </Section>
       </div>
-    </DashboardShell>
+    </>
   );
 }
