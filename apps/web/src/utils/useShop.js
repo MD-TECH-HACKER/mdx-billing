@@ -69,6 +69,7 @@ export default function useShop({ enabled = true } = {}) {
         if (typeof patch.shopLogo === "string") next.shop_logo = patch.shopLogo;
         if (typeof patch.address === "string") next.address = patch.address;
         if (typeof patch.phone === "string") next.phone = patch.phone;
+        if (typeof patch.email === "string") next.email = patch.email;
         if (typeof patch.receiptPrefix === "string")
           next.receipt_prefix = patch.receiptPrefix;
         if (typeof patch.taxPercent === "number")
@@ -79,6 +80,8 @@ export default function useShop({ enabled = true } = {}) {
         if (typeof patch.theme === "string") next.theme = patch.theme;
         if (typeof patch.accentColor === "string")
           next.accent_color = patch.accentColor;
+        if (typeof patch.sendReceiptEmail === "boolean")
+          next.send_receipt_email = patch.sendReceiptEmail;
         return { ...old, shop: next };
       });
       // immediate UI update for theme changes

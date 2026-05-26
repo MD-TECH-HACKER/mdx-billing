@@ -21,6 +21,8 @@ export default defineConfig({
     exclude: [
       '@hono/auth-js',
       '@hono/auth-js/react',
+      '@auth/create/react',
+      '@auth/create',
       '@auth/core',
       'hono/context-storage',
       '@auth/core/errors',

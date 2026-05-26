@@ -8,10 +8,19 @@ import {
 import { ensureBusinessFeatureSchema } from "@/app/api/utils/businessSchema";
 import { canAccess } from "@/app/api/utils/permissions";
 import { sanitizeSaleForRole } from "@/app/api/utils/financialVisibility";
+import { publicReceiptUrl } from "@/app/api/utils/publicReceiptToken";
 
 function parseSaleId(value) {
   const id = Number.parseInt(value, 10);
   return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function withPublicReceiptLinks(sale) {
+  return {
+    ...sale,
+    publicReceiptUrl: publicReceiptUrl(sale),
+    publicReceiptDownloadUrl: publicReceiptUrl(sale, { download: true }),
+  };
 }
 
 export async function GET(request, { params }) {
@@ -22,7 +31,7 @@ export async function GET(request, { params }) {
     if (!id) return Response.json({ error: "Invalid id" }, { status: 400 });
     const saleColumns = canAccess(context.role, "analytics.profit")
       ? "s.*"
-      : "s.sale_id, s.shop_id, s.customer_id, s.receipt_number, s.buyer_name, s.buyer_phone, s.items, s.total_amount, s.total_quantity, s.tax_amount, s.discount_amount, s.paid_amount, s.due_date, s.payment_status, s.payment_method, s.notes, s.sale_status, s.currency_snapshot, s.tax_percent_snapshot, s.shop_snapshot, s.created_at, s.updated_at";
+      : "s.sale_id, s.shop_id, s.customer_id, s.receipt_number, s.buyer_name, s.buyer_phone, s.customer_email, s.items, s.total_amount, s.total_quantity, s.tax_amount, s.discount_amount, s.paid_amount, s.due_date, s.payment_status, s.payment_method, s.notes, s.sale_status, s.currency_snapshot, s.tax_percent_snapshot, s.shop_snapshot, s.receipt_email_sent, s.receipt_email_sent_at, s.receipt_email_error, s.email_message_id, s.created_at, s.updated_at";
     const rows = await sql(
       `SELECT ${saleColumns},
         COALESCE(s.shop_snapshot->>'shop_name', sh.shop_name) AS shop_name,
@@ -30,6 +39,7 @@ export async function GET(request, { params }) {
         COALESCE(s.shop_snapshot->>'shop_logo', sh.shop_logo) AS shop_logo,
         COALESCE(s.shop_snapshot->>'address', sh.address) AS address,
         COALESCE(s.shop_snapshot->>'phone', sh.phone) AS phone,
+        COALESCE(s.shop_snapshot->>'email', sh.email) AS email,
         COALESCE(s.shop_snapshot->>'gstin', sh.gstin) AS gstin,
         COALESCE(s.currency_snapshot, sh.currency) AS currency,
         COALESCE(s.shop_snapshot->>'thank_you_message', sh.thank_you_message) AS thank_you_message,
@@ -51,7 +61,10 @@ export async function GET(request, { params }) {
       WHERE sale_id = ${id} AND shop_id = ${context.shopId}
       ORDER BY created_at ASC
     `;
-    return Response.json({ sale: sanitizeSaleForRole(rows[0], context.role), payments });
+    return Response.json({
+      sale: withPublicReceiptLinks(sanitizeSaleForRole(rows[0], context.role)),
+      payments,
+    });
   } catch (error) {
     if (error instanceof AccessError) return accessErrorResponse(error);
     console.error("GET /api/sales/[id]", error);

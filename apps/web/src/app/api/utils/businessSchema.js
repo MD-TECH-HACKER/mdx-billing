@@ -34,6 +34,23 @@ export function ensureCoreBusinessSchema() {
           )
         `,
         sql`
+          CREATE TABLE IF NOT EXISTS team_invitations (
+            invite_id BIGSERIAL PRIMARY KEY,
+            shop_id UUID NOT NULL REFERENCES shops(shop_id) ON DELETE CASCADE,
+            invited_email TEXT NOT NULL,
+            invited_name TEXT,
+            role TEXT NOT NULL CHECK (role IN ('manager', 'cashier')),
+            token TEXT NOT NULL UNIQUE,
+            status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'cancelled', 'expired')),
+            invited_by UUID REFERENCES auth_users(id) ON DELETE SET NULL,
+            accepted_by UUID REFERENCES auth_users(id) ON DELETE SET NULL,
+            expires_at TIMESTAMP NOT NULL,
+            accepted_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+          )
+        `,
+        sql`
           ALTER TABLE products
           ADD COLUMN IF NOT EXISTS primary_unit TEXT DEFAULT 'piece',
           ADD COLUMN IF NOT EXISTS secondary_unit TEXT,
@@ -66,12 +83,14 @@ export function ensureCoreBusinessSchema() {
         sql`
           ALTER TABLE shops
           ADD COLUMN IF NOT EXISTS gstin TEXT,
+          ADD COLUMN IF NOT EXISTS email TEXT,
           ADD COLUMN IF NOT EXISTS default_invoice_type TEXT DEFAULT 'tax_invoice',
           ADD COLUMN IF NOT EXISTS default_payment_method TEXT DEFAULT 'cash',
           ADD COLUMN IF NOT EXISTS default_terms TEXT,
           ADD COLUMN IF NOT EXISTS receipt_size TEXT DEFAULT 'a4',
           ADD COLUMN IF NOT EXISTS print_mode TEXT DEFAULT 'color',
-          ADD COLUMN IF NOT EXISTS custom_units JSONB DEFAULT '[]'::jsonb
+          ADD COLUMN IF NOT EXISTS custom_units JSONB DEFAULT '[]'::jsonb,
+          ADD COLUMN IF NOT EXISTS send_receipt_email BOOLEAN DEFAULT FALSE
         `,
         sql`
           CREATE INDEX IF NOT EXISTS shop_memberships_user_shop_idx
@@ -80,6 +99,14 @@ export function ensureCoreBusinessSchema() {
         sql`
           CREATE INDEX IF NOT EXISTS audit_events_shop_created_idx
           ON audit_events (shop_id, created_at DESC)
+        `,
+        sql`
+          CREATE INDEX IF NOT EXISTS team_invitations_shop_email_status_idx
+          ON team_invitations (shop_id, invited_email, status)
+        `,
+        sql`
+          CREATE INDEX IF NOT EXISTS team_invitations_token_idx
+          ON team_invitations (token)
         `,
       ])
       .catch((error) => {
@@ -163,6 +190,10 @@ export async function ensureBusinessFeatureSchema() {
           )
         `,
         sql`
+          ALTER TABLE purchases
+          ADD COLUMN IF NOT EXISTS paid_amount NUMERIC NOT NULL DEFAULT 0
+        `,
+        sql`
           CREATE TABLE IF NOT EXISTS stock_movements (
             movement_id BIGSERIAL PRIMARY KEY,
             shop_id UUID NOT NULL REFERENCES shops(shop_id) ON DELETE CASCADE,
@@ -204,6 +235,13 @@ export async function ensureBusinessFeatureSchema() {
           ADD COLUMN IF NOT EXISTS related_sale_id INTEGER,
           ADD COLUMN IF NOT EXISTS related_purchase_id INTEGER,
           ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES auth_users(id) ON DELETE SET NULL
+        `,
+        sql`
+          ALTER TABLE stock_movements
+          ALTER COLUMN quantity_base_unit TYPE NUMERIC USING quantity_base_unit::NUMERIC,
+          ALTER COLUMN display_quantity TYPE NUMERIC USING display_quantity::NUMERIC,
+          ALTER COLUMN old_stock_base_unit TYPE NUMERIC USING old_stock_base_unit::NUMERIC,
+          ALTER COLUMN new_stock_base_unit TYPE NUMERIC USING new_stock_base_unit::NUMERIC
         `,
         sql`
           CREATE TABLE IF NOT EXISTS unit_conversions (
@@ -263,7 +301,12 @@ export async function ensureBusinessFeatureSchema() {
           ADD COLUMN IF NOT EXISTS currency_snapshot TEXT,
           ADD COLUMN IF NOT EXISTS tax_percent_snapshot NUMERIC,
           ADD COLUMN IF NOT EXISTS shop_snapshot JSONB DEFAULT '{}'::jsonb,
-          ADD COLUMN IF NOT EXISTS checkout_session_id TEXT
+          ADD COLUMN IF NOT EXISTS checkout_session_id TEXT,
+          ADD COLUMN IF NOT EXISTS customer_email TEXT,
+          ADD COLUMN IF NOT EXISTS receipt_email_sent BOOLEAN DEFAULT FALSE,
+          ADD COLUMN IF NOT EXISTS receipt_email_sent_at TIMESTAMP,
+          ADD COLUMN IF NOT EXISTS receipt_email_error TEXT,
+          ADD COLUMN IF NOT EXISTS email_message_id TEXT
         `,
         sql`
           ALTER TABLE customers

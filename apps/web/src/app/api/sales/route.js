@@ -12,11 +12,24 @@ import { calculateInvoiceTotals } from "@/app/api/utils/invoiceTotals";
 import {
   buildManualSaleLine,
   buildProductSaleLine,
-  customerNameError,
 } from "@/app/api/utils/saleLines";
+import { isValidEmail, normalizeEmail } from "@/app/api/utils/email";
+import {
+  markReceiptEmailError,
+  sendReceiptEmailForSale,
+} from "@/app/api/utils/receiptEmail";
+import { publicReceiptUrl } from "@/app/api/utils/publicReceiptToken";
 
 function money(value) {
   return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+}
+
+function withPublicReceiptLinks(sale) {
+  return {
+    ...sale,
+    publicReceiptUrl: publicReceiptUrl(sale),
+    publicReceiptDownloadUrl: publicReceiptUrl(sale, { download: true }),
+  };
 }
 
 const PAYMENT_METHODS = new Set(["cash", "credit", "upi", "bank", "bank_transfer", "card"]);
@@ -33,7 +46,7 @@ export async function GET(request) {
     const sort = url.searchParams.get("sort") || "newest";
     const columns = canAccess(context.role, "analytics.profit")
       ? "*"
-      : "sale_id, shop_id, customer_id, receipt_number, buyer_name, buyer_phone, items, total_amount, total_quantity, tax_amount, discount_amount, paid_amount, due_date, payment_status, payment_method, notes, sale_status, currency_snapshot, created_at, updated_at";
+      : "sale_id, shop_id, customer_id, receipt_number, buyer_name, buyer_phone, customer_email, items, total_amount, total_quantity, tax_amount, discount_amount, paid_amount, due_date, payment_status, payment_method, notes, sale_status, currency_snapshot, receipt_email_sent, receipt_email_sent_at, receipt_email_error, email_message_id, created_at, updated_at";
     let query = `SELECT ${columns} FROM sales WHERE shop_id = $1`;
     const values = [context.shopId];
 
@@ -76,35 +89,57 @@ export async function GET(request) {
   }
 }
 
-async function resolveCustomer(context, body, buyerName, buyerPhone) {
+async function resolveCustomer(context, body, buyerName, buyerPhone, customerEmail) {
   if (body.customerId) {
     const id = Number.parseInt(body.customerId, 10);
     const existing = await sql`
-      SELECT customer_id, name, phone FROM customers
+      SELECT customer_id, name, phone, email FROM customers
       WHERE customer_id = ${id} AND shop_id = ${context.shopId} AND is_deleted = FALSE
       LIMIT 1
     `;
     if (!existing[0]) throw new Error("Customer not found");
+    if (customerEmail && existing[0].email !== customerEmail) {
+      await sql`
+        UPDATE customers
+        SET email = ${customerEmail}, updated_at = NOW()
+        WHERE customer_id = ${id} AND shop_id = ${context.shopId}
+      `;
+      existing[0].email = customerEmail;
+    }
     return existing[0];
+  }
+
+  if (!buyerName && !buyerPhone) {
+    return null;
   }
 
   const existing = buyerPhone
     ? await sql`
-        SELECT customer_id, name, phone FROM customers
+        SELECT customer_id, name, phone, email FROM customers
         WHERE shop_id = ${context.shopId} AND phone = ${buyerPhone} AND is_deleted = FALSE
         LIMIT 1
       `
     : await sql`
-        SELECT customer_id, name, phone FROM customers
+        SELECT customer_id, name, phone, email FROM customers
         WHERE shop_id = ${context.shopId} AND LOWER(name) = LOWER(${buyerName})
           AND phone IS NULL AND is_deleted = FALSE
         LIMIT 1
       `;
-  if (existing[0]) return existing[0];
+  if (existing[0]) {
+    if (customerEmail && existing[0].email !== customerEmail) {
+      await sql`
+        UPDATE customers
+        SET email = ${customerEmail}, updated_at = NOW()
+        WHERE customer_id = ${existing[0].customer_id} AND shop_id = ${context.shopId}
+      `;
+      existing[0].email = customerEmail;
+    }
+    return existing[0];
+  }
   const created = await sql`
-    INSERT INTO customers (shop_id, name, phone)
-    VALUES (${context.shopId}, ${buyerName}, ${buyerPhone})
-    RETURNING customer_id, name, phone
+    INSERT INTO customers (shop_id, name, phone, email)
+    VALUES (${context.shopId}, ${buyerName || "Walk-in Customer"}, ${buyerPhone}, ${customerEmail || null})
+    RETURNING customer_id, name, phone, email
   `;
   return created[0];
 }
@@ -115,10 +150,11 @@ export async function POST(request) {
     await ensureBusinessFeatureSchema();
     const body = await request.json();
     const buyerName = String(body.buyerName || "").trim().slice(0, 100);
-    const nameError = customerNameError(buyerName);
-    if (nameError) return Response.json({ error: nameError }, { status: 400 });
-
     const buyerPhone = String(body.buyerPhone || "").trim().slice(0, 50) || null;
+    const buyerEmail = normalizeEmail(body.customerEmail ?? body.buyerEmail);
+    if (buyerEmail && !isValidEmail(buyerEmail)) {
+      return Response.json({ error: "Enter a valid customer email" }, { status: 400 });
+    }
     const items = Array.isArray(body.items) ? body.items : [];
     if (items.length === 0) {
       return Response.json({ error: "Add at least one product or manual bill item." }, { status: 400 });
@@ -208,7 +244,10 @@ export async function POST(request) {
     const paymentStatus = paidAmount >= grandTotal ? "paid" : paidAmount > 0 ? "partial" : "credit";
     const dueDate = String(body.dueDate || "").slice(0, 10) || null;
     const notes = String(body.notes || "").trim().slice(0, 500) || null;
-    const customer = await resolveCustomer(context, body, buyerName, buyerPhone);
+    const customer = await resolveCustomer(context, body, buyerName, buyerPhone, buyerEmail);
+    const displayBuyerName = buyerName || customer?.name || "Walk-in Customer";
+    const displayBuyerPhone = buyerPhone || customer?.phone || null;
+    const displayBuyerEmail = buyerEmail || customer?.email || null;
     const receiptNumber = `${context.shop.receipt_prefix || "INV"}-${Date.now()}`;
     const shopSnapshot = JSON.stringify({
       shop_name: context.shop.shop_name,
@@ -216,6 +255,7 @@ export async function POST(request) {
       shop_logo: context.shop.shop_logo || null,
       address: context.shop.address || null,
       phone: context.shop.phone || null,
+      email: context.shop.email || null,
       gstin: context.shop.gstin || null,
       thank_you_message: context.shop.thank_you_message || null,
       default_terms: context.shop.default_terms || null,
@@ -262,13 +302,13 @@ export async function POST(request) {
       ),
       created_sale AS (
         INSERT INTO sales
-          (owner_id, shop_id, customer_id, receipt_number, buyer_name, buyer_phone, items,
+          (owner_id, shop_id, customer_id, receipt_number, buyer_name, buyer_phone, customer_email, items,
            total_amount, total_cost, total_profit, total_quantity, tax_amount, discount_amount,
            paid_amount, due_date, payment_status, payment_method, notes, sale_status,
            currency_snapshot, tax_percent_snapshot, shop_snapshot, checkout_session_id)
         SELECT
-          ${context.shopOwnerId}, ${context.shopId}, ${customer.customer_id}, ${receiptNumber},
-          ${buyerName}, ${buyerPhone}, ${linesJson}::jsonb, ${grandTotal}, ${totalCost}, ${totalProfit},
+          ${context.shopOwnerId}, ${context.shopId}, ${customer?.customer_id || null}, ${receiptNumber},
+          ${displayBuyerName}, ${displayBuyerPhone}, ${displayBuyerEmail}, ${linesJson}::jsonb, ${grandTotal}, ${totalCost}, ${totalProfit},
           ${totalQuantity}, ${taxAmount}, ${invoice.discountAmount}, ${paidAmount}, ${dueDate},
           ${paymentStatus}, ${paymentMethod}, ${notes}, 'completed', ${context.shop.currency || "INR"},
           ${Number(context.shop.tax_percent) || 0}, ${shopSnapshot}::jsonb, ${checkoutSessionId}
@@ -291,7 +331,7 @@ export async function POST(request) {
       initial_payment AS (
         INSERT INTO payments
           (shop_id, sale_id, customer_id, amount, payment_method, direction, notes, created_by)
-        SELECT ${context.shopId}, created_sale.sale_id, ${customer.customer_id}, ${paidAmount},
+        SELECT ${context.shopId}, created_sale.sale_id, ${customer?.customer_id || null}, ${paidAmount},
           ${paymentMethod}, 'received', 'Payment received at billing', ${context.userId}
         FROM created_sale WHERE ${paidAmount} > 0
         RETURNING payment_id
@@ -307,7 +347,22 @@ export async function POST(request) {
       balanceAmount: money(grandTotal - paidAmount),
       itemCount: lineItems.length,
     });
-    return Response.json({ sale: sanitizeSaleForRole(sale, context.role) }, { status: 201 });
+    const receiptEmail = { attempted: false, sent: false };
+    if (context.shop.send_receipt_email && displayBuyerEmail) {
+      receiptEmail.attempted = true;
+      try {
+        const emailResult = await sendReceiptEmailForSale(context, sale.sale_id);
+        receiptEmail.sent = true;
+        receiptEmail.messageId = emailResult.messageId;
+      } catch (emailError) {
+        await markReceiptEmailError(context, sale.sale_id, emailError);
+        receiptEmail.error = "Receipt email could not be sent";
+      }
+    }
+    return Response.json(
+      { sale: withPublicReceiptLinks(sanitizeSaleForRole(sale, context.role)), receiptEmail },
+      { status: 201 },
+    );
   } catch (error) {
     if (error instanceof AccessError) return accessErrorResponse(error);
     if (/Customer not found/i.test(String(error?.message))) {
@@ -317,10 +372,10 @@ export async function POST(request) {
       return Response.json({ error: error.message }, { status: 400 });
     }
     if (error?.code === "22012" || /division by zero/i.test(String(error?.message))) {
-      return Response.json({ error: "Stock changed before checkout. Refresh products and try again." }, { status: 409 });
+      return Response.json({ error: "Stock changed before saving. Refresh products and try again." }, { status: 409 });
     }
     if (error?.code === "23505" && /checkout_session/i.test(String(error?.detail))) {
-      return Response.json({ error: "This checkout was already processed. Please refresh." }, { status: 409 });
+      return Response.json({ error: "This bill was already saved. Please refresh." }, { status: 409 });
     }
     console.error("POST /api/sales", error);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });

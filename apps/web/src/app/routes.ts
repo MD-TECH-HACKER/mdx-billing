@@ -31,6 +31,8 @@ const publicRoutes: RouteConfigEntry[] = [
 	route('account/logout', './account/logout/page.jsx'),
 	route('setup-shop', './setup-shop/page.jsx'),
 	route('select-shop', './select-shop/page.jsx'),
+	route('invite/accept', './invite/accept/page.jsx'),
+	route('receipt/:id', './receipt/[id]/page.jsx'),
 ];
 
 const notFound = route('*?', './__create/not-found.tsx');

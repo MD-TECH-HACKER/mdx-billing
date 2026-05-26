@@ -6,8 +6,8 @@ import {
 } from "./saleLines";
 
 describe("billing sale lines", () => {
-  test("requires a customer name even when no product line exists", () => {
-    expect(customerNameError("   ")).toBe("Customer name is required.");
+  test("allows billing without a customer name", () => {
+    expect(customerNameError("   ")).toBeNull();
     expect(customerNameError("Rahul")).toBeNull();
   });
 

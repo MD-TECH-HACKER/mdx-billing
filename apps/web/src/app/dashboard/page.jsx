@@ -256,6 +256,7 @@ function StatCard({
         transform: visible ? "translateY(0)" : "translateY(16px)",
         opacity: visible ? 1 : 0,
         minHeight: "140px",
+        minWidth: 0,
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = "translateY(-2px)";
@@ -1718,10 +1719,27 @@ export default function DashboardPage() {
        * SECTION 2: STAT CARDS (4 columns — matching preview)
        * Total Sales | Total Profit | Total Products | Today's Sales
        * ═══════════════════════════════════════════════════════════════ */}
+      {analyticsQuery.isError ? (
+        <div
+          className="t-card flex flex-wrap items-center justify-between gap-3"
+          style={{ padding: "14px 18px", marginBottom: "18px", borderColor: DANGER_BORDER }}
+        >
+          <div>
+            <div className="t-text text-sm font-semibold">Dashboard summary could not be loaded</div>
+            <div className="t-muted text-xs mt-1">
+              Invoice records are available, but totals are unavailable until the summary reloads.
+            </div>
+          </div>
+          <Button variant="secondary" size="sm" onClick={() => analyticsQuery.refetch()}>
+            <RefreshCw className="w-4 h-4" /> Retry
+          </Button>
+        </div>
+      ) : null}
+
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
           gap: "16px",
           marginBottom: "24px",
         }}
@@ -1729,7 +1747,7 @@ export default function DashboardPage() {
       >
         <style>{`
           @media (max-width: 1024px) {
-            .dash-stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+            .dash-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           }
           @media (max-width: 640px) {
             .dash-stat-grid { grid-template-columns: 1fr !important; }
@@ -1791,7 +1809,7 @@ export default function DashboardPage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 380px",
+          gridTemplateColumns: "minmax(0, 1fr) minmax(280px, 380px)",
           gap: "16px",
           marginBottom: "24px",
           alignItems: "start",

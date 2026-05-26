@@ -5,6 +5,10 @@ import useUser from "@/utils/useUser";
 import { setActiveShopId, shopHeaders } from "@/utils/shopContext";
 import { AppLoader } from "@/components/ui";
 
+function roleLabel(role) {
+  return role === "owner" ? "Owner" : role === "manager" ? "Manager" : "Cashier";
+}
+
 export default function SelectShopPage() {
   const { data: user, loading: userLoading } = useUser();
   const navigate = useNavigate();
@@ -120,6 +124,9 @@ export default function SelectShopPage() {
                 <div className="flex-1 min-w-0">
                   <div className="text-white font-semibold text-base truncate">
                     {shop.shop_name}
+                  </div>
+                  <div className="mt-1 inline-flex items-center rounded-full bg-orange-500/20 border border-orange-300/30 px-2 py-0.5 text-[10px] font-bold text-orange-100">
+                    {roleLabel(shop.access_role)}
                   </div>
                   {shop.shop_description ? (
                     <div className="text-white/50 text-xs mt-0.5 truncate">

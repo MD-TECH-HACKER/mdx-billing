@@ -15,8 +15,8 @@ function number(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export function customerNameError(value) {
-  return typeof value === "string" && value.trim() ? null : "Customer name is required.";
+export function customerNameError() {
+  return null;
 }
 
 function lineAmounts({ quantity, price, discount, taxRate, totalCost }) {

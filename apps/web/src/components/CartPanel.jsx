@@ -33,7 +33,7 @@ export default function CartPanel({
             <ShoppingCart className="w-4 h-4" />
           </div>
           <div>
-            <div className="t-text font-semibold text-sm">Current Cart</div>
+            <div className="t-text font-semibold text-sm">Bill Items</div>
             <div className="t-dim text-xs">
               {count} {count === 1 ? "item" : "items"}
             </div>
@@ -59,10 +59,10 @@ export default function CartPanel({
             <ShoppingCart className="w-6 h-6" />
           </div>
           <div className="t-text font-medium text-sm mb-1">
-            Your cart is empty
+            No bill items added
           </div>
           <div className="t-dim text-xs">
-            Set quantity and tap “Add to cart” on any product.
+            Add a product to prepare a new bill.
           </div>
         </div>
       ) : (
@@ -152,14 +152,14 @@ export default function CartPanel({
               onClick={onCheckout}
               disabled={cart.length === 0}
             >
-              Proceed to Billing
+              Open Billing
               <ArrowRight className="w-4 h-4" />
             </Button>
             <button
               onClick={() => clearCart()}
               className="w-full t-btn px-4 py-2 text-xs"
             >
-              Clear cart
+              Clear items
             </button>
           </div>
         </>

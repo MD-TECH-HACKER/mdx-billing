@@ -15,6 +15,7 @@ import {
   Plus,
   Check as CheckIcon,
   Trash2,
+  Mail,
 } from "lucide-react";
 import useUser from "@/utils/useUser";
 import useUpload from "@/utils/useUpload";
@@ -30,6 +31,7 @@ import {
   Tabs,
   ColorSwatch,
   Skeleton,
+  Toggle,
 } from "@/components/ui";
 import { ACCENTS, applyTheme } from "@/utils/theme";
 import { CURRENCIES, getCurrencyInfo } from "@/utils/currency";
@@ -66,7 +68,7 @@ export default function SettingsPage() {
     update: updateProfile,
     saving: savingProfile,
   } = useProfile({ enabled: !!user });
-  const { shop, update: updateShop, allShops, switchShop, activeShopId } = useShop({ enabled: !!user });
+  const { shop, role, update: updateShop, allShops, switchShop, activeShopId } = useShop({ enabled: !!user });
   const [upload, { loading: uploading }] = useUpload();
   const navigate = useNavigate();
   const [form, setForm] = useState(null);
@@ -83,6 +85,7 @@ export default function SettingsPage() {
       shopLogo: shop.shop_logo || "",
       address: shop.address || "",
       phone: shop.phone || "",
+      email: shop.email || "",
       receiptPrefix: shop.receipt_prefix || "INV",
       taxPercent: Number(shop.tax_percent) || 0,
       currency: shop.currency || "INR",
@@ -95,6 +98,7 @@ export default function SettingsPage() {
       defaultTerms: shop.default_terms || "",
       receiptSize: shop.receipt_size || "a4",
       printMode: shop.print_mode || "color",
+      sendReceiptEmail: !!shop.send_receipt_email,
       customUnits: Array.isArray(shop.custom_units) ? shop.custom_units : [],
     });
   }, [shop]);
@@ -263,6 +267,7 @@ export default function SettingsPage() {
     { value: "color", label: "Color" },
     { value: "bw", label: "Black and white" },
   ];
+  const isOwner = role === "owner";
 
   return (
     <>
@@ -412,17 +417,36 @@ export default function SettingsPage() {
                 );
               })}
             </div>
-            <Button
-              variant="secondary"
-              className="w-full"
-              onClick={() => navigate("/setup-shop?new=true")}
-            >
-              <Plus className="w-4 h-4" />
-              Create new shop
-            </Button>
+            {isOwner ? (
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => navigate("/setup-shop?new=true")}
+              >
+                <Plus className="w-4 h-4" />
+                Create new shop
+              </Button>
+            ) : null}
           </Section>
         )}
 
+        {!isOwner ? (
+          <Section
+            icon={Shield}
+            title="Staff account"
+            subtitle="Shop settings, team access and security controls are managed by the owner."
+          >
+            <a
+              href="/account/logout"
+              className="w-full flex items-center justify-between t-btn px-4 py-3 text-sm"
+            >
+              <span className="flex items-center gap-2">
+                <LogOut className="w-4 h-4" /> Sign out
+              </span>
+            </a>
+          </Section>
+        ) : (
+          <>
         {/* Shop */}
         <Section icon={Store} title="Shop">
           <div className="flex items-center gap-3 mb-3">
@@ -492,6 +516,16 @@ export default function SettingsPage() {
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   onBlur={() => saveField({ phone: form.phone })}
+                />
+              </div>
+              <div>
+                <label className="block t-muted text-xs mb-1">Shop email (optional)</label>
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  onBlur={() => saveField({ email: form.email })}
+                  placeholder="shop@example.com"
                 />
               </div>
             </div>
@@ -626,6 +660,29 @@ export default function SettingsPage() {
               placeholder="Payment terms, return policy or tax terms shown on invoices"
             />
           </div>
+          <div className="mt-3 rounded-2xl t-elev border t-border p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl t-accent-soft flex items-center justify-center flex-shrink-0">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="t-text text-sm font-semibold">Receipt Email Settings</div>
+                  <p className="t-muted text-xs mt-1">
+                    Automatically email the receipt to the customer when customer email is available.
+                  </p>
+                </div>
+              </div>
+              <Toggle
+                checked={!!form.sendReceiptEmail}
+                onChange={(checked) => {
+                  setForm({ ...form, sendReceiptEmail: checked });
+                  saveField({ sendReceiptEmail: checked });
+                }}
+                label={form.sendReceiptEmail ? "ON" : "OFF"}
+              />
+            </div>
+          </div>
           <div className="mt-3">
             <label className="block t-muted text-xs mb-1">Custom units</label>
             <div className="flex gap-2">
@@ -759,6 +816,8 @@ export default function SettingsPage() {
             </div>
           </div>
         </Section>
+          </>
+        )}
       </div>
     </>
   );

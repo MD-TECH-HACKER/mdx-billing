@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import sql from "@/app/api/utils/sql";
 import { ensureBusinessFeatureSchema } from "@/app/api/utils/businessSchema";
 import {
@@ -6,13 +7,62 @@ import {
   requireShopAccess,
   writeAuditEvent,
 } from "@/app/api/utils/shopAccess";
+import { getAppUrl, isValidEmail, normalizeEmail, sendResendEmail } from "@/app/api/utils/email";
+import { teamInviteEmailTemplate } from "@/app/api/utils/emailTemplates";
 
 const STAFF_ROLES = new Set(["manager", "cashier"]);
+const INVITE_FROM = "MDX Billing <info@mdx-billing.app>";
+const INVITE_DAYS = 7;
+
+function inviteToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+function inviteExpiresAt() {
+  const date = new Date();
+  date.setDate(date.getDate() + INVITE_DAYS);
+  return date.toISOString();
+}
+
+async function inviterName(context) {
+  const rows = await sql`
+    SELECT name, email
+    FROM auth_users
+    WHERE id = ${context.userId}
+    LIMIT 1
+  `;
+  return rows[0]?.name || context.session?.user?.name || rows[0]?.email || "Shop owner";
+}
+
+async function sendInvitationEmail(context, invite) {
+  const inviteUrl = `${getAppUrl()}/invite/accept?token=${encodeURIComponent(invite.token)}`;
+  const name = await inviterName(context);
+  const data = await sendResendEmail({
+    from: INVITE_FROM,
+    to: invite.invited_email,
+    subject: `You are invited to join ${context.shop.shop_name || "MDX Billing"}`,
+    html: teamInviteEmailTemplate({
+      shop: context.shop,
+      invitedName: invite.invited_name,
+      role: invite.role,
+      inviterName: name,
+      inviteUrl,
+    }),
+  });
+  return data?.id || null;
+}
 
 export async function GET(request) {
   try {
     const context = await requireShopAccess(request, "team.manage");
     await ensureBusinessFeatureSchema();
+    await sql`
+      UPDATE team_invitations
+      SET status = 'expired', updated_at = NOW()
+      WHERE shop_id = ${context.shopId}
+        AND status = 'pending'
+        AND expires_at <= NOW()
+    `;
     const members = await sql`
       SELECT sm.membership_id, sm.role, sm.status, sm.created_at, u.id AS user_id, u.name, u.display_name, u.email, u.image
       FROM shop_memberships sm
@@ -20,7 +70,19 @@ export async function GET(request) {
       WHERE sm.shop_id = ${context.shopId}
       ORDER BY sm.created_at DESC
     `;
-    return Response.json({ members });
+    const invitations = await sql`
+      SELECT ti.invite_id, ti.invited_email, ti.invited_name, ti.role, ti.status,
+        ti.expires_at, ti.created_at, ti.updated_at,
+        inviter.name AS invited_by_name,
+        inviter.email AS invited_by_email
+      FROM team_invitations ti
+      LEFT JOIN auth_users inviter ON inviter.id = ti.invited_by
+      WHERE ti.shop_id = ${context.shopId}
+        AND ti.status IN ('pending', 'expired')
+      ORDER BY ti.created_at DESC
+      LIMIT 100
+    `;
+    return Response.json({ members, invitations });
   } catch (error) {
     if (error instanceof AccessError) return accessErrorResponse(error);
     console.error("GET /api/team", error);
@@ -33,41 +95,83 @@ export async function POST(request) {
     const context = await requireShopAccess(request, "team.manage");
     await ensureBusinessFeatureSchema();
     const body = await request.json();
-    const email = (body.email || "").toString().trim().toLowerCase().slice(0, 254);
+    const email = normalizeEmail(body.email);
+    const staffName = String(body.name || body.staffName || "").trim().slice(0, 120);
     const role = (body.role || "").toString().trim().toLowerCase();
 
-    if (!email || !STAFF_ROLES.has(role)) {
-      return Response.json({ error: "Valid email and role are required" }, { status: 400 });
+    if (!staffName || !isValidEmail(email) || !STAFF_ROLES.has(role)) {
+      return Response.json({ error: "Staff name, valid email, and role are required" }, { status: 400 });
     }
 
-    const users = await sql`
-      SELECT id, email FROM auth_users
-      WHERE LOWER(email) = ${email}
+    const ownerRows = await sql`
+      SELECT id, email
+      FROM auth_users
+      WHERE id = ${context.shopOwnerId}
       LIMIT 1
     `;
-    const user = users[0];
-    if (!user) {
-      return Response.json(
-        { error: "That user must create an account before joining the shop" },
-        { status: 404 },
-      );
-    }
-    if (String(user.id) === String(context.shopOwnerId)) {
+    if (normalizeEmail(ownerRows[0]?.email) === email) {
       return Response.json({ error: "The owner already has full access" }, { status: 400 });
     }
 
-    const rows = await sql`
-      INSERT INTO shop_memberships (shop_id, user_id, role, status, invited_by)
-      VALUES (${context.shopId}, ${user.id}, ${role}, 'active', ${context.userId})
-      ON CONFLICT (shop_id, user_id)
-      DO UPDATE SET role = EXCLUDED.role, status = 'active', updated_at = NOW()
-      RETURNING membership_id, user_id, role, status, created_at
+    const activeMembers = await sql`
+      SELECT sm.membership_id
+      FROM shop_memberships sm
+      JOIN auth_users u ON u.id = sm.user_id
+      WHERE sm.shop_id = ${context.shopId}
+        AND sm.status = 'active'
+        AND LOWER(u.email) = ${email}
+      LIMIT 1
     `;
-    await writeAuditEvent(context, "team.member.add", "membership", rows[0].membership_id, {
+    if (activeMembers[0]) {
+      return Response.json({ error: "This staff member already has active access" }, { status: 409 });
+    }
+
+    await sql`
+      UPDATE team_invitations
+      SET status = 'expired', updated_at = NOW()
+      WHERE shop_id = ${context.shopId}
+        AND invited_email = ${email}
+        AND status = 'pending'
+        AND expires_at <= NOW()
+    `;
+    const pending = await sql`
+      SELECT invite_id
+      FROM team_invitations
+      WHERE shop_id = ${context.shopId}
+        AND invited_email = ${email}
+        AND status = 'pending'
+        AND expires_at > NOW()
+      LIMIT 1
+    `;
+    if (pending[0]) {
+      return Response.json({ error: "Invitation already pending. Use Resend invite." }, { status: 409 });
+    }
+
+    const rows = await sql`
+      INSERT INTO team_invitations
+        (shop_id, invited_email, invited_name, role, token, status, invited_by, expires_at)
+      VALUES
+        (${context.shopId}, ${email}, ${staffName}, ${role}, ${inviteToken()}, 'pending', ${context.userId}, ${inviteExpiresAt()})
+      RETURNING invite_id, shop_id, invited_email, invited_name, role, token, status, expires_at, created_at
+    `;
+    const invite = rows[0];
+    let emailSent = false;
+    let emailError = null;
+    try {
+      await sendInvitationEmail(context, invite);
+      emailSent = true;
+    } catch (error) {
+      emailError = "Invitation saved, but email could not be sent";
+      console.error("team invite email failed", error);
+    }
+
+    await writeAuditEvent(context, "team.invite.create", "team_invitation", invite.invite_id, {
       role,
       email,
+      emailSent,
     });
-    return Response.json({ member: rows[0] }, { status: 201 });
+    const { token: _token, ...publicInvite } = invite;
+    return Response.json({ invitation: publicInvite, emailSent, emailError }, { status: 201 });
   } catch (error) {
     if (error instanceof AccessError) return accessErrorResponse(error);
     console.error("POST /api/team", error);

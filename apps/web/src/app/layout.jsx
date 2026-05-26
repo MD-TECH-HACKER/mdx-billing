@@ -36,12 +36,16 @@ const themeBootScript = `
 })();
 `;
 
+export function QueryProvider({ children }) {
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+}
+
 export default function RootLayout({ children }) {
   return (
-    <QueryClientProvider client={queryClient}>
+    <QueryProvider>
       <ThemeStyles />
       <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       {children}
-    </QueryClientProvider>
+    </QueryProvider>
   );
 }

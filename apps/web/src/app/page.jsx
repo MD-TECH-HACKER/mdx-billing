@@ -31,6 +31,14 @@ export default function WelcomePage() {
     fetch("/api/shop/active", { headers: shopHeaders() })
       .then((r) => r.json())
       .then((d) => {
+        const pendingInviteToken =
+          typeof window !== "undefined"
+            ? sessionStorage.getItem("mdx_pending_invite_token")
+            : null;
+        if (pendingInviteToken) {
+          navigate(`/invite/accept?token=${encodeURIComponent(pendingInviteToken)}`, { replace: true });
+          return;
+        }
         const shops = d.shops || [];
         if (shops.length === 0) {
           navigate("/setup-shop", { replace: true });
@@ -169,14 +177,15 @@ export default function WelcomePage() {
           </div>
 
           {/* Right: dashboard mockup */}
-          <div className="relative">
+          <div className="relative min-w-0 w-full max-w-full">
             <div className="absolute -inset-6 rounded-3xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 blur-2xl" />
             <div className="relative rounded-3xl bg-white/10 backdrop-blur-2xl border border-white/20 p-2 shadow-2xl overflow-hidden group">
               <div className="absolute inset-0 bg-gradient-to-tr from-violet-500/10 to-fuchsia-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <img 
                 src="/preview.png" 
                 alt="MDX Billing Dashboard Preview" 
-                className="w-full h-auto rounded-2xl relative z-10 shadow-inner transform transition-transform duration-700 group-hover:scale-[1.02]"
+                className="block w-full max-w-full h-auto rounded-2xl relative z-10 shadow-inner transform transition-transform duration-700 group-hover:scale-[1.02]"
+                style={{ display: "block", width: "100%", maxWidth: "100%", height: "auto" }}
               />
             </div>
           </div>
@@ -212,7 +221,7 @@ export default function WelcomePage() {
               {
                 Icon: ShoppingBag,
                 title: "Frictionless billing",
-                desc: "Add to cart, set quantity, checkout in seconds with auto-stock updates.",
+                desc: "Add to cart, set quantity, and save bills in seconds with auto-stock updates.",
               },
               {
                 Icon: Printer,

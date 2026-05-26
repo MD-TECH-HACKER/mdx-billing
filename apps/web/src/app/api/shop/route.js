@@ -7,6 +7,7 @@ import {
   requireShopAccess,
   writeAuditEvent,
 } from "@/app/api/utils/shopAccess";
+import { isValidEmail, normalizeEmail } from "@/app/api/utils/email";
 
 export async function GET(request) {
   try {
@@ -34,14 +35,18 @@ export async function POST(request) {
     const shopLogo = (body.shopLogo || "").toString().trim() || null;
     const address = (body.address || "").toString().trim().slice(0, 300) || null;
     const phone = (body.phone || "").toString().trim().slice(0, 50) || null;
+    const email = normalizeEmail(body.email) || null;
+    if (email && !isValidEmail(email)) {
+      return Response.json({ error: "Valid shop email is required" }, { status: 400 });
+    }
 
     if (!shopName) {
       return Response.json({ error: "Shop name is required" }, { status: 400 });
     }
 
     const created = await sql`
-      INSERT INTO shops (owner_id, shop_name, shop_description, shop_logo, address, phone, currency)
-      VALUES (${userId}, ${shopName}, ${shopDescription}, ${shopLogo}, ${address}, ${phone}, 'INR')
+      INSERT INTO shops (owner_id, shop_name, shop_description, shop_logo, address, phone, email, currency)
+      VALUES (${userId}, ${shopName}, ${shopDescription}, ${shopLogo}, ${address}, ${phone}, ${email}, 'INR')
       RETURNING *
     `;
     const shop = created[0];
@@ -78,6 +83,13 @@ export async function PUT(request) {
       fields.address = body.address.trim().slice(0, 300) || null;
     if (typeof body.phone === "string")
       fields.phone = body.phone.trim().slice(0, 50) || null;
+    if (typeof body.email === "string") {
+      const email = normalizeEmail(body.email) || null;
+      if (email && !isValidEmail(email)) {
+        return Response.json({ error: "Valid shop email is required" }, { status: 400 });
+      }
+      fields.email = email;
+    }
     if (typeof body.receiptPrefix === "string")
       fields.receipt_prefix = body.receiptPrefix.trim().slice(0, 10) || "INV";
     if (typeof body.taxPercent === "number")
@@ -108,6 +120,8 @@ export async function PUT(request) {
         : "a4";
     if (typeof body.printMode === "string")
       fields.print_mode = ["color", "bw"].includes(body.printMode) ? body.printMode : "color";
+    if (typeof body.sendReceiptEmail === "boolean")
+      fields.send_receipt_email = body.sendReceiptEmail;
     if (Array.isArray(body.customUnits)) {
       const customUnits = [
         ...new Set(

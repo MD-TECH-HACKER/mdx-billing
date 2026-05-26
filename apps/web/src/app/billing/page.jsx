@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Loader2, PackagePlus, Plus, Receipt, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Package, PackagePlus, Plus, Receipt, Trash2 } from "lucide-react";
 import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
 import useCart from "@/utils/useCart";
@@ -22,6 +22,7 @@ const PAYMENT_METHODS = [
   { value: "upi", label: "UPI" },
   { value: "bank", label: "Bank" },
 ];
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function lineId() {
   return typeof crypto !== "undefined" && crypto.randomUUID
@@ -65,12 +66,12 @@ export default function BillingPage() {
   const [items, setItems] = useState(() => cart.map(productLine));
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [receivedAmount, setReceivedAmount] = useState("");
   const [discountAmount, setDiscountAmount] = useState("");
   const [notes, setNotes] = useState("");
-  const [customerError, setCustomerError] = useState("");
   const [itemsError, setItemsError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -147,6 +148,26 @@ export default function BillingPage() {
   const defaultReceived = paymentMethod === "credit" ? 0 : totalAmount;
   const received = Math.min(totalAmount, Math.max(0, receivedAmount === "" ? defaultReceived : Number(receivedAmount) || 0));
   const balance = Math.max(0, totalAmount - received);
+  const cleanEmailPreview = customerEmail.trim().toLowerCase();
+  const hasValidCustomerEmail = !!cleanEmailPreview && EMAIL_PATTERN.test(cleanEmailPreview);
+  const paymentState =
+    totalAmount <= 0
+      ? { label: "Pending", className: "bg-slate-100 text-slate-700 border-slate-200" }
+      : balance <= 0
+        ? { label: "Paid", className: "bg-emerald-50 text-emerald-700 border-emerald-200" }
+        : received > 0
+          ? { label: "Partial", className: "bg-amber-50 text-amber-700 border-amber-200" }
+          : {
+              label: paymentMethod === "credit" ? "Credit" : "Pending",
+              className: "bg-rose-50 text-rose-700 border-rose-200",
+            };
+  const receiptEmailState = !cleanEmailPreview
+    ? { label: "No customer email", className: "bg-slate-100 text-slate-600 border-slate-200" }
+    : !hasValidCustomerEmail
+      ? { label: "Invalid email", className: "bg-rose-50 text-rose-700 border-rose-200" }
+      : shop?.send_receipt_email
+        ? { label: "Will auto-send", className: "bg-emerald-50 text-emerald-700 border-emerald-200" }
+        : { label: "Auto email off", className: "bg-amber-50 text-amber-700 border-amber-200" };
 
   const updateLine = (id, patch) => {
     setItems((current) => current.map((line) => (line.id === id ? { ...line, ...patch } : line)));
@@ -168,10 +189,6 @@ export default function BillingPage() {
   };
 
   const save = async (saveAndNew) => {
-    if (!customerName.trim()) {
-      setCustomerError("Customer name is required.");
-      return;
-    }
     if (!calculated.length) {
       setItemsError("Add at least one product or manual bill item.");
       return;
@@ -180,7 +197,11 @@ export default function BillingPage() {
       setItemsError("Complete item names and quantities before saving.");
       return;
     }
-    setCustomerError("");
+    const cleanCustomerEmail = customerEmail.trim().toLowerCase();
+    if (cleanCustomerEmail && !EMAIL_PATTERN.test(cleanCustomerEmail)) {
+      showToast("Enter a valid customer email", "error");
+      return;
+    }
     setItemsError("");
     setSubmitting(true);
     try {
@@ -191,6 +212,7 @@ export default function BillingPage() {
         body: JSON.stringify({
           buyerName: customerName,
           buyerPhone: phone,
+          customerEmail: cleanCustomerEmail,
           customerId: customerId || null,
           paymentMethod,
           receivedAmount: received,
@@ -225,11 +247,18 @@ export default function BillingPage() {
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["customers"] });
       qc.invalidateQueries({ queryKey: ["analytics"] });
-      showToast("Invoice saved");
+      if (result.receiptEmail?.sent) {
+        showToast("Receipt created and emailed to customer.");
+      } else if (result.receiptEmail?.attempted) {
+        showToast("Receipt created, but email could not be sent.", "info");
+      } else {
+        showToast("Invoice saved");
+      }
       if (saveAndNew) {
         setItems([]);
         setCustomerName("");
         setPhone("");
+        setCustomerEmail("");
         setCustomerId("");
         setReceivedAmount("");
         setDiscountAmount("");
@@ -283,26 +312,28 @@ export default function BillingPage() {
                 if (customer) {
                   setCustomerName(customer.name || "");
                   setPhone(customer.phone || "");
-                  setCustomerError("");
+                  setCustomerEmail(customer.email || "");
+                } else {
+                  setCustomerEmail("");
                 }
               }}
             />
           </div>
           <div>
-            <label className="block t-muted text-xs mb-1">Customer name *</label>
+            <label className="block t-muted text-xs mb-1">Customer name (optional)</label>
             <Input
               value={customerName}
-              onChange={(event) => {
-                setCustomerName(event.target.value);
-                if (event.target.value.trim()) setCustomerError("");
-              }}
-              placeholder="Customer name"
+              onChange={(event) => setCustomerName(event.target.value)}
+              placeholder="Optional customer name"
             />
-            {customerError ? <p className="text-xs mt-1" style={{ color: "var(--danger)" }}>{customerError}</p> : null}
           </div>
           <div>
             <label className="block t-muted text-xs mb-1">Phone number</label>
             <Input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Optional" />
+          </div>
+          <div>
+            <label className="block t-muted text-xs mb-1">Customer Email Optional</label>
+            <Input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} placeholder="Optional customer email" />
           </div>
           <div>
             <label className="block t-muted text-xs mb-1">Invoice discount</label>
@@ -311,7 +342,7 @@ export default function BillingPage() {
         </div>
       </Card>
 
-      <Card className="mb-4 overflow-x-auto">
+      <Card className="mb-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="t-text font-semibold">Invoice items</h2>
           <button className="t-accent-text text-sm font-medium" onClick={() => setAddOpen(true)}>+ Add item</button>
@@ -341,6 +372,8 @@ export default function BillingPage() {
             {billDiscount > 0 ? <Row label="Discount" value={`- ${fmt(billDiscount)}`} /> : null}
             <Row label="Tax total" value={fmt(taxTotal)} />
             <Row strong label="Total Amount" value={fmt(totalAmount)} />
+            <PillRow label="Payment Status" pill={paymentState} />
+            <PillRow label="Receipt Email" pill={receiptEmailState} />
             <div>
               <label className="block t-muted text-xs mb-1 mt-3">Received Amount</label>
               <Input type="number" min="0" step="0.01" value={receivedAmount} onChange={(event) => setReceivedAmount(event.target.value)} placeholder={String(defaultReceived.toFixed(2))} />
@@ -388,41 +421,50 @@ function InvoiceLine({ line, currency, manualUnitOptions, update, remove }) {
       : manualUnitOptions;
   const fmt = (amount) => formatMoney(amount, currency);
   return (
-    <div className="rounded-2xl t-elev border t-border p-3 grid grid-cols-2 sm:grid-cols-8 gap-2 items-end">
-      <div className="col-span-2">
+    <div className="rounded-2xl t-elev border t-border p-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(80px,.7fr)_minmax(105px,.9fr)_minmax(105px,1fr)_minmax(82px,.75fr)_minmax(82px,.75fr)_minmax(130px,1.2fr)] gap-2 items-end min-w-0 max-w-full overflow-hidden">
+      <div className="sm:col-span-2 lg:col-span-1 min-w-0">
         <label className="block t-dim text-[10px] mb-1">Item Name</label>
         {line.type === "product" ? (
-          <div className="t-text text-sm font-medium py-2">{line.product?.title}</div>
+          <div className="flex items-center gap-2 py-1 min-w-0">
+            <div className="w-10 h-10 rounded-lg t-elev overflow-hidden flex-shrink-0 flex items-center justify-center">
+              {line.product?.image_url ? (
+                <img src={line.product.image_url} alt={line.product.title} className="w-full h-full object-cover" />
+              ) : (
+                <Package className="w-5 h-5 t-dim2" />
+              )}
+            </div>
+            <span className="t-text text-sm font-medium truncate">{line.product?.title}</span>
+          </div>
         ) : (
           <Input value={line.name} onChange={(event) => update(line.id, { name: event.target.value })} placeholder="Manual item" />
         )}
       </div>
-      <div>
+      <div className="min-w-0">
         <label className="block t-dim text-[10px] mb-1">Qty</label>
         <Input type="number" min="0.001" step="0.001" value={line.quantity} onChange={(event) => update(line.id, { quantity: event.target.value })} />
       </div>
-      <div>
+      <div className="min-w-0">
         <label className="block t-dim text-[10px] mb-1">Unit</label>
         <Select value={line.selectedUnit} onChange={(value) => update(line.id, { selectedUnit: value })} options={unitOptions} />
       </div>
-      <div>
+      <div className="min-w-0">
         <label className="block t-dim text-[10px] mb-1">Price / Unit</label>
-        {line.type === "product" ? <div className="t-text text-sm py-2">{fmt(line.price)}</div> : <Input type="number" min="0" step="0.01" value={line.price} onChange={(event) => update(line.id, { price: event.target.value })} />}
+        {line.type === "product" ? <div className="t-text text-sm py-2 break-words">{fmt(line.price)}</div> : <Input type="number" min="0" step="0.01" value={line.price} onChange={(event) => update(line.id, { price: event.target.value })} />}
       </div>
-      <div>
+      <div className="min-w-0">
         <label className="block t-dim text-[10px] mb-1">Discount</label>
         <Input type="number" min="0" step="0.01" value={line.discount} onChange={(event) => update(line.id, { discount: event.target.value })} />
       </div>
-      <div>
+      <div className="min-w-0">
         <label className="block t-dim text-[10px] mb-1">Tax %</label>
         <Input type="number" min="0" max="100" step="0.01" value={line.taxRate} onChange={(event) => update(line.id, { taxRate: event.target.value })} />
       </div>
-      <div className="flex items-center justify-between gap-1">
-        <div>
+      <div className="flex items-end justify-between gap-2 min-w-0">
+        <div className="min-w-0">
           <div className="t-dim text-[10px]">Amount</div>
-          <div className="t-text text-sm font-bold">{fmt(line.total)}</div>
+          <div className="t-text text-sm font-bold break-words">{fmt(line.total)}</div>
         </div>
-        <button onClick={remove} className="t-btn-danger w-8 h-8 rounded-lg flex items-center justify-center" aria-label="Remove item"><Trash2 className="w-4 h-4" /></button>
+        <button onClick={remove} className="t-btn-danger w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center" aria-label="Remove item"><Trash2 className="w-4 h-4" /></button>
       </div>
     </div>
   );
@@ -434,4 +476,15 @@ function SummaryField({ label, value }) {
 
 function Row({ label, value, strong = false }) {
   return <div className={`flex justify-between pt-2 ${strong ? "t-text text-base font-bold t-divider" : "t-muted"}`}><span>{label}</span><span className={strong ? "" : "t-text"}>{value}</span></div>;
+}
+
+function PillRow({ label, pill }) {
+  return (
+    <div className="flex items-center justify-between gap-3 pt-2 t-muted">
+      <span>{label}</span>
+      <span className={`border rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap ${pill.className}`}>
+        {pill.label}
+      </span>
+    </div>
+  );
 }

@@ -1,6 +1,6 @@
 // Themed dashboard shell — sidebar (desktop) + bottom nav (mobile) + top bar.
 // Reacts to theme tokens, supports prefetching, and works as a single shared layout.
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useLocation } from "react-router";
 import {
@@ -30,12 +30,12 @@ import useCart from "@/utils/useCart";
 import ThemeStyles from "@/components/ThemeStyles";
 import ToastHost from "@/components/Toast";
 import { initTheme } from "@/utils/theme";
-import { AppLoader } from "@/components/ui";
+import { AppLoader, Badge } from "@/components/ui";
 import { shopHeaders } from "@/utils/shopContext";
 
 const NAV = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard", roles: ["owner", "manager"] },
-  { label: "Products", icon: Package, href: "/products" },
+  { label: "Products", icon: Package, href: "/products", roles: ["owner", "manager"] },
   { label: "Billing", icon: ShoppingCart, href: "/billing" },
   { label: "Sales", icon: Receipt, href: "/sales" },
   { label: "Customers", icon: ContactRound, href: "/customers" },
@@ -46,7 +46,7 @@ const NAV = [
   { label: "AI Assistant", icon: Sparkles, href: "/ai", roles: ["owner", "manager"] },
   { label: "Team", icon: Users, href: "/team", roles: ["owner"] },
   { label: "Audit Log", icon: ShieldCheck, href: "/audit", roles: ["owner"] },
-  { label: "Settings", icon: Settings, href: "/settings", roles: ["owner"] },
+  { label: "Settings", icon: Settings, href: "/settings" },
 ];
 
 // Prefetch fetch helpers for snappy nav
@@ -90,7 +90,14 @@ export default function DashboardShell({
   const qc = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
-  const roleDenied = !!(role && allowedRoles && !allowedRoles.includes(role));
+  const currentNavItem = NAV.find(
+    (n) => currentPath === n.href || (n.href !== "/dashboard" && currentPath.startsWith(n.href)),
+  );
+  const roleDenied = !!(
+    role &&
+    ((allowedRoles && !allowedRoles.includes(role)) ||
+      (currentNavItem?.roles && !currentNavItem.roles.includes(role)))
+  );
 
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== "undefined") {
@@ -114,13 +121,10 @@ export default function DashboardShell({
 
   // Dynamic page title
   useEffect(() => {
-    const match = NAV.find(
-      (n) => currentPath === n.href || (n.href !== "/dashboard" && currentPath.startsWith(n.href))
-    );
-    document.title = match
-      ? `${BASE_TITLE} | ${match.label}`
+    document.title = currentNavItem
+      ? `${BASE_TITLE} | ${currentNavItem.label}`
       : BASE_TITLE;
-  }, [currentPath]);
+  }, [currentNavItem]);
 
   // gate
   useEffect(() => {
@@ -180,12 +184,12 @@ export default function DashboardShell({
   const homePath = role === "cashier" ? "/billing" : "/dashboard";
 
   return (
-    <div className="min-h-screen w-full relative font-inter">
+    <div className="min-h-screen w-full max-w-full overflow-x-clip relative font-inter">
       <ThemeStyles />
       <div className="prism-bg" />
       <ToastHost />
 
-      <div className="flex min-h-screen">
+      <div className="min-h-screen">
         <aside className={`hidden lg:flex flex-col fixed h-screen z-30 no-print transition-all duration-300 ${collapsed ? "w-[96px]" : "w-64"}`}>
           <div className={`flex-1 t-card flex flex-col overflow-hidden m-4 ${collapsed ? "px-2 py-4" : "p-3"}`}>
             {/* Logo — fixed top */}
@@ -338,7 +342,13 @@ export default function DashboardShell({
         ) : null}
 
         {/* Main */}
-        <main className={`flex-1 min-h-screen pb-28 lg:pb-8 transition-all duration-300 ${collapsed ? "lg:ml-24" : "lg:ml-64"}`}>
+        <main
+          className={`min-w-0 min-h-screen pb-28 lg:pb-8 transition-all duration-300 ${
+            collapsed
+              ? "lg:ml-24 lg:w-[calc(100%-6rem)]"
+              : "lg:ml-64 lg:w-[calc(100%-16rem)]"
+          }`}
+        >
           {/* Top bar */}
           <header className="sticky top-0 z-20 py-3 md:py-4 no-print">
             <div className="mx-3 md:mx-6 t-card px-3 md:px-5 py-2.5 flex items-center gap-3">
@@ -350,7 +360,7 @@ export default function DashboardShell({
                 <Menu className="w-5 h-5" />
               </button>
 
-              <Link to="/dashboard" className="flex items-center gap-2 min-w-0">
+              <Link to={homePath} className="flex items-center gap-2 min-w-0">
                 {shop?.shop_logo ? (
                   <img
                     src={shop.shop_logo}
@@ -421,13 +431,25 @@ export default function DashboardShell({
                     {(user?.name || user?.email || "U")?.[0]?.toUpperCase()}
                   </div>
                 )}
-                <div className="hidden md:block text-left max-w-[140px]">
-                  <div className="t-text text-xs font-medium leading-tight truncate">
-                    {user?.name || "User"}
+                <div className="hidden md:block text-left max-w-[190px]">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="t-text text-xs font-medium leading-tight truncate">
+                      {user?.name || "User"}
+                    </span>
+                    {role ? (
+                      <Badge tone={role === "owner" ? "accent" : role === "manager" ? "success" : "neutral"}>
+                        {role[0].toUpperCase() + role.slice(1)}
+                      </Badge>
+                    ) : null}
                   </div>
                   <div className="t-dim text-[10px] leading-tight truncate">
                     {user?.email}
                   </div>
+                  {shop?.shop_name ? (
+                    <div className="t-dim text-[10px] leading-tight truncate">
+                      {shop.shop_name}
+                    </div>
+                  ) : null}
                 </div>
               </Link>
             </div>

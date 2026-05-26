@@ -1,89 +1,44 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useParams } from "react-router";
 import {
   Printer,
   Download,
-  Share2,
-  ArrowLeft,
   Loader2,
   Package,
   Check,
-  Mail,
-  Copy,
-  ExternalLink,
+  AlertTriangle,
 } from "lucide-react";
-import useUser from "@/utils/useUser";
-import useShop from "@/utils/useShop";
 import ToastHost, { showToast } from "@/components/Toast";
 import { formatMoney } from "@/utils/currency";
 import { inrAmountInWords } from "@/utils/amountInWords";
 import { buildInvoicePdfBlob } from "@/utils/invoicePdf";
-import { Tabs } from "@/components/ui";
 import { getProductUnitLabel } from "@/utils/productUnits";
-import { shopHeaders } from "@/utils/shopContext";
 
-export default function ReceiptPage(props) {
-  const id = props?.params?.id;
-  const publicMode = !!props?.publicMode;
-  const { data: user, loading: userLoading } = useUser();
-  const { shop } = useShop({ enabled: !!user && !publicMode });
-  const navigate = useNavigate();
+export default function PublicReceiptPage(props) {
+  const { id: paramId } = useParams();
+  const id = props?.params?.id || paramId;
+
   const [printMode, setPrintMode] = useState("color"); // "color" | "bw"
   const [paperSize, setPaperSize] = useState("a4"); // "a4" | "thermal"
 
-  useEffect(() => {
-    if (publicMode) return;
-    if (!userLoading && !user && typeof window !== "undefined")
-      navigate("/", { replace: true });
-  }, [publicMode, user, userLoading, navigate]);
-
-  // Auto-print when ?print=1 in URL
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("print") === "1") {
-      const t = setTimeout(() => window.print(), 500);
-      return () => clearTimeout(t);
-    }
-  }, []);
-
   const query = useQuery({
-    queryKey: ["sale", publicMode ? "public" : shop?.shop_id, id],
+    queryKey: ["public-sale", id],
     queryFn: async () => {
       const token =
         typeof window !== "undefined"
           ? new URLSearchParams(window.location.search).get("token") || ""
           : "";
-      const res = publicMode
-        ? await fetch(`/api/public/receipt/${id}?token=${encodeURIComponent(token)}`)
-        : await fetch(`/api/sales/${id}`, { headers: shopHeaders() });
+      const res = await fetch(`/api/public/receipt/${id}?token=${encodeURIComponent(token)}`);
       if (!res.ok) throw new Error("Not found");
       return res.json();
     },
-    enabled: publicMode ? !!id : !!user && !!shop?.shop_id && !!id,
+    enabled: !!id,
     staleTime: 60000,
   });
 
   const sale = query.data?.sale;
   const fmt = (n) => formatMoney(n, sale?.currency || "INR");
-
-  const emailReceipt = useMutation({
-    mutationFn: async () => {
-      const response = await fetch(`/api/sales/${id}/email`, {
-        method: "POST",
-        headers: shopHeaders({ "Content-Type": "application/json" }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Could not email receipt");
-      return data;
-    },
-    onSuccess: () => {
-      showToast("Receipt emailed to customer.");
-      query.refetch();
-    },
-    onError: (error) => showToast(error.message, "error"),
-  });
 
   useEffect(() => {
     if (!sale) return;
@@ -94,77 +49,61 @@ export default function ReceiptPage(props) {
   const handlePrint = () => {
     if (typeof window !== "undefined") window.print();
   };
+
   const pdfName = `${String(sale?.receipt_number || "invoice").replace(/[^a-z0-9_-]+/gi, "-")}.pdf`;
+
   const createPdf = () => buildInvoicePdfBlob(sale, {
     thermal: paperSize === "thermal",
     amountInWords: inrAmountInWords(Number(sale?.total_amount) || 0),
   });
+
   const handleDownload = () => {
     if (!sale || typeof window === "undefined") return;
-    const url = URL.createObjectURL(createPdf());
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = pdfName;
-    link.click();
-    URL.revokeObjectURL(url);
-    showToast("Invoice PDF downloaded");
-  };
-  const handleShare = async () => {
-    if (!sale || typeof window === "undefined") return;
-    const file = new File([createPdf()], pdfName, { type: "application/pdf" });
-    if (navigator.share && navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({
-          title: `Invoice ${sale.receipt_number}`,
-          files: [file],
-        });
-      } catch {}
-    } else {
-      handleDownload();
-      showToast("PDF download ready; native file sharing is not available on this device.", "info");
-    }
-  };
-
-  useEffect(() => {
-    if (!publicMode || !sale || typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("download") === "1") {
-      const t = setTimeout(() => handleDownload(), 400);
-      return () => clearTimeout(t);
-    }
-  }, [publicMode, sale]);
-
-  const copyPublicLink = async (url, message) => {
-    if (!url || typeof navigator === "undefined") return;
     try {
-      await navigator.clipboard.writeText(url);
-      showToast(message);
-    } catch {
-      showToast("Could not copy link", "error");
+      const url = URL.createObjectURL(createPdf());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = pdfName;
+      link.click();
+      URL.revokeObjectURL(url);
+      showToast("Invoice PDF downloaded");
+    } catch (e) {
+      console.error(e);
+      showToast("Could not generate PDF", "error");
     }
   };
 
-  if (query.isLoading || (!publicMode && userLoading)) {
+  if (query.isLoading) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: "var(--bg-page)" }}
+        className="min-h-screen flex flex-col items-center justify-center gap-3"
+        style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)" }}
       >
-        <Loader2 className="w-8 h-8 t-text animate-spin" />
+        <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
+        <span className="text-white/60 text-sm font-medium tracking-wide">Retrieving receipt...</span>
       </div>
     );
   }
 
-  if (!sale) {
+  if (query.isError || !sale) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center p-4"
-        style={{ background: "var(--bg-page)" }}
+        className="min-h-screen flex items-center justify-center p-6"
+        style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)" }}
       >
-        <div className="text-center">
-          <p className="t-text mb-3">Receipt not found.</p>
-          <Link to={publicMode ? "/" : "/sales"} className="t-accent-text">
-            {publicMode ? "Go home" : "Back to sales"}
+        <div className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl p-8 max-w-md w-full text-center shadow-2xl">
+          <div className="w-16 h-16 rounded-2xl bg-red-500/20 border border-red-500/30 flex items-center justify-center mx-auto mb-5 text-red-400">
+            <AlertTriangle className="w-8 h-8" />
+          </div>
+          <h2 className="text-white font-poppins font-bold text-xl mb-2">Receipt Not Found</h2>
+          <p className="text-white/60 text-sm leading-relaxed mb-6">
+            The link you followed is invalid, has expired, or is for a receipt that does not exist.
+          </p>
+          <Link
+            to="/"
+            className="inline-block bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white rounded-2xl px-6 py-3 font-semibold text-sm transition shadow-lg shadow-orange-500/25"
+          >
+            Go Home
           </Link>
         </div>
       </div>
@@ -181,141 +120,58 @@ export default function ReceiptPage(props) {
   const bw = printMode === "bw";
   const thermal = paperSize === "thermal";
 
-  // Receipt color palette adjusts based on print mode
-  const paperBg = bw ? "#ffffff" : "#ffffff";
+  const paperBg = "#ffffff";
   const textPrimary = bw ? "#000000" : "#111827";
   const textMuted = bw ? "#333333" : "#6b7280";
   const borderColor = bw ? "#000000" : "#e5e7eb";
 
   return (
     <div
-      className="min-h-screen font-inter receipt-wrap"
+      className="min-h-screen font-inter receipt-wrap py-6 px-3"
       style={{
-        background: "var(--bg-page)",
+        background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)",
         backgroundAttachment: "fixed",
       }}
     >
       <ToastHost />
 
-      <div
-        className={`mx-auto px-3 py-6 ${thermal ? "max-w-sm" : "max-w-2xl"}`}
-      >
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-4 no-print">
-          <Link
-            to={publicMode ? "/" : "/sales"}
-            className="flex items-center gap-2 t-muted hover:t-text text-sm"
-          >
-            <ArrowLeft className="w-4 h-4" /> {publicMode ? "Home" : "Back"}
-          </Link>
-          <div className="flex flex-wrap items-center gap-2">
-            <Tabs
-              value={printMode}
-              onChange={setPrintMode}
-              options={[
-                { value: "color", label: "Color" },
-                { value: "bw", label: "B&W" },
-              ]}
-            />
-            <Tabs
-              value={paperSize}
-              onChange={setPaperSize}
-              options={[
-                { value: "a4", label: "A4" },
-                { value: "thermal", label: "Thermal" },
-              ]}
-            />
+      <div className={`mx-auto ${thermal ? "max-w-sm" : "max-w-2xl"}`}>
+        
+        {/* Customer Focused Header */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5 no-print bg-white/10 backdrop-blur-2xl border border-white/20 p-4 rounded-3xl shadow-2xl">
+          <div className="flex items-center gap-3">
+            {sale.shop_logo ? (
+              <img
+                src={sale.shop_logo}
+                alt={sale.shop_name}
+                className="w-10 h-10 rounded-xl object-cover border border-white/10 shadow-inner"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center font-bold text-white text-base shadow-lg">
+                {sale.shop_name?.[0]?.toUpperCase()}
+              </div>
+            )}
+            <div>
+              <div className="font-poppins font-bold text-sm text-white">{sale.shop_name}</div>
+              <div className="text-[10px] text-white/50">Receipt #{sale.receipt_number}</div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="t-btn px-3 py-2 text-xs rounded-xl flex items-center gap-1.5"
+              className="bg-white/10 hover:bg-white/20 border border-white/15 text-white px-3.5 py-2 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition shadow-sm"
             >
               <Printer className="w-3.5 h-3.5" /> Print
             </button>
             <button
               onClick={handleDownload}
-              className="t-btn px-3 py-2 text-xs rounded-xl flex items-center gap-1.5"
-              title="Download invoice PDF"
+              className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition shadow-md shadow-orange-500/10"
             >
-              <Download className="w-3.5 h-3.5" /> PDF
+              <Download className="w-3.5 h-3.5" /> Download PDF
             </button>
-            <button
-              onClick={handleShare}
-              className="t-btn-primary px-3 py-2 text-xs rounded-xl flex items-center gap-1.5"
-            >
-              <Share2 className="w-3.5 h-3.5" /> Share PDF
-            </button>
-            {!publicMode && sale.customer_email ? (
-              <button
-                onClick={() => {
-                  if (sale.receipt_email_sent && !window.confirm("Receipt already emailed. Send again?")) return;
-                  emailReceipt.mutate();
-                }}
-                disabled={emailReceipt.isPending}
-                className="t-btn px-3 py-2 text-xs rounded-xl flex items-center gap-1.5"
-                title={`Email receipt to ${sale.customer_email}`}
-              >
-                {emailReceipt.isPending ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Mail className="w-3.5 h-3.5" />
-                )}
-                Email Receipt
-              </button>
-            ) : null}
           </div>
         </div>
-        {!publicMode && sale.publicReceiptUrl ? (
-          <div className="no-print mb-4 rounded-2xl t-card px-4 py-3 text-xs t-muted flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <div className="t-text font-semibold text-sm">Public receipt link</div>
-              <div className="t-dim mt-0.5">Customer can view or download this receipt without logging in.</div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <a
-                href={sale.publicReceiptUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="t-btn px-3 py-2 text-xs rounded-xl flex items-center gap-1.5"
-              >
-                <ExternalLink className="w-3.5 h-3.5" /> View link
-              </a>
-              <button
-                type="button"
-                onClick={() => copyPublicLink(sale.publicReceiptUrl, "Receipt view link copied")}
-                className="t-btn px-3 py-2 text-xs rounded-xl flex items-center gap-1.5"
-              >
-                <Copy className="w-3.5 h-3.5" /> Copy view
-              </button>
-              <button
-                type="button"
-                onClick={() => copyPublicLink(sale.publicReceiptDownloadUrl, "Receipt download link copied")}
-                className="t-btn px-3 py-2 text-xs rounded-xl flex items-center gap-1.5"
-              >
-                <Download className="w-3.5 h-3.5" /> Copy download
-              </button>
-            </div>
-          </div>
-        ) : null}
-        {!publicMode && sale.customer_email ? (
-          <div className="no-print mb-4 rounded-2xl t-card px-4 py-3 text-xs t-muted flex flex-wrap items-center justify-between gap-2">
-            <span>
-              Customer email: <strong className="t-text">{sale.customer_email}</strong>
-            </span>
-            {sale.receipt_email_sent ? (
-              <span className="t-success-bg px-2 py-1 rounded-full font-semibold">
-                Email sent on {new Date(sale.receipt_email_sent_at).toLocaleString("en-IN")}
-              </span>
-            ) : sale.receipt_email_error ? (
-              <span className="t-danger-bg px-2 py-1 rounded-full font-semibold">
-                Last email failed
-              </span>
-            ) : (
-              <span className="t-elev px-2 py-1 rounded-full font-semibold">
-                Not emailed yet
-              </span>
-            )}
-          </div>
-        ) : null}
 
         {/* Receipt card */}
         <div
@@ -325,15 +181,15 @@ export default function ReceiptPage(props) {
             background: paperBg,
             color: textPrimary,
             border: `1px solid ${borderColor}`,
-            borderRadius: thermal ? 8 : 16,
-            padding: thermal ? 14 : 28,
-            boxShadow: bw ? "none" : "0 20px 60px -15px rgba(0,0,0,0.4)",
+            borderRadius: thermal ? 12 : 24,
+            padding: thermal ? 16 : 32,
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
             fontSize: thermal ? 12 : 14,
           }}
         >
           {/* Header */}
           <div
-            className="flex items-start justify-between gap-4 pb-3"
+            className="flex items-start justify-between gap-4 pb-4"
             style={{ borderBottom: `1px solid ${borderColor}` }}
           >
             <div className="flex items-center gap-3">
@@ -341,15 +197,13 @@ export default function ReceiptPage(props) {
                 <img
                   src={sale.shop_logo}
                   alt={sale.shop_name}
-                  className={`${thermal ? "w-10 h-10" : "w-14 h-14"} rounded-xl object-cover`}
+                  className={`${thermal ? "w-10 h-10" : "w-16 h-16"} rounded-xl object-cover`}
                 />
               ) : (
                 <div
-                  className={`${thermal ? "w-10 h-10 text-base" : "w-14 h-14 text-lg"} rounded-xl flex items-center justify-center font-bold`}
+                  className={`${thermal ? "w-10 h-10 text-base" : "w-16 h-16 text-xl"} rounded-xl flex items-center justify-center font-bold`}
                   style={{
-                    background: bw
-                      ? "#000"
-                      : "linear-gradient(135deg, #8b5cf6, #d946ef)",
+                    background: "linear-gradient(135deg, #f97316, #fb923c)",
                     color: "#fff",
                   }}
                 >
@@ -359,22 +213,22 @@ export default function ReceiptPage(props) {
               <div>
                 <h1
                   style={{ color: textPrimary }}
-                  className={`font-bold font-poppins ${thermal ? "text-base" : "text-lg"}`}
+                  className={`font-bold font-poppins ${thermal ? "text-base" : "text-xl"}`}
                 >
                   {sale.shop_name}
                 </h1>
                 {sale.shop_description ? (
-                  <p style={{ color: textMuted }} className="text-xs">
+                  <p style={{ color: textMuted }} className="text-xs mt-0.5">
                     {sale.shop_description}
                   </p>
                 ) : null}
                 {sale.address ? (
-                  <p style={{ color: textMuted }} className="text-xs">
+                  <p style={{ color: textMuted }} className="text-xs mt-0.5">
                     {sale.address}
                   </p>
                 ) : null}
                 {sale.phone ? (
-                  <p style={{ color: textMuted }} className="text-xs">
+                  <p style={{ color: textMuted }} className="text-xs mt-0.5">
                     📞 {sale.phone}
                   </p>
                 ) : null}
@@ -383,7 +237,7 @@ export default function ReceiptPage(props) {
             {!thermal ? (
               <div className="text-right">
                 <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase"
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
                   style={{
                     background: bw ? "transparent" : "#d1fae5",
                     color: bw ? "#000" : "#065f46",
@@ -419,16 +273,16 @@ export default function ReceiptPage(props) {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 py-3 text-sm">
+            <div className="grid grid-cols-2 gap-3 py-4 text-sm">
               <div>
                 <div className="text-xs" style={{ color: textMuted }}>
                   Billed to
                 </div>
-                <div className="font-medium" style={{ color: textPrimary }}>
+                <div className="font-semibold" style={{ color: textPrimary }}>
                   {sale.buyer_name || "Walk-in customer"}
                 </div>
                 {sale.buyer_phone ? (
-                  <div className="text-xs" style={{ color: textMuted }}>
+                  <div className="text-xs mt-0.5" style={{ color: textMuted }}>
                     {sale.buyer_phone}
                   </div>
                 ) : null}
@@ -437,10 +291,10 @@ export default function ReceiptPage(props) {
                 <div className="text-xs" style={{ color: textMuted }}>
                   Date
                 </div>
-                <div className="font-medium" style={{ color: textPrimary }}>
+                <div className="font-semibold" style={{ color: textPrimary }}>
                   {new Date(sale.created_at).toLocaleString("en-IN")}
                 </div>
-                <div className="text-xs" style={{ color: textMuted }}>
+                <div className="text-xs mt-0.5" style={{ color: textMuted }}>
                   Payment:{" "}
                   <span className="capitalize">
                     {(sale.payment_method || "cash").replace("_", " ")}
@@ -452,32 +306,34 @@ export default function ReceiptPage(props) {
 
           {/* Items */}
           <div
-            className="pt-2"
+            className="pt-3"
             style={{ borderTop: `1px dashed ${borderColor}` }}
           >
             {!thermal ? (
               <div
-                className="grid grid-cols-12 text-[10px] uppercase tracking-wide mb-2 px-1"
+                className="grid grid-cols-12 text-[10px] uppercase tracking-wider mb-3 px-1"
                 style={{ color: textMuted }}
               >
-                <div className="col-span-5 md:col-span-6">Item / HSN/SAC</div>
+                <div className="col-span-5 md:col-span-6">Item / Snapshot</div>
                 <div className="col-span-1 md:col-span-2 text-center">Qty / Unit</div>
                 <div className="col-span-3 md:col-span-2 text-right">Price / Unit</div>
                 <div className="col-span-3 md:col-span-2 text-right">Amount</div>
               </div>
             ) : null}
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {items.map((it, idx) => {
                 const unitLabel = it.selectedUnit || getProductUnitLabel(it);
                 const itemName = it.productNameSnapshot || it.title;
                 const pricePerUnit = it.pricePerUnitAtSale ?? it.unitPrice;
                 const lineAmount = it.totalAmount ?? it.subtotal;
+                const productImg = it.imageSnapshot || it.imageUrl;
+
                 return (
                   <div
                     key={idx}
                     className={
                       thermal
-                        ? "flex justify-between gap-2 text-xs"
+                        ? "flex justify-between gap-2 text-xs py-1"
                         : "grid grid-cols-12 gap-2 items-center px-1"
                     }
                   >
@@ -485,7 +341,7 @@ export default function ReceiptPage(props) {
                     <>
                       <div className="flex-1 min-w-0">
                         <div
-                          className="truncate font-medium"
+                          className="truncate font-semibold"
                           style={{ color: textPrimary }}
                         >
                           {itemName}
@@ -495,7 +351,7 @@ export default function ReceiptPage(props) {
                         </div>
                       </div>
                       <div
-                        className="font-semibold"
+                        className="font-bold"
                         style={{ color: textPrimary }}
                       >
                         {fmt(lineAmount)}
@@ -503,42 +359,42 @@ export default function ReceiptPage(props) {
                     </>
                   ) : (
                     <>
-                      <div className="col-span-5 md:col-span-6 flex items-center gap-2 min-w-0">
-                        {it.imageUrl && !bw ? (
-                          <div className="w-9 h-9 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 bg-gray-100">
+                      <div className="col-span-5 md:col-span-6 flex items-center gap-3 min-w-0">
+                        {productImg ? (
+                          <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 bg-gray-50 border border-gray-100 shadow-sm">
                             <img
-                              src={it.imageUrl}
+                              src={productImg}
                               alt={itemName}
                               className="w-full h-full object-cover"
                             />
                           </div>
                         ) : (
                           <div
-                            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border border-gray-100"
                             style={{
-                              background: bw ? "#f3f4f6" : "#f3f4f6",
+                              background: "#f3f4f6",
                             }}
                           >
                             <Package
-                              className="w-4 h-4"
+                              className="w-5 h-5"
                               style={{ color: textMuted }}
                             />
                           </div>
                         )}
                         <div className="min-w-0">
                           <div
-                            className="text-sm font-medium truncate"
+                            className="text-sm font-semibold truncate"
                             style={{ color: textPrimary }}
                           >
                             {itemName}
                           </div>
                           {it.hsnSacSnapshot ? (
-                            <div className="text-xs truncate" style={{ color: textMuted }}>
+                            <div className="text-[10px] mt-0.5 truncate" style={{ color: textMuted }}>
                               HSN/SAC: {it.hsnSacSnapshot}
                             </div>
                           ) : it.description ? (
                             <div
-                              className="text-xs truncate"
+                              className="text-[10px] mt-0.5 truncate"
                               style={{ color: textMuted }}
                             >
                               {it.description}
@@ -547,19 +403,19 @@ export default function ReceiptPage(props) {
                         </div>
                       </div>
                       <div
-                        className="col-span-1 md:col-span-2 text-sm text-center"
+                        className="col-span-1 md:col-span-2 text-sm text-center font-medium"
                         style={{ color: textPrimary }}
                       >
-                        ×{it.quantity} <span className="hidden md:inline">{unitLabel}</span>
+                        ×{it.quantity} <span className="hidden md:inline text-xs text-gray-500 font-normal ml-0.5">{unitLabel}</span>
                       </div>
                       <div
-                        className="col-span-3 md:col-span-2 text-sm text-right truncate"
+                        className="col-span-3 md:col-span-2 text-sm text-right truncate font-medium"
                         style={{ color: textPrimary }}
                       >
                         {fmt(pricePerUnit)}
                       </div>
                       <div
-                        className="col-span-3 md:col-span-2 font-semibold text-sm text-right truncate"
+                        className="col-span-3 md:col-span-2 font-bold text-sm text-right truncate"
                         style={{ color: textPrimary }}
                       >
                         {fmt(lineAmount)}
@@ -574,7 +430,7 @@ export default function ReceiptPage(props) {
 
           {/* Totals */}
           <div
-            className="mt-4 pt-3 space-y-1 text-sm"
+            className="mt-4 pt-3 space-y-1.5 text-sm"
             style={{ borderTop: `1px dashed ${borderColor}` }}
           >
             {taxAmount > 0 || discountAmount > 0 ? (
@@ -584,20 +440,20 @@ export default function ReceiptPage(props) {
                   style={{ color: textMuted }}
                 >
                   <span>Subtotal</span>
-                  <span>
+                  <span className="font-medium">
                     {fmt(originalSubtotal)}
                   </span>
                 </div>
                 {discountAmount > 0 ? (
                   <div className="flex justify-between" style={{ color: textMuted }}>
                     <span>Discount</span>
-                    <span>- {fmt(discountAmount)}</span>
+                    <span className="font-medium">- {fmt(discountAmount)}</span>
                   </div>
                 ) : null}
                 {taxAmount > 0 ? (
                   <div className="flex justify-between" style={{ color: textMuted }}>
                     <span>Tax</span>
-                    <span>{fmt(taxAmount)}</span>
+                    <span className="font-medium">{fmt(taxAmount)}</span>
                   </div>
                 ) : null}
               </>
@@ -615,16 +471,16 @@ export default function ReceiptPage(props) {
             </div>
             {!thermal ? (
               <div className="text-xs pt-2" style={{ color: textMuted }}>
-                Amount in words: <span style={{ color: textPrimary }}>{inrAmountInWords(grandTotal)}</span>
+                Amount in words: <span className="font-semibold" style={{ color: textPrimary }}>{inrAmountInWords(grandTotal)}</span>
               </div>
             ) : null}
             {sale.payment_status !== "paid" ? (
               <>
                 <div className="flex justify-between pt-1" style={{ color: textMuted }}>
                   <span>Paid</span>
-                  <span>{fmt(paidAmount)}</span>
+                  <span className="font-medium">{fmt(paidAmount)}</span>
                 </div>
-                <div className="flex justify-between font-semibold" style={{ color: textPrimary }}>
+                <div className="flex justify-between font-bold" style={{ color: textPrimary }}>
                   <span>Balance due</span>
                   <span>{fmt(balanceDue)}</span>
                 </div>
@@ -646,7 +502,7 @@ export default function ReceiptPage(props) {
               }}
             >
               <div
-                className="font-semibold mb-0.5"
+                className="font-bold mb-0.5"
                 style={{ color: textPrimary }}
               >
                 Notes
@@ -655,9 +511,9 @@ export default function ReceiptPage(props) {
             </div>
           ) : null}
           {!thermal ? (
-            <div className="mt-5 grid grid-cols-2 gap-6 text-xs" style={{ color: textMuted }}>
+            <div className="mt-6 grid grid-cols-2 gap-6 text-xs" style={{ color: textMuted }}>
               <div>
-                <div className="font-semibold mb-1" style={{ color: textPrimary }}>Terms & Conditions</div>
+                <div className="font-bold mb-1" style={{ color: textPrimary }}>Terms & Conditions</div>
                 {sale.default_terms || "Goods once sold are subject to the shop return policy."}
               </div>
               <div className="text-right pt-8">
@@ -667,7 +523,7 @@ export default function ReceiptPage(props) {
           ) : null}
 
           <div
-            className="text-center text-xs mt-5 pt-3"
+            className="text-center text-xs mt-6 pt-3 font-medium"
             style={{
               color: textMuted,
               borderTop: `1px dashed ${borderColor}`,

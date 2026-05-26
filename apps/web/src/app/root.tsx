@@ -4,6 +4,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLocation,
   useRouteError,
 } from 'react-router';
 
@@ -20,6 +21,7 @@ import { LoadFonts } from 'virtual:load-fonts.jsx';
 // @ts-expect-error -- generated auth module, no type declarations available
 import { SessionProvider } from '@auth/create/react';
 import { Toaster } from 'sonner';
+import { QueryProvider } from './layout.jsx';
 
 export const links = () => [
   { rel: "icon", type: "image/x-icon", href: "/favicon.ico?v=3" },
@@ -28,6 +30,12 @@ export const links = () => [
   { rel: "icon", type: "image/png", sizes: "16x16", href: "/favicon-16x16.png" },
   { rel: "manifest", href: "/site.webmanifest" },
 ];
+
+export function headers() {
+  return {
+    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+  };
+}
 
 const LoadFontsSSR = import.meta.env.SSR ? LoadFonts : null;
 if (import.meta.hot) {
@@ -275,7 +283,7 @@ function MDXErrorPage({ error }: { error: unknown }) {
 }
 
 // ─── Error Boundary (class component) ──────────────────────────────────
-type ErrorBoundaryProps = { children: ReactNode };
+type ErrorBoundaryProps = { children: ReactNode; resetKey?: string };
 type ErrorBoundaryState = { hasError: boolean; error: unknown | null };
 
 class ErrorBoundaryWrapper extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
@@ -287,6 +295,12 @@ class ErrorBoundaryWrapper extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: unknown, info: unknown) {
     console.error('[MDX Billing] Error caught:', error, info);
+  }
+
+  componentDidUpdate(previousProps: ErrorBoundaryProps) {
+    if (previousProps.resetKey !== this.props.resetKey && this.state.hasError) {
+      this.setState({ hasError: false, error: null });
+    }
   }
 
   render() {
@@ -304,21 +318,37 @@ function LoaderWrapper({ loader }: { loader: () => React.ReactNode }) {
 
 export const ClientOnly: React.FC<{ loader: () => React.ReactNode }> = ({ loader }) => {
   const [isMounted, setIsMounted] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
   return (
-    <ErrorBoundaryWrapper>
+    <ErrorBoundaryWrapper resetKey={`${location.pathname}${location.search}`}>
       {isMounted ? <LoaderWrapper loader={loader} /> : null}
     </ErrorBoundaryWrapper>
   );
 };
 
 // ─── Root Layout ───────────────────────────────────────────────────────
+function ClientToaster() {
+  const [isMounted, setIsMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const updateViewport = () => setIsMobile(window.innerWidth < 768);
+    updateViewport();
+    setIsMounted(true);
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
+
+  if (!isMounted) return null;
+  return <Toaster position={isMobile ? 'top-center' : 'bottom-right'} />;
+}
+
 export function Layout({ children }: { children: ReactNode }) {
-  const isMobile = typeof window !== 'undefined' ? window.innerWidth < 768 : false;
   return (
     <html lang="en">
       <head>
@@ -341,7 +371,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </head>
       <body>
         <ClientOnly loader={() => children} />
-        <Toaster position={isMobile ? 'top-center' : 'bottom-right'} />
+        <ClientToaster />
         <ScrollRestoration />
         <Scripts />
       </body>
@@ -359,7 +389,9 @@ export function ErrorBoundary() {
 export default function App() {
   return (
     <SessionProvider>
-      <Outlet />
+      <QueryProvider>
+        <Outlet />
+      </QueryProvider>
     </SessionProvider>
   );
 }
