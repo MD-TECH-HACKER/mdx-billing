@@ -86,7 +86,7 @@ import { shopHeaders } from "@/utils/shopContext";
 const ACCENT = "#F97316";
 const ACCENT_DARK = "#EA580C";
 const ACCENT_LIGHT = "#FDBA74";
-const ACCENT_BG = "#FFF7ED";
+const ACCENT_BG = "var(--bg-surface)7ED";
 const ACCENT_SOFT = "rgba(249, 115, 22, 0.08)";
 const ACCENT_BORDER = "rgba(249, 115, 22, 0.2)";
 
@@ -101,7 +101,7 @@ const DANGER_LIGHT = "#F87171";
 const DANGER_BORDER = "rgba(220, 38, 38, 0.2)";
 
 const WARNING = "#D97706";
-const WARNING_BG = "#FFFBEB";
+const WARNING_BG = "var(--bg-surface)BEB";
 const WARNING_LIGHT = "#FBBF24";
 const WARNING_BORDER = "rgba(217, 119, 6, 0.2)";
 
@@ -172,7 +172,7 @@ function CustomTooltip({ active, payload, label, currency = "INR" }) {
     <div
       style={{
         background: "var(--bg-surface)",
-        border: "1px solid #E5E7EB",
+        border: "1px solid var(--border)",
         borderRadius: "12px",
         padding: "12px 16px",
         boxShadow: "0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)",
@@ -239,7 +239,7 @@ function AnalyticsStat({
           background: "var(--bg-surface)",
           borderRadius: "16px",
           padding: "20px",
-          border: "1px solid #F0F0F0",
+          border: "1px solid var(--border)",
         }}
       >
         <Skeleton className="w-10 h-10 mb-3" style={{ borderRadius: "12px" }} />
@@ -335,7 +335,7 @@ function SectionCard({
         className={className}
         style={{
           background: "var(--bg-surface)",
-          border: "1px solid #F0F0F0",
+          border: "1px solid var(--border)",
           borderRadius: "16px",
           padding: "24px",
           boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02)",
@@ -355,7 +355,7 @@ function SectionCard({
       className={className}
       style={{
         background: "var(--bg-surface)",
-        border: "1px solid #F0F0F0",
+        border: "1px solid var(--border)",
         borderRadius: "16px",
         padding: noPadding ? "0" : "24px",
         boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02)",
@@ -425,7 +425,7 @@ function ProductStockCard({ product, maxStock, currency = "INR", index = 0 }) {
         gap: "14px",
         padding: "14px 16px",
         borderRadius: "14px",
-        border: "1px solid #F0F0F0",
+        border: "1px solid var(--border)",
         background: "var(--bg-elev)",
         transition: "all 0.25s ease",
         cursor: "default",
@@ -451,7 +451,7 @@ function ProductStockCard({ product, maxStock, currency = "INR", index = 0 }) {
           height: "48px",
           borderRadius: "12px",
           overflow: "hidden",
-          border: "1px solid #E5E7EB",
+          border: "1px solid var(--border)",
           background: "var(--bg-surface)",
           display: "flex",
           alignItems: "center",
@@ -566,7 +566,7 @@ function ProductAnalyticsRow({ product, maxRevenue, currency = "INR", index = 0 
             height: "36px",
             borderRadius: "10px",
             overflow: "hidden",
-            border: "1px solid #E5E7EB",
+            border: "1px solid var(--border)",
             background: "var(--bg-surface)",
             display: "flex",
             alignItems: "center",
@@ -657,7 +657,7 @@ function CategoryCard({ name, count, total, percentage, color, index = 0 }) {
         gap: "12px",
         padding: "12px 14px",
         borderRadius: "12px",
-        border: "1px solid #F0F0F0",
+        border: "1px solid var(--border)",
         background: "var(--bg-elev)",
         transition: "all 0.25s ease",
         animation: `fadeInUp 0.4s ease ${index * 60}ms both`,
@@ -714,7 +714,7 @@ function HighlightCard({
           background: "var(--bg-surface)",
           borderRadius: "16px",
           padding: "20px",
-          border: "1px solid #F0F0F0",
+          border: "1px solid var(--border)",
         }}
       >
         <Skeleton className="w-full h-20" style={{ borderRadius: "12px" }} />
@@ -769,7 +769,7 @@ function HighlightCard({
             height: "48px",
             borderRadius: "12px",
             overflow: "hidden",
-            border: "1px solid #E5E7EB",
+            border: "1px solid var(--border)",
             background: "var(--bg-elev)",
             display: "flex",
             alignItems: "center",
@@ -809,7 +809,7 @@ function MetricBar({ icon: Icon, label, value, color = "var(--text-dim)" }) {
         gap: "10px",
         padding: "14px 18px",
         background: "var(--bg-surface)",
-        border: "1px solid #F0F0F0",
+        border: "1px solid var(--border)",
         borderRadius: "14px",
         flex: 1,
         minWidth: "180px",
@@ -1115,16 +1115,16 @@ export default function AnalyticsPage() {
       <div
         style={{
           background: "var(--bg-surface)",
-          border: "1px solid #E5E7EB",
+          border: "1px solid var(--border)",
           borderRadius: "14px",
           padding: "14px 18px",
-          boxShadow: "0 8px 30px rgba(0,0,0,0.1)",
+          boxShadow: "0 8px 30px var(--shadow)",
           maxWidth: "220px",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
           {d?.image && (
-            <img src={d.image} alt="" style={{ width: "32px", height: "32px", borderRadius: "8px", objectFit: "cover", border: "1px solid #E5E7EB" }} />
+            <img src={d.image} alt="" style={{ width: "32px", height: "32px", borderRadius: "8px", objectFit: "cover", border: "1px solid var(--border)" }} />
           )}
           <div>
             <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)" }}>{d?.fullName || label}</div>
@@ -1151,16 +1151,16 @@ export default function AnalyticsPage() {
       <div
         style={{
           background: "var(--bg-surface)",
-          border: "1px solid #E5E7EB",
+          border: "1px solid var(--border)",
           borderRadius: "14px",
           padding: "14px 18px",
-          boxShadow: "0 8px 30px rgba(0,0,0,0.1)",
+          boxShadow: "0 8px 30px var(--shadow)",
           maxWidth: "240px",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
           {d?.image && (
-            <img src={d.image} alt="" style={{ width: "32px", height: "32px", borderRadius: "8px", objectFit: "cover", border: "1px solid #E5E7EB" }} />
+            <img src={d.image} alt="" style={{ width: "32px", height: "32px", borderRadius: "8px", objectFit: "cover", border: "1px solid var(--border)" }} />
           )}
           <div>
             <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)" }}>{d?.fullName || label}</div>
@@ -1224,7 +1224,7 @@ export default function AnalyticsPage() {
               gap: "6px",
               padding: "8px 16px",
               borderRadius: "10px",
-              border: "1px solid #E5E7EB",
+              border: "1px solid var(--border)",
               background: "var(--bg-surface)",
               fontSize: "13px",
               fontWeight: 500,
@@ -1535,7 +1535,7 @@ export default function AnalyticsPage() {
                 gridTemplateColumns: "2fr 1fr 1fr 1fr 2fr",
                 gap: "12px",
                 padding: "10px 16px",
-                borderBottom: "2px solid #F0F0F0",
+                borderBottom: "2px solid var(--border)",
                 fontSize: "11px",
                 fontWeight: 600,
                 color: "var(--text-dim2)",
@@ -1606,7 +1606,7 @@ export default function AnalyticsPage() {
                   justifyContent: "space-between",
                   padding: "12px 0 0",
                   marginTop: "8px",
-                  borderTop: "2px solid #F0F0F0",
+                  borderTop: "2px solid var(--border)",
                   fontSize: "13px",
                   fontWeight: 700,
                   color: "var(--text)",
@@ -1651,7 +1651,7 @@ export default function AnalyticsPage() {
                         return (
                           <div style={{
                             background: "var(--bg-surface)",
-                            border: "1px solid #E5E7EB",
+                            border: "1px solid var(--border)",
                             borderRadius: "10px",
                             padding: "8px 14px",
                             boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
@@ -1778,7 +1778,7 @@ export default function AnalyticsPage() {
                     height: "40px",
                     borderRadius: "10px",
                     overflow: "hidden",
-                    border: "1px solid #E5E7EB",
+                    border: "1px solid var(--border)",
                     background: "var(--bg-surface)",
                     display: "flex",
                     alignItems: "center",
@@ -1920,9 +1920,9 @@ export default function AnalyticsPage() {
                     if (!active || !payload?.length) return null;
                     const d = payload[0]?.payload;
                     return (
-                      <div style={{ background: "var(--bg-surface)", border: "1px solid #E5E7EB", borderRadius: "14px", padding: "14px 18px", boxShadow: "0 8px 30px rgba(0,0,0,0.1)", maxWidth: "220px" }}>
+                      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "14px", padding: "14px 18px", boxShadow: "0 8px 30px var(--shadow)", maxWidth: "220px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-                          {d?.image && <img src={d.image} alt="" style={{ width: "32px", height: "32px", borderRadius: "8px", objectFit: "cover", border: "1px solid #E5E7EB" }} />}
+                          {d?.image && <img src={d.image} alt="" style={{ width: "32px", height: "32px", borderRadius: "8px", objectFit: "cover", border: "1px solid var(--border)" }} />}
                           <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)" }}>{d?.name}</div>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: "12px" }}>
@@ -1948,7 +1948,7 @@ export default function AnalyticsPage() {
         )}
 
         {marginScatter.length > 0 && (
-          <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap", marginTop: "16px", padding: "12px 16px", background: "var(--bg-elev)", borderRadius: "12px", border: "1px solid #F0F0F0" }}>
+          <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap", marginTop: "16px", padding: "12px 16px", background: "var(--bg-elev)", borderRadius: "12px", border: "1px solid var(--border)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "var(--text-dim)" }}>
               <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: SUCCESS }} />
               <span>High Margin (≥50%)</span>
@@ -1973,7 +1973,7 @@ export default function AnalyticsPage() {
        * ═══════════════════════════════════════════════════════════════════ */}
       <SectionCard title="Monthly Performance Summary" subtitle="Key business metrics for the current month" loading={loading}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "14px" }}>
-          <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${ACCENT_BG}, #fff)`, border: `1px solid ${ACCENT_BORDER}`, transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
+          <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${ACCENT_BG}, var(--bg-surface))`, border: `1px solid ${ACCENT_BORDER}`, transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
               <IndianRupee style={{ width: "16px", height: "16px", color: ACCENT }} />
               <span style={{ fontSize: "12px", color: "var(--text-dim2)", fontWeight: 500 }}>Month Revenue</span>
@@ -1982,7 +1982,7 @@ export default function AnalyticsPage() {
             <div style={{ fontSize: "12px", color: "var(--text-dim)", marginTop: "4px" }}>{stats.monthCount || 0} transactions</div>
           </div>
 
-          <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${SUCCESS_BG}, #fff)`, border: `1px solid ${SUCCESS_BORDER}`, transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
+          <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${SUCCESS_BG}, var(--bg-surface))`, border: `1px solid ${SUCCESS_BORDER}`, transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
               <TrendingUp style={{ width: "16px", height: "16px", color: SUCCESS }} />
               <span style={{ fontSize: "12px", color: "var(--text-dim2)", fontWeight: 500 }}>Month Profit</span>
@@ -1993,7 +1993,7 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
-          <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${DANGER_BG}, #fff)`, border: `1px solid ${DANGER_BORDER}`, transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
+          <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${DANGER_BG}, var(--bg-surface))`, border: `1px solid ${DANGER_BORDER}`, transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
               <Wallet style={{ width: "16px", height: "16px", color: DANGER }} />
               <span style={{ fontSize: "12px", color: "var(--text-dim2)", fontWeight: 500 }}>Month Expenses</span>
@@ -2002,7 +2002,7 @@ export default function AnalyticsPage() {
             <div style={{ fontSize: "12px", color: "var(--text-dim)", marginTop: "4px" }}>Deducted from profit</div>
           </div>
 
-          <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${(stats.netProfit || 0) >= 0 ? SUCCESS_BG : DANGER_BG}, #fff)`, border: `1px solid ${(stats.netProfit || 0) >= 0 ? SUCCESS_BORDER : DANGER_BORDER}`, transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
+          <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${(stats.netProfit || 0) >= 0 ? SUCCESS_BG : DANGER_BG}, var(--bg-surface))`, border: `1px solid ${(stats.netProfit || 0) >= 0 ? SUCCESS_BORDER : DANGER_BORDER}`, transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
               <Activity style={{ width: "16px", height: "16px", color: (stats.netProfit || 0) >= 0 ? SUCCESS : DANGER }} />
               <span style={{ fontSize: "12px", color: "var(--text-dim2)", fontWeight: 500 }}>Net Profit</span>
@@ -2011,7 +2011,7 @@ export default function AnalyticsPage() {
             <div style={{ fontSize: "12px", color: "var(--text-dim)", marginTop: "4px" }}>Revenue - Expenses</div>
           </div>
 
-          <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${INFO_BG}, #fff)`, border: "1px solid rgba(37, 99, 235, 0.2)", transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
+          <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${INFO_BG}, var(--bg-surface))`, border: "1px solid rgba(37, 99, 235, 0.2)", transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
               <Calendar style={{ width: "16px", height: "16px", color: INFO }} />
               <span style={{ fontSize: "12px", color: "var(--text-dim2)", fontWeight: 500 }}>Today Revenue</span>
@@ -2020,7 +2020,7 @@ export default function AnalyticsPage() {
             <div style={{ fontSize: "12px", color: "var(--text-dim)", marginTop: "4px" }}>{stats.todayCount || 0} sales today</div>
           </div>
 
-          <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${PURPLE_BG}, #fff)`, border: "1px solid rgba(139, 92, 246, 0.2)", transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
+          <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${PURPLE_BG}, var(--bg-surface))`, border: "1px solid rgba(139, 92, 246, 0.2)", transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
               <Sparkles style={{ width: "16px", height: "16px", color: PURPLE }} />
               <span style={{ fontSize: "12px", color: "var(--text-dim2)", fontWeight: 500 }}>Today Profit</span>
@@ -2049,7 +2049,7 @@ export default function AnalyticsPage() {
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
               <thead>
-                <tr style={{ borderBottom: "2px solid #F0F0F0", fontSize: "11px", fontWeight: 600, color: "var(--text-dim2)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                <tr style={{ borderBottom: "2px solid var(--border)", fontSize: "11px", fontWeight: 600, color: "var(--text-dim2)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   <th style={{ textAlign: "left", padding: "10px 12px" }}>Product</th>
                   <th style={{ textAlign: "right", padding: "10px 12px" }}>Cost</th>
                   <th style={{ textAlign: "right", padding: "10px 12px" }}>Price</th>
@@ -2068,7 +2068,7 @@ export default function AnalyticsPage() {
                     <tr key={p.productId} style={{ borderBottom: "1px solid #F5F5F5", transition: "background 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elev)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
                       <td style={{ padding: "10px 12px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                          <div style={{ width: "32px", height: "32px", borderRadius: "8px", overflow: "hidden", border: "1px solid #E5E7EB", background: "var(--bg-elev)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <div style={{ width: "32px", height: "32px", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--border)", background: "var(--bg-elev)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                             {p.imageUrl ? <img src={p.imageUrl} alt={p.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Package style={{ width: "14px", height: "14px", color: "var(--text-dim2)" }} />}
                           </div>
                           <span style={{ fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "150px" }}>{p.title}</span>
@@ -2088,7 +2088,7 @@ export default function AnalyticsPage() {
                 })}
               </tbody>
               <tfoot>
-                <tr style={{ borderTop: "2px solid #F0F0F0" }}>
+                <tr style={{ borderTop: "2px solid var(--border)" }}>
                   <td style={{ padding: "12px", fontWeight: 700, color: "var(--text)" }}>Total ({productAnalytics.length})</td>
                   <td colSpan={4} />
                   <td style={{ textAlign: "right", padding: "12px", fontWeight: 700, color: "var(--text)" }}>{productAnalytics.reduce((s, p) => s + p.quantitySold, 0)}</td>
