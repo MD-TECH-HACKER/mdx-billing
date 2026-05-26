@@ -199,7 +199,7 @@ function getRelativeTime(dateStr) {
 function StatCard({
   icon: Icon,
   iconBg = ACCENT,
-  iconColor = "#fff",
+  iconColor = "var(--bg-surface)",
   label,
   value,
   trend,
@@ -248,7 +248,7 @@ function StatCard({
       className="group relative overflow-hidden cursor-pointer"
       onClick={onClick}
       style={{
-        background: "#ffffff",
+        background: "var(--bg-surface)",
         border: "1px solid #f0f0f0",
         borderRadius: "16px",
         padding: "20px 24px",
@@ -268,7 +268,7 @@ function StatCard({
         e.currentTarget.style.transform = "translateY(0)";
         e.currentTarget.style.boxShadow =
           "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02)";
-        e.currentTarget.style.borderColor = "#f0f0f0";
+        e.currentTarget.style.borderColor = "var(--border)";
       }}
     >
       {/* Subtle gradient overlay on hover */}
@@ -335,7 +335,7 @@ function StatCard({
         style={{
           fontSize: "12.5px",
           fontWeight: 500,
-          color: "#6B7280",
+          color: "var(--text-dim)",
           marginBottom: "4px",
           letterSpacing: "0.01em",
         }}
@@ -348,7 +348,7 @@ function StatCard({
         style={{
           fontSize: "26px",
           fontWeight: 700,
-          color: "#111827",
+          color: "var(--text)",
           fontFamily: "'Poppins', sans-serif",
           letterSpacing: "-0.02em",
           lineHeight: 1.2,
@@ -364,7 +364,7 @@ function StatCard({
         <div
           style={{
             fontSize: "11.5px",
-            color: trendUp ? SUCCESS : "#9CA3AF",
+            color: trendUp ? SUCCESS : "var(--text-dim2)",
             marginTop: "6px",
             fontWeight: 500,
             display: "flex",
@@ -437,7 +437,7 @@ function ChartCard({
       <div
         className={className}
         style={{
-          background: "#ffffff",
+          background: "var(--bg-surface)",
           border: "1px solid #f0f0f0",
           borderRadius: "16px",
           padding: "24px",
@@ -458,7 +458,7 @@ function ChartCard({
     <div
       className={className}
       style={{
-        background: "#ffffff",
+        background: "var(--bg-surface)",
         border: "1px solid #f0f0f0",
         borderRadius: "16px",
         padding: noPadding ? "0" : "24px",
@@ -482,7 +482,7 @@ function ChartCard({
               style={{
                 fontSize: "15px",
                 fontWeight: 600,
-                color: "#111827",
+                color: "var(--text)",
                 margin: 0,
                 letterSpacing: "-0.01em",
               }}
@@ -493,7 +493,7 @@ function ChartCard({
               <p
                 style={{
                   fontSize: "12px",
-                  color: "#9CA3AF",
+                  color: "var(--text-dim2)",
                   margin: "2px 0 0",
                   fontWeight: 400,
                 }}
@@ -523,7 +523,7 @@ function ChartCard({
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = ACCENT;
-                  e.currentTarget.style.color = "#fff";
+                  e.currentTarget.style.color = "var(--bg-surface)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = ACCENT_SOFT;
@@ -580,10 +580,10 @@ function PeriodSelector({ value, onChange }) {
           padding: "6px 14px",
           borderRadius: "10px",
           border: "1px solid #E5E7EB",
-          background: "#FAFAFA",
+          background: "var(--bg-elev)",
           fontSize: "12.5px",
           fontWeight: 500,
-          color: "#374151",
+          color: "var(--text)",
           cursor: "pointer",
           transition: "all 0.2s ease",
         }}
@@ -592,8 +592,8 @@ function PeriodSelector({ value, onChange }) {
           e.currentTarget.style.background = ACCENT_BG;
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = "#E5E7EB";
-          e.currentTarget.style.background = "#FAFAFA";
+          e.currentTarget.style.borderColor = "var(--border)";
+          e.currentTarget.style.background = "var(--bg-elev)";
         }}
       >
         {selected.label}
@@ -601,7 +601,7 @@ function PeriodSelector({ value, onChange }) {
           style={{
             width: "14px",
             height: "14px",
-            color: "#9CA3AF",
+            color: "var(--text-dim2)",
             transform: open ? "rotate(180deg)" : "none",
             transition: "transform 0.2s ease",
           }}
@@ -614,7 +614,7 @@ function PeriodSelector({ value, onChange }) {
             position: "absolute",
             top: "calc(100% + 6px)",
             right: 0,
-            background: "#fff",
+            background: "var(--bg-surface)",
             border: "1px solid #E5E7EB",
             borderRadius: "12px",
             boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
@@ -640,7 +640,7 @@ function PeriodSelector({ value, onChange }) {
                 border: "none",
                 background:
                   opt.value === value ? ACCENT_SOFT : "transparent",
-                color: opt.value === value ? ACCENT : "#374151",
+                color: opt.value === value ? ACCENT : "var(--text)",
                 fontSize: "12.5px",
                 fontWeight: opt.value === value ? 600 : 400,
                 cursor: "pointer",
@@ -649,7 +649,7 @@ function PeriodSelector({ value, onChange }) {
               }}
               onMouseEnter={(e) => {
                 if (opt.value !== value) {
-                  e.currentTarget.style.background = "#F9FAFB";
+                  e.currentTarget.style.background = "var(--bg-elev)";
                 }
               }}
               onMouseLeave={(e) => {
@@ -700,7 +700,7 @@ function ProductHighlight({
           padding: "16px",
           borderRadius: "14px",
           border: "1px solid #f0f0f0",
-          background: "#FAFAFA",
+          background: "var(--bg-elev)",
         }}
       >
         <Skeleton className="w-20 h-4 mb-3" style={{ borderRadius: "6px" }} />
@@ -722,18 +722,18 @@ function ProductHighlight({
         padding: "18px",
         borderRadius: "14px",
         border: "1px solid #f0f0f0",
-        background: "#FAFAFA",
+        background: "var(--bg-elev)",
         transition: "all 0.3s ease",
         cursor: "default",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = "#fff";
+        e.currentTarget.style.background = "var(--bg-surface)";
         e.currentTarget.style.borderColor = `${accentColor}33`;
         e.currentTarget.style.boxShadow = `0 4px 16px ${accentColor}11`;
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = "#FAFAFA";
-        e.currentTarget.style.borderColor = "#f0f0f0";
+        e.currentTarget.style.background = "var(--bg-elev)";
+        e.currentTarget.style.borderColor = "var(--border)";
         e.currentTarget.style.boxShadow = "none";
       }}
     >
@@ -742,7 +742,7 @@ function ProductHighlight({
         style={{
           fontSize: "13px",
           fontWeight: 600,
-          color: "#374151",
+          color: "var(--text)",
           marginBottom: "14px",
           display: "flex",
           alignItems: "center",
@@ -765,7 +765,7 @@ function ProductHighlight({
             borderRadius: "12px",
             overflow: "hidden",
             border: "1px solid #E5E7EB",
-            background: "#fff",
+            background: "var(--bg-surface)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -787,7 +787,7 @@ function ProductHighlight({
               style={{
                 width: "24px",
                 height: "24px",
-                color: "#D1D5DB",
+                color: "var(--text-dim2)",
               }}
             />
           )}
@@ -799,7 +799,7 @@ function ProductHighlight({
             style={{
               fontSize: "14px",
               fontWeight: 600,
-              color: "#111827",
+              color: "var(--text)",
               marginBottom: "2px",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -811,14 +811,14 @@ function ProductHighlight({
           <div
             style={{
               fontSize: "12px",
-              color: "#6B7280",
+              color: "var(--text-dim)",
               display: "flex",
               flexDirection: "column",
               gap: "1px",
             }}
           >
             <span>
-              {stat1Label}: <strong style={{ color: "#111827" }}>{stat1Value}</strong>
+              {stat1Label}: <strong style={{ color: "var(--text)" }}>{stat1Value}</strong>
             </span>
             <span>
               {stat2Label}: <strong style={{ color: accentColor }}>{stat2Value}</strong>
@@ -849,7 +849,7 @@ function InvoiceRow({ sale, currency, index }) {
         transition: "background 0.15s ease",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = "#FAFAFA";
+        e.currentTarget.style.background = "var(--bg-elev)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = "transparent";
@@ -861,7 +861,7 @@ function InvoiceRow({ sale, currency, index }) {
           padding: "14px 16px",
           fontSize: "13px",
           fontWeight: 600,
-          color: "#111827",
+          color: "var(--text)",
           fontFamily: "'Poppins', monospace",
           letterSpacing: "-0.01em",
         }}
@@ -874,7 +874,7 @@ function InvoiceRow({ sale, currency, index }) {
         style={{
           padding: "14px 16px",
           fontSize: "13px",
-          color: "#374151",
+          color: "var(--text)",
           fontWeight: 500,
         }}
       >
@@ -907,7 +907,7 @@ function InvoiceRow({ sale, currency, index }) {
           padding: "14px 16px",
           fontSize: "13px",
           fontWeight: 600,
-          color: "#111827",
+          color: "var(--text)",
           fontFamily: "'Poppins', sans-serif",
         }}
       >
@@ -944,7 +944,7 @@ function InvoiceRow({ sale, currency, index }) {
         style={{
           padding: "14px 16px",
           fontSize: "12.5px",
-          color: "#6B7280",
+          color: "var(--text-dim)",
           fontWeight: 400,
           whiteSpace: "nowrap",
         }}
@@ -968,7 +968,7 @@ function InvoiceRow({ sale, currency, index }) {
             height: "30px",
             borderRadius: "8px",
             background: "transparent",
-            color: "#9CA3AF",
+            color: "var(--text-dim2)",
             transition: "all 0.15s ease",
             textDecoration: "none",
           }}
@@ -978,7 +978,7 @@ function InvoiceRow({ sale, currency, index }) {
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.color = "#9CA3AF";
+            e.currentTarget.style.color = "var(--text-dim2)";
           }}
         >
           <Eye style={{ width: "15px", height: "15px" }} />
@@ -1022,7 +1022,7 @@ function LowStockItem({ product, currency }) {
         cursor: "default",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = "#F9FAFB";
+        e.currentTarget.style.background = "var(--bg-elev)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = "transparent";
@@ -1036,7 +1036,7 @@ function LowStockItem({ product, currency }) {
           borderRadius: "10px",
           overflow: "hidden",
           border: "1px solid #E5E7EB",
-          background: "#fff",
+          background: "var(--bg-surface)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -1051,7 +1051,7 @@ function LowStockItem({ product, currency }) {
           />
         ) : (
           <Package
-            style={{ width: "18px", height: "18px", color: "#D1D5DB" }}
+            style={{ width: "18px", height: "18px", color: "var(--text-dim2)" }}
           />
         )}
       </div>
@@ -1063,7 +1063,7 @@ function LowStockItem({ product, currency }) {
           minWidth: 0,
           fontSize: "13px",
           fontWeight: 500,
-          color: "#374151",
+          color: "var(--text)",
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -1113,7 +1113,7 @@ function QuickAction({ icon: Icon, label, href, color = ACCENT }) {
         padding: "16px 12px",
         borderRadius: "14px",
         border: "1px solid #f0f0f0",
-        background: "#fff",
+        background: "var(--bg-surface)",
         textDecoration: "none",
         transition: "all 0.25s ease",
         cursor: "pointer",
@@ -1127,7 +1127,7 @@ function QuickAction({ icon: Icon, label, href, color = ACCENT }) {
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = "translateY(0)";
         e.currentTarget.style.boxShadow = "none";
-        e.currentTarget.style.borderColor = "#f0f0f0";
+        e.currentTarget.style.borderColor = "var(--border)";
       }}
     >
       <div
@@ -1148,7 +1148,7 @@ function QuickAction({ icon: Icon, label, href, color = ACCENT }) {
         style={{
           fontSize: "11.5px",
           fontWeight: 500,
-          color: "#4B5563",
+          color: "var(--text-dim)",
           textAlign: "center",
           lineHeight: 1.3,
         }}
@@ -1169,7 +1169,7 @@ function CustomTooltip({ active, payload, label, currency = "INR" }) {
   return (
     <div
       style={{
-        background: "#fff",
+        background: "var(--bg-surface)",
         border: "1px solid #E5E7EB",
         borderRadius: "12px",
         padding: "12px 16px",
@@ -1180,7 +1180,7 @@ function CustomTooltip({ active, payload, label, currency = "INR" }) {
       <div
         style={{
           fontWeight: 600,
-          color: "#111827",
+          color: "var(--text)",
           marginBottom: "6px",
           fontSize: "13px",
         }}
@@ -1205,10 +1205,10 @@ function CustomTooltip({ active, payload, label, currency = "INR" }) {
               background: entry.color,
             }}
           />
-          <span style={{ color: "#6B7280", textTransform: "capitalize" }}>
+          <span style={{ color: "var(--text-dim)", textTransform: "capitalize" }}>
             {entry.dataKey}:
           </span>
-          <span style={{ fontWeight: 600, color: "#111827" }}>
+          <span style={{ fontWeight: 600, color: "var(--text)" }}>
             {typeof entry.value === "number" && entry.value > 100
               ? fmt(entry.value)
               : entry.value}
@@ -1248,7 +1248,7 @@ function CategoryItem({ name, count, total, color, index }) {
           flex: 1,
           fontSize: "12.5px",
           fontWeight: 500,
-          color: "#374151",
+          color: "var(--text)",
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -1260,7 +1260,7 @@ function CategoryItem({ name, count, total, color, index }) {
         style={{
           fontSize: "12px",
           fontWeight: 600,
-          color: "#111827",
+          color: "var(--text)",
           minWidth: "32px",
           textAlign: "right",
         }}
@@ -1272,7 +1272,7 @@ function CategoryItem({ name, count, total, color, index }) {
           width: "60px",
           height: "6px",
           borderRadius: "3px",
-          background: "#F3F4F6",
+          background: "var(--border)",
           overflow: "hidden",
         }}
       >
@@ -1290,7 +1290,7 @@ function CategoryItem({ name, count, total, color, index }) {
         style={{
           fontSize: "11px",
           fontWeight: 500,
-          color: "#9CA3AF",
+          color: "var(--text-dim2)",
           minWidth: "30px",
           textAlign: "right",
         }}
@@ -1324,13 +1324,13 @@ function MarginProductRow({ product, rank, maxMargin = 100 }) {
           width: "20px",
           height: "20px",
           borderRadius: "6px",
-          background: "#F3F4F6",
+          background: "var(--border)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           fontSize: "10px",
           fontWeight: 700,
-          color: "#9CA3AF",
+          color: "var(--text-dim2)",
           flexShrink: 0,
         }}
       >
@@ -1341,7 +1341,7 @@ function MarginProductRow({ product, rank, maxMargin = 100 }) {
           flex: 1,
           fontSize: "12.5px",
           fontWeight: 500,
-          color: "#374151",
+          color: "var(--text)",
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -1354,7 +1354,7 @@ function MarginProductRow({ product, rank, maxMargin = 100 }) {
           width: "60px",
           height: "6px",
           borderRadius: "3px",
-          background: "#F3F4F6",
+          background: "var(--border)",
           overflow: "hidden",
         }}
       >
@@ -1622,7 +1622,7 @@ export default function DashboardPage() {
             style={{
               fontSize: "26px",
               fontWeight: 700,
-              color: "#111827",
+              color: "var(--text)",
               fontFamily: "'Poppins', sans-serif",
               margin: 0,
               letterSpacing: "-0.02em",
@@ -1635,7 +1635,7 @@ export default function DashboardPage() {
           <p
             style={{
               fontSize: "13.5px",
-              color: "#6B7280",
+              color: "var(--text-dim)",
               margin: "4px 0 0",
               fontWeight: 400,
               display: "flex",
@@ -1643,7 +1643,7 @@ export default function DashboardPage() {
               gap: "6px",
             }}
           >
-            <Calendar style={{ width: "14px", height: "14px", color: "#9CA3AF" }} />
+            <Calendar style={{ width: "14px", height: "14px", color: "var(--text-dim2)" }} />
             {dateString}
           </p>
         </div>
@@ -1665,7 +1665,7 @@ export default function DashboardPage() {
               padding: "10px 20px",
               borderRadius: "12px",
               background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DARK})`,
-              color: "#fff",
+              color: "var(--bg-surface)",
               fontSize: "13px",
               fontWeight: 600,
               textDecoration: "none",
@@ -1692,8 +1692,8 @@ export default function DashboardPage() {
               gap: "6px",
               padding: "10px 20px",
               borderRadius: "12px",
-              background: "#fff",
-              color: "#374151",
+              background: "var(--bg-surface)",
+              color: "var(--text)",
               fontSize: "13px",
               fontWeight: 500,
               textDecoration: "none",
@@ -1705,8 +1705,8 @@ export default function DashboardPage() {
               e.currentTarget.style.color = ACCENT;
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "#E5E7EB";
-              e.currentTarget.style.color = "#374151";
+              e.currentTarget.style.borderColor = "var(--border)";
+              e.currentTarget.style.color = "var(--text)";
             }}
           >
             <Package style={{ width: "15px", height: "15px" }} />
@@ -1824,14 +1824,14 @@ export default function DashboardPage() {
                   alignItems: "center",
                   justifyContent: "center",
                   height: "100%",
-                  color: "#9CA3AF",
+                  color: "var(--text-dim2)",
                 }}
               >
                 <BarChart3
-                  style={{ width: "40px", height: "40px", marginBottom: "8px", color: "#D1D5DB" }}
+                  style={{ width: "40px", height: "40px", marginBottom: "8px", color: "var(--text-dim2)" }}
                 />
                 <p style={{ fontSize: "13px", fontWeight: 500 }}>No sales data yet</p>
-                <p style={{ fontSize: "12px", color: "#D1D5DB" }}>
+                <p style={{ fontSize: "12px", color: "var(--text-dim2)" }}>
                   Start billing to see your chart
                 </p>
               </div>
@@ -1850,21 +1850,21 @@ export default function DashboardPage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid
-                    stroke="#F3F4F6"
+                    stroke="var(--border)"
                     strokeDasharray="4 4"
                     vertical={false}
                   />
                   <XAxis
                     dataKey="day"
-                    stroke="#9CA3AF"
+                    stroke="var(--text-dim2)"
                     fontSize={12}
                     fontWeight={500}
                     tickLine={false}
-                    axisLine={{ stroke: "#E5E7EB" }}
+                    axisLine={{ stroke: "var(--border)" }}
                     dy={8}
                   />
                   <YAxis
-                    stroke="#9CA3AF"
+                    stroke="var(--text-dim2)"
                     fontSize={11}
                     fontWeight={400}
                     tickLine={false}
@@ -1893,7 +1893,7 @@ export default function DashboardPage() {
                     activeDot={{
                       r: 5,
                       fill: SUCCESS,
-                      stroke: "#fff",
+                      stroke: "var(--bg-surface)",
                       strokeWidth: 2,
                     }}
                     name="Revenue"
@@ -1964,7 +1964,7 @@ export default function DashboardPage() {
                     alignItems: "center",
                     justifyContent: "center",
                     height: "100%",
-                    color: "#D1D5DB",
+                    color: "var(--text-dim2)",
                     fontSize: "13px",
                   }}
                 >
@@ -1974,13 +1974,13 @@ export default function DashboardPage() {
                 <ResponsiveContainer>
                   <BarChart data={topProducts} layout="vertical" barCategoryGap="30%">
                     <CartesianGrid
-                      stroke="#F3F4F6"
+                      stroke="var(--border)"
                       strokeDasharray="4 4"
                       horizontal={false}
                     />
                     <XAxis
                       type="number"
-                      stroke="#9CA3AF"
+                      stroke="var(--text-dim2)"
                       fontSize={10}
                       tickLine={false}
                       axisLine={false}
@@ -1988,7 +1988,7 @@ export default function DashboardPage() {
                     <YAxis
                       type="category"
                       dataKey="name"
-                      stroke="#9CA3AF"
+                      stroke="var(--text-dim2)"
                       fontSize={11}
                       tickLine={false}
                       axisLine={false}
@@ -2055,7 +2055,7 @@ export default function DashboardPage() {
                 alignItems: "center",
                 justifyContent: "center",
                 padding: "48px 24px",
-                color: "#9CA3AF",
+                color: "var(--text-dim2)",
               }}
             >
               <ReceiptIcon
@@ -2063,13 +2063,13 @@ export default function DashboardPage() {
                   width: "40px",
                   height: "40px",
                   marginBottom: "12px",
-                  color: "#D1D5DB",
+                  color: "var(--text-dim2)",
                 }}
               />
               <p style={{ fontSize: "14px", fontWeight: 500, margin: 0 }}>
                 No sales yet
               </p>
-              <p style={{ fontSize: "12px", color: "#D1D5DB", margin: "4px 0 0" }}>
+              <p style={{ fontSize: "12px", color: "var(--text-dim2)", margin: "4px 0 0" }}>
                 Create your first bill to see invoices here
               </p>
               <Link
@@ -2082,7 +2082,7 @@ export default function DashboardPage() {
                   padding: "8px 18px",
                   borderRadius: "10px",
                   background: ACCENT,
-                  color: "#fff",
+                  color: "var(--bg-surface)",
                   fontSize: "12.5px",
                   fontWeight: 600,
                   textDecoration: "none",
@@ -2112,12 +2112,12 @@ export default function DashboardPage() {
                             padding: "12px 16px",
                             fontSize: "11.5px",
                             fontWeight: 600,
-                            color: "#6B7280",
+                            color: "var(--text-dim)",
                             textAlign: i === 5 ? "right" : "left",
                             textTransform: "uppercase",
                             letterSpacing: "0.04em",
                             whiteSpace: "nowrap",
-                            background: "#FAFAFA",
+                            background: "var(--bg-elev)",
                           }}
                         >
                           {h}
@@ -2159,7 +2159,7 @@ export default function DashboardPage() {
                   alignItems: "center",
                   justifyContent: "center",
                   padding: "32px 16px",
-                  color: "#9CA3AF",
+                  color: "var(--text-dim2)",
                 }}
               >
                 <CheckCircle2
@@ -2173,7 +2173,7 @@ export default function DashboardPage() {
                 <p style={{ fontSize: "13px", fontWeight: 500, margin: 0, color: SUCCESS }}>
                   All products well stocked!
                 </p>
-                <p style={{ fontSize: "12px", color: "#D1D5DB", margin: "4px 0 0" }}>
+                <p style={{ fontSize: "12px", color: "var(--text-dim2)", margin: "4px 0 0" }}>
                   No items are running low
                 </p>
               </div>
@@ -2203,7 +2203,7 @@ export default function DashboardPage() {
                   alignItems: "center",
                   justifyContent: "center",
                   padding: "24px",
-                  color: "#D1D5DB",
+                  color: "var(--text-dim2)",
                   fontSize: "13px",
                 }}
               >
@@ -2261,7 +2261,7 @@ export default function DashboardPage() {
                   alignItems: "center",
                   justifyContent: "center",
                   height: "100%",
-                  color: "#D1D5DB",
+                  color: "var(--text-dim2)",
                   fontSize: "13px",
                 }}
               >
@@ -2271,19 +2271,19 @@ export default function DashboardPage() {
               <ResponsiveContainer>
                 <LineChart data={salesByDay}>
                   <CartesianGrid
-                    stroke="#F3F4F6"
+                    stroke="var(--border)"
                     strokeDasharray="4 4"
                     vertical={false}
                   />
                   <XAxis
                     dataKey="day"
-                    stroke="#9CA3AF"
+                    stroke="var(--text-dim2)"
                     fontSize={11}
                     tickLine={false}
-                    axisLine={{ stroke: "#E5E7EB" }}
+                    axisLine={{ stroke: "var(--border)" }}
                   />
                   <YAxis
-                    stroke="#9CA3AF"
+                    stroke="var(--text-dim2)"
                     fontSize={10}
                     tickLine={false}
                     axisLine={false}
@@ -2297,7 +2297,7 @@ export default function DashboardPage() {
                     wrapperStyle={{
                       fontSize: "12px",
                       fontWeight: 500,
-                      color: "#6B7280",
+                      color: "var(--text-dim)",
                       paddingTop: "12px",
                     }}
                   />
@@ -2310,7 +2310,7 @@ export default function DashboardPage() {
                     activeDot={{
                       r: 5,
                       fill: ACCENT,
-                      stroke: "#fff",
+                      stroke: "var(--bg-surface)",
                       strokeWidth: 2,
                     }}
                     name="Revenue"
@@ -2324,7 +2324,7 @@ export default function DashboardPage() {
                     activeDot={{
                       r: 5,
                       fill: SUCCESS,
-                      stroke: "#fff",
+                      stroke: "var(--bg-surface)",
                       strokeWidth: 2,
                     }}
                     name="Profit"
@@ -2349,7 +2349,7 @@ export default function DashboardPage() {
                 alignItems: "center",
                 justifyContent: "center",
                 height: "200px",
-                color: "#D1D5DB",
+                color: "var(--text-dim2)",
                 fontSize: "13px",
               }}
             >
@@ -2390,7 +2390,7 @@ export default function DashboardPage() {
                     style={{ width: "16px", height: "16px", color: ACCENT }}
                   />
                   <span
-                    style={{ fontSize: "12.5px", fontWeight: 500, color: "#374151" }}
+                    style={{ fontSize: "12.5px", fontWeight: 500, color: "var(--text)" }}
                   >
                     Average Margin
                   </span>
@@ -2432,7 +2432,7 @@ export default function DashboardPage() {
         {/* Monthly Summary */}
         <div
           style={{
-            background: "#fff",
+            background: "var(--bg-surface)",
             border: "1px solid #f0f0f0",
             borderRadius: "16px",
             padding: "24px",
@@ -2448,7 +2448,7 @@ export default function DashboardPage() {
             }}
           >
             <CalendarDays style={{ width: "16px", height: "16px", color: ACCENT }} />
-            <span style={{ fontSize: "14px", fontWeight: 600, color: "#111827" }}>
+            <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--text)" }}>
               Monthly Summary
             </span>
           </div>
@@ -2461,17 +2461,17 @@ export default function DashboardPage() {
                 alignItems: "center",
                 padding: "10px 14px",
                 borderRadius: "10px",
-                background: "#F9FAFB",
+                background: "var(--bg-elev)",
               }}
             >
-              <span style={{ fontSize: "12.5px", color: "#6B7280", fontWeight: 500 }}>
+              <span style={{ fontSize: "12.5px", color: "var(--text-dim)", fontWeight: 500 }}>
                 Revenue
               </span>
               <span
                 style={{
                   fontSize: "15px",
                   fontWeight: 700,
-                  color: "#111827",
+                  color: "var(--text)",
                   fontFamily: "'Poppins', sans-serif",
                 }}
               >
@@ -2485,17 +2485,17 @@ export default function DashboardPage() {
                 alignItems: "center",
                 padding: "10px 14px",
                 borderRadius: "10px",
-                background: "#F9FAFB",
+                background: "var(--bg-elev)",
               }}
             >
-              <span style={{ fontSize: "12.5px", color: "#6B7280", fontWeight: 500 }}>
+              <span style={{ fontSize: "12.5px", color: "var(--text-dim)", fontWeight: 500 }}>
                 Orders
               </span>
               <span
                 style={{
                   fontSize: "15px",
                   fontWeight: 700,
-                  color: "#111827",
+                  color: "var(--text)",
                   fontFamily: "'Poppins', sans-serif",
                 }}
               >
@@ -2536,7 +2536,7 @@ export default function DashboardPage() {
         {/* Today's Summary */}
         <div
           style={{
-            background: "#fff",
+            background: "var(--bg-surface)",
             border: "1px solid #f0f0f0",
             borderRadius: "16px",
             padding: "24px",
@@ -2552,7 +2552,7 @@ export default function DashboardPage() {
             }}
           >
             <Clock style={{ width: "16px", height: "16px", color: "#8B5CF6" }} />
-            <span style={{ fontSize: "14px", fontWeight: 600, color: "#111827" }}>
+            <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--text)" }}>
               Today&apos;s Summary
             </span>
           </div>
@@ -2565,17 +2565,17 @@ export default function DashboardPage() {
                 alignItems: "center",
                 padding: "10px 14px",
                 borderRadius: "10px",
-                background: "#F9FAFB",
+                background: "var(--bg-elev)",
               }}
             >
-              <span style={{ fontSize: "12.5px", color: "#6B7280", fontWeight: 500 }}>
+              <span style={{ fontSize: "12.5px", color: "var(--text-dim)", fontWeight: 500 }}>
                 Revenue
               </span>
               <span
                 style={{
                   fontSize: "15px",
                   fontWeight: 700,
-                  color: "#111827",
+                  color: "var(--text)",
                   fontFamily: "'Poppins', sans-serif",
                 }}
               >
@@ -2589,17 +2589,17 @@ export default function DashboardPage() {
                 alignItems: "center",
                 padding: "10px 14px",
                 borderRadius: "10px",
-                background: "#F9FAFB",
+                background: "var(--bg-elev)",
               }}
             >
-              <span style={{ fontSize: "12.5px", color: "#6B7280", fontWeight: 500 }}>
+              <span style={{ fontSize: "12.5px", color: "var(--text-dim)", fontWeight: 500 }}>
                 Orders
               </span>
               <span
                 style={{
                   fontSize: "15px",
                   fontWeight: 700,
-                  color: "#111827",
+                  color: "var(--text)",
                   fontFamily: "'Poppins', sans-serif",
                 }}
               >
@@ -2640,7 +2640,7 @@ export default function DashboardPage() {
         {/* Quick Actions Grid */}
         <div
           style={{
-            background: "#fff",
+            background: "var(--bg-surface)",
             border: "1px solid #f0f0f0",
             borderRadius: "16px",
             padding: "24px",
@@ -2656,7 +2656,7 @@ export default function DashboardPage() {
             }}
           >
             <Zap style={{ width: "16px", height: "16px", color: WARNING }} />
-            <span style={{ fontSize: "14px", fontWeight: 600, color: "#111827" }}>
+            <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--text)" }}>
               Quick Actions
             </span>
           </div>
@@ -2721,7 +2721,7 @@ export default function DashboardPage() {
         {/* Total Sales Count */}
         <div
           style={{
-            background: "#fff",
+            background: "var(--bg-surface)",
             border: "1px solid #f0f0f0",
             borderRadius: "14px",
             padding: "18px 20px",
@@ -2745,14 +2745,14 @@ export default function DashboardPage() {
             <Hash style={{ width: "18px", height: "18px", color: ACCENT }} />
           </div>
           <div>
-            <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 500, marginBottom: "2px" }}>
+            <div style={{ fontSize: "11px", color: "var(--text-dim2)", fontWeight: 500, marginBottom: "2px" }}>
               Total Orders
             </div>
             <div
               style={{
                 fontSize: "18px",
                 fontWeight: 700,
-                color: "#111827",
+                color: "var(--text)",
                 fontFamily: "'Poppins', sans-serif",
               }}
             >
@@ -2764,7 +2764,7 @@ export default function DashboardPage() {
         {/* Avg Margin */}
         <div
           style={{
-            background: "#fff",
+            background: "var(--bg-surface)",
             border: "1px solid #f0f0f0",
             borderRadius: "14px",
             padding: "18px 20px",
@@ -2788,14 +2788,14 @@ export default function DashboardPage() {
             <Percent style={{ width: "18px", height: "18px", color: SUCCESS }} />
           </div>
           <div>
-            <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 500, marginBottom: "2px" }}>
+            <div style={{ fontSize: "11px", color: "var(--text-dim2)", fontWeight: 500, marginBottom: "2px" }}>
               Avg Margin
             </div>
             <div
               style={{
                 fontSize: "18px",
                 fontWeight: 700,
-                color: "#111827",
+                color: "var(--text)",
                 fontFamily: "'Poppins', sans-serif",
               }}
             >
@@ -2807,8 +2807,8 @@ export default function DashboardPage() {
         {/* Low Stock Items */}
         <div
           style={{
-            background: "#fff",
-            border: `1px solid ${lowStockProducts.length > 0 ? DANGER_BORDER : "#f0f0f0"}`,
+            background: "var(--bg-surface)",
+            border: `1px solid ${lowStockProducts.length > 0 ? DANGER_BORDER : "var(--border)"}`,
             borderRadius: "14px",
             padding: "18px 20px",
             display: "flex",
@@ -2821,7 +2821,7 @@ export default function DashboardPage() {
               width: "40px",
               height: "40px",
               borderRadius: "10px",
-              background: lowStockProducts.length > 0 ? DANGER_BG : "#F3F4F6",
+              background: lowStockProducts.length > 0 ? DANGER_BG : "var(--border)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -2832,19 +2832,19 @@ export default function DashboardPage() {
               style={{
                 width: "18px",
                 height: "18px",
-                color: lowStockProducts.length > 0 ? DANGER : "#9CA3AF",
+                color: lowStockProducts.length > 0 ? DANGER : "var(--text-dim2)",
               }}
             />
           </div>
           <div>
-            <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 500, marginBottom: "2px" }}>
+            <div style={{ fontSize: "11px", color: "var(--text-dim2)", fontWeight: 500, marginBottom: "2px" }}>
               Low Stock
             </div>
             <div
               style={{
                 fontSize: "18px",
                 fontWeight: 700,
-                color: lowStockProducts.length > 0 ? DANGER : "#111827",
+                color: lowStockProducts.length > 0 ? DANGER : "var(--text)",
                 fontFamily: "'Poppins', sans-serif",
               }}
             >
@@ -2856,7 +2856,7 @@ export default function DashboardPage() {
         {/* Active Products */}
         <div
           style={{
-            background: "#fff",
+            background: "var(--bg-surface)",
             border: "1px solid #f0f0f0",
             borderRadius: "14px",
             padding: "18px 20px",
@@ -2880,14 +2880,14 @@ export default function DashboardPage() {
             <Layers style={{ width: "18px", height: "18px", color: "#3B82F6" }} />
           </div>
           <div>
-            <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 500, marginBottom: "2px" }}>
+            <div style={{ fontSize: "11px", color: "var(--text-dim2)", fontWeight: 500, marginBottom: "2px" }}>
               Active Products
             </div>
             <div
               style={{
                 fontSize: "18px",
                 fontWeight: 700,
-                color: "#111827",
+                color: "var(--text)",
                 fontFamily: "'Poppins', sans-serif",
               }}
             >
@@ -2905,7 +2905,7 @@ export default function DashboardPage() {
           textAlign: "center",
           padding: "24px 0 8px",
           fontSize: "11px",
-          color: "#D1D5DB",
+          color: "var(--text-dim2)",
           fontWeight: 400,
         }}
       >

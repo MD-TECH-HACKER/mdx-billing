@@ -123,7 +123,7 @@ const CHART_COLORS = [
 ];
 
 const CATEGORY_COLORS = {
-  Uncategorized: "#9CA3AF",
+  Uncategorized: "var(--text-dim2)",
 };
 
 
@@ -171,7 +171,7 @@ function CustomTooltip({ active, payload, label, currency = "INR" }) {
   return (
     <div
       style={{
-        background: "#ffffff",
+        background: "var(--bg-surface)",
         border: "1px solid #E5E7EB",
         borderRadius: "12px",
         padding: "12px 16px",
@@ -180,7 +180,7 @@ function CustomTooltip({ active, payload, label, currency = "INR" }) {
         minWidth: "160px",
       }}
     >
-      <div style={{ fontWeight: 600, color: "#374151", marginBottom: "8px", fontSize: "13px" }}>
+      <div style={{ fontWeight: 600, color: "var(--text)", marginBottom: "8px", fontSize: "13px" }}>
         {label}
       </div>
       {payload.map((entry, i) => (
@@ -203,9 +203,9 @@ function CustomTooltip({ active, payload, label, currency = "INR" }) {
                 background: entry.color,
               }}
             />
-            <span style={{ color: "#6B7280" }}>{entry.name || entry.dataKey}</span>
+            <span style={{ color: "var(--text-dim)" }}>{entry.name || entry.dataKey}</span>
           </div>
-          <span style={{ fontWeight: 600, color: "#111827" }}>
+          <span style={{ fontWeight: 600, color: "var(--text)" }}>
             {typeof entry.value === "number" && entry.value >= 100
               ? fmt(entry.value)
               : entry.value}
@@ -236,7 +236,7 @@ function AnalyticsStat({
     return (
       <div
         style={{
-          background: "#ffffff",
+          background: "var(--bg-surface)",
           borderRadius: "16px",
           padding: "20px",
           border: "1px solid #F0F0F0",
@@ -252,7 +252,7 @@ function AnalyticsStat({
   return (
     <div
       style={{
-        background: "#ffffff",
+        background: "var(--bg-surface)",
         borderRadius: "16px",
         padding: "20px",
         border: `1px solid ${borderColor}`,
@@ -308,8 +308,8 @@ function AnalyticsStat({
           </div>
         )}
       </div>
-      <div style={{ fontSize: "12px", color: "#9CA3AF", fontWeight: 500, marginBottom: "4px" }}>{label}</div>
-      <div style={{ fontSize: "22px", fontWeight: 700, color: "#111827", letterSpacing: "-0.02em" }}>
+      <div style={{ fontSize: "12px", color: "var(--text-dim2)", fontWeight: 500, marginBottom: "4px" }}>{label}</div>
+      <div style={{ fontSize: "22px", fontWeight: 700, color: "var(--text)", letterSpacing: "-0.02em" }}>
         {value}
       </div>
     </div>
@@ -334,7 +334,7 @@ function SectionCard({
       <div
         className={className}
         style={{
-          background: "#ffffff",
+          background: "var(--bg-surface)",
           border: "1px solid #F0F0F0",
           borderRadius: "16px",
           padding: "24px",
@@ -354,7 +354,7 @@ function SectionCard({
     <div
       className={className}
       style={{
-        background: "#ffffff",
+        background: "var(--bg-surface)",
         border: "1px solid #F0F0F0",
         borderRadius: "16px",
         padding: noPadding ? "0" : "24px",
@@ -377,7 +377,7 @@ function SectionCard({
               style={{
                 fontSize: "15px",
                 fontWeight: 600,
-                color: "#111827",
+                color: "var(--text)",
                 margin: 0,
                 letterSpacing: "-0.01em",
               }}
@@ -385,7 +385,7 @@ function SectionCard({
               {title}
             </h3>
             {subtitle && (
-              <p style={{ fontSize: "12px", color: "#9CA3AF", margin: "2px 0 0", fontWeight: 400 }}>
+              <p style={{ fontSize: "12px", color: "var(--text-dim2)", margin: "2px 0 0", fontWeight: 400 }}>
                 {subtitle}
               </p>
             )}
@@ -426,20 +426,20 @@ function ProductStockCard({ product, maxStock, currency = "INR", index = 0 }) {
         padding: "14px 16px",
         borderRadius: "14px",
         border: "1px solid #F0F0F0",
-        background: "#FAFAFA",
+        background: "var(--bg-elev)",
         transition: "all 0.25s ease",
         cursor: "default",
         animation: `fadeInUp 0.4s ease ${index * 50}ms both`,
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = "#ffffff";
+        e.currentTarget.style.background = "var(--bg-surface)";
         e.currentTarget.style.borderColor = `${stockColor}44`;
         e.currentTarget.style.boxShadow = `0 4px 16px ${stockColor}11`;
         e.currentTarget.style.transform = "translateY(-1px)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = "#FAFAFA";
-        e.currentTarget.style.borderColor = "#F0F0F0";
+        e.currentTarget.style.background = "var(--bg-elev)";
+        e.currentTarget.style.borderColor = "var(--border)";
         e.currentTarget.style.boxShadow = "none";
         e.currentTarget.style.transform = "translateY(0)";
       }}
@@ -452,7 +452,7 @@ function ProductStockCard({ product, maxStock, currency = "INR", index = 0 }) {
           borderRadius: "12px",
           overflow: "hidden",
           border: "1px solid #E5E7EB",
-          background: "#fff",
+          background: "var(--bg-surface)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -466,14 +466,14 @@ function ProductStockCard({ product, maxStock, currency = "INR", index = 0 }) {
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         ) : (
-          <Box style={{ width: "20px", height: "20px", color: "#D1D5DB" }} />
+          <Box style={{ width: "20px", height: "20px", color: "var(--text-dim2)" }} />
         )}
       </div>
 
       {/* Product Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-          <div style={{ fontSize: "13px", fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "160px" }}>
+          <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "160px" }}>
             {product.title}
           </div>
           <div
@@ -497,7 +497,7 @@ function ProductStockCard({ product, maxStock, currency = "INR", index = 0 }) {
               flex: 1,
               height: "6px",
               borderRadius: "3px",
-              background: "#F3F4F6",
+              background: "var(--border)",
               overflow: "hidden",
             }}
           >
@@ -518,10 +518,10 @@ function ProductStockCard({ product, maxStock, currency = "INR", index = 0 }) {
 
         {/* Category + Price */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "4px" }}>
-          <div style={{ fontSize: "11px", color: "#9CA3AF" }}>
+          <div style={{ fontSize: "11px", color: "var(--text-dim2)" }}>
             {product.category || "Uncategorized"}
           </div>
-          <div style={{ fontSize: "11px", fontWeight: 600, color: "#6B7280" }}>
+          <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-dim)" }}>
             {fmt(product.selling_price)}
           </div>
         </div>
@@ -552,7 +552,7 @@ function ProductAnalyticsRow({ product, maxRevenue, currency = "INR", index = 0 
         cursor: "default",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = "#FAFAFA";
+        e.currentTarget.style.background = "var(--bg-elev)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = "transparent";
@@ -567,7 +567,7 @@ function ProductAnalyticsRow({ product, maxRevenue, currency = "INR", index = 0 
             borderRadius: "10px",
             overflow: "hidden",
             border: "1px solid #E5E7EB",
-            background: "#fff",
+            background: "var(--bg-surface)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -581,21 +581,21 @@ function ProductAnalyticsRow({ product, maxRevenue, currency = "INR", index = 0 
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
           ) : (
-            <Box style={{ width: "16px", height: "16px", color: "#D1D5DB" }} />
+            <Box style={{ width: "16px", height: "16px", color: "var(--text-dim2)" }} />
           )}
         </div>
-        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "13px", fontWeight: 600, color: "#111827" }}>
+        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>
           {product.title}
         </div>
       </div>
 
       {/* Quantity Sold */}
-      <div style={{ textAlign: "center", fontSize: "13px", fontWeight: 600, color: "#374151" }}>
+      <div style={{ textAlign: "center", fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>
         {product.quantitySold}
       </div>
 
       {/* Revenue */}
-      <div style={{ textAlign: "right", fontSize: "13px", fontWeight: 600, color: "#111827" }}>
+      <div style={{ textAlign: "right", fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>
         {fmt(product.revenue)}
       </div>
 
@@ -622,7 +622,7 @@ function ProductAnalyticsRow({ product, maxRevenue, currency = "INR", index = 0 
             flex: 1,
             height: "8px",
             borderRadius: "4px",
-            background: "#F3F4F6",
+            background: "var(--border)",
             overflow: "hidden",
           }}
         >
@@ -636,7 +636,7 @@ function ProductAnalyticsRow({ product, maxRevenue, currency = "INR", index = 0 
             }}
           />
         </div>
-        <div style={{ fontSize: "11px", fontWeight: 500, color: "#9CA3AF", minWidth: "35px", textAlign: "right" }}>
+        <div style={{ fontSize: "11px", fontWeight: 500, color: "var(--text-dim2)", minWidth: "35px", textAlign: "right" }}>
           {fmt(product.profit)}
         </div>
       </div>
@@ -658,17 +658,17 @@ function CategoryCard({ name, count, total, percentage, color, index = 0 }) {
         padding: "12px 14px",
         borderRadius: "12px",
         border: "1px solid #F0F0F0",
-        background: "#FAFAFA",
+        background: "var(--bg-elev)",
         transition: "all 0.25s ease",
         animation: `fadeInUp 0.4s ease ${index * 60}ms both`,
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = "#fff";
+        e.currentTarget.style.background = "var(--bg-surface)";
         e.currentTarget.style.borderColor = `${color}44`;
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = "#FAFAFA";
-        e.currentTarget.style.borderColor = "#F0F0F0";
+        e.currentTarget.style.background = "var(--bg-elev)";
+        e.currentTarget.style.borderColor = "var(--border)";
       }}
     >
       <div
@@ -681,11 +681,11 @@ function CategoryCard({ name, count, total, percentage, color, index = 0 }) {
         }}
       />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: "13px", fontWeight: 600, color: "#111827" }}>{name}</div>
-        <div style={{ fontSize: "11px", color: "#9CA3AF" }}>{count} products</div>
+        <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>{name}</div>
+        <div style={{ fontSize: "11px", color: "var(--text-dim2)" }}>{count} products</div>
       </div>
       <div style={{ textAlign: "right" }}>
-        <div style={{ fontSize: "14px", fontWeight: 700, color: "#111827" }}>
+        <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>
           {percentage.toFixed(1)}%
         </div>
       </div>
@@ -711,7 +711,7 @@ function HighlightCard({
     return (
       <div
         style={{
-          background: "#ffffff",
+          background: "var(--bg-surface)",
           borderRadius: "16px",
           padding: "20px",
           border: "1px solid #F0F0F0",
@@ -725,7 +725,7 @@ function HighlightCard({
   return (
     <div
       style={{
-        background: "#ffffff",
+        background: "var(--bg-surface)",
         borderRadius: "16px",
         padding: "20px",
         border: `1px solid ${color}22`,
@@ -757,7 +757,7 @@ function HighlightCard({
         >
           <Icon style={{ width: "14px", height: "14px", color }} />
         </div>
-        <span style={{ fontSize: "12px", fontWeight: 600, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-dim2)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
           {label}
         </span>
       </div>
@@ -770,7 +770,7 @@ function HighlightCard({
             borderRadius: "12px",
             overflow: "hidden",
             border: "1px solid #E5E7EB",
-            background: "#FAFAFA",
+            background: "var(--bg-elev)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -780,14 +780,14 @@ function HighlightCard({
           {imageUrl ? (
             <img src={imageUrl} alt={title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           ) : (
-            <Package style={{ width: "20px", height: "20px", color: "#D1D5DB" }} />
+            <Package style={{ width: "20px", height: "20px", color: "var(--text-dim2)" }} />
           )}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: "15px", fontWeight: 700, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{ fontSize: "15px", fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {title || "No data"}
           </div>
-          <div style={{ fontSize: "12px", color: "#6B7280", marginTop: "2px" }}>
+          <div style={{ fontSize: "12px", color: "var(--text-dim)", marginTop: "2px" }}>
             {subtitle || "—"}
           </div>
         </div>
@@ -800,7 +800,7 @@ function HighlightCard({
 /* ═══════════════════════════════════════════════════════════════════════
  * PERFORMANCE METRIC BAR
  * ═══════════════════════════════════════════════════════════════════════ */
-function MetricBar({ icon: Icon, label, value, color = "#6B7280" }) {
+function MetricBar({ icon: Icon, label, value, color = "var(--text-dim)" }) {
   return (
     <div
       style={{
@@ -808,7 +808,7 @@ function MetricBar({ icon: Icon, label, value, color = "#6B7280" }) {
         alignItems: "center",
         gap: "10px",
         padding: "14px 18px",
-        background: "#ffffff",
+        background: "var(--bg-surface)",
         border: "1px solid #F0F0F0",
         borderRadius: "14px",
         flex: 1,
@@ -820,14 +820,14 @@ function MetricBar({ icon: Icon, label, value, color = "#6B7280" }) {
         e.currentTarget.style.transform = "translateY(-1px)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = "#F0F0F0";
+        e.currentTarget.style.borderColor = "var(--border)";
         e.currentTarget.style.transform = "translateY(0)";
       }}
     >
       <Icon style={{ width: "18px", height: "18px", color, flexShrink: 0 }} />
       <div>
-        <div style={{ fontSize: "11px", color: "#9CA3AF", fontWeight: 500 }}>{label}</div>
-        <div style={{ fontSize: "18px", fontWeight: 700, color: "#111827" }}>{value}</div>
+        <div style={{ fontSize: "11px", color: "var(--text-dim2)", fontWeight: 500 }}>{label}</div>
+        <div style={{ fontSize: "18px", fontWeight: 700, color: "var(--text)" }}>{value}</div>
       </div>
     </div>
   );
@@ -860,7 +860,7 @@ function ExpenseRow({ category, total, maxTotal, currency, color, index = 0 }) {
           flexShrink: 0,
         }}
       />
-      <div style={{ flex: 1, minWidth: 0, fontSize: "13px", fontWeight: 500, color: "#374151" }}>
+      <div style={{ flex: 1, minWidth: 0, fontSize: "13px", fontWeight: 500, color: "var(--text)" }}>
         {category}
       </div>
       <div style={{ width: "120px" }}>
@@ -868,7 +868,7 @@ function ExpenseRow({ category, total, maxTotal, currency, color, index = 0 }) {
           style={{
             height: "6px",
             borderRadius: "3px",
-            background: "#F3F4F6",
+            background: "var(--border)",
             overflow: "hidden",
           }}
         >
@@ -883,7 +883,7 @@ function ExpenseRow({ category, total, maxTotal, currency, color, index = 0 }) {
           />
         </div>
       </div>
-      <div style={{ fontSize: "13px", fontWeight: 600, color: "#111827", minWidth: "80px", textAlign: "right" }}>
+      <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)", minWidth: "80px", textAlign: "right" }}>
         {fmt(total)}
       </div>
     </div>
@@ -1114,7 +1114,7 @@ export default function AnalyticsPage() {
     return (
       <div
         style={{
-          background: "#fff",
+          background: "var(--bg-surface)",
           border: "1px solid #E5E7EB",
           borderRadius: "14px",
           padding: "14px 18px",
@@ -1127,14 +1127,14 @@ export default function AnalyticsPage() {
             <img src={d.image} alt="" style={{ width: "32px", height: "32px", borderRadius: "8px", objectFit: "cover", border: "1px solid #E5E7EB" }} />
           )}
           <div>
-            <div style={{ fontSize: "13px", fontWeight: 700, color: "#111827" }}>{d?.fullName || label}</div>
-            <div style={{ fontSize: "11px", color: "#9CA3AF" }}>{d?.category}</div>
+            <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)" }}>{d?.fullName || label}</div>
+            <div style={{ fontSize: "11px", color: "var(--text-dim2)" }}>{d?.category}</div>
           </div>
         </div>
         {payload.map((entry, i) => (
           <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "12px" }}>
-            <span style={{ color: "#6B7280" }}>{entry.name}</span>
-            <span style={{ fontWeight: 600, color: entry.color || "#111827" }}>
+            <span style={{ color: "var(--text-dim)" }}>{entry.name}</span>
+            <span style={{ fontWeight: 600, color: entry.color || "var(--text)" }}>
               {entry.dataKey === "stock" ? entry.value : fmt(entry.value)}
             </span>
           </div>
@@ -1150,7 +1150,7 @@ export default function AnalyticsPage() {
     return (
       <div
         style={{
-          background: "#fff",
+          background: "var(--bg-surface)",
           border: "1px solid #E5E7EB",
           borderRadius: "14px",
           padding: "14px 18px",
@@ -1163,17 +1163,17 @@ export default function AnalyticsPage() {
             <img src={d.image} alt="" style={{ width: "32px", height: "32px", borderRadius: "8px", objectFit: "cover", border: "1px solid #E5E7EB" }} />
           )}
           <div>
-            <div style={{ fontSize: "13px", fontWeight: 700, color: "#111827" }}>{d?.fullName || label}</div>
-            <div style={{ fontSize: "11px", color: "#9CA3AF" }}>{d?.sold} units sold</div>
+            <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)" }}>{d?.fullName || label}</div>
+            <div style={{ fontSize: "11px", color: "var(--text-dim2)" }}>{d?.sold} units sold</div>
           </div>
         </div>
         {payload.map((entry, i) => (
           <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: "12px" }}>
-            <span style={{ display: "flex", alignItems: "center", gap: "5px", color: "#6B7280" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: "5px", color: "var(--text-dim)" }}>
               <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: entry.color, display: "inline-block" }} />
               {entry.name}
             </span>
-            <span style={{ fontWeight: 600, color: "#111827" }}>{fmt(entry.value)}</span>
+            <span style={{ fontWeight: 600, color: "var(--text)" }}>{fmt(entry.value)}</span>
           </div>
         ))}
       </div>
@@ -1203,7 +1203,7 @@ export default function AnalyticsPage() {
             style={{
               fontSize: "clamp(22px, 3vw, 30px)",
               fontWeight: 800,
-              color: "#111827",
+              color: "var(--text)",
               margin: 0,
               letterSpacing: "-0.03em",
               lineHeight: 1.2,
@@ -1211,7 +1211,7 @@ export default function AnalyticsPage() {
           >
             Analytics
           </h1>
-          <p style={{ fontSize: "13px", color: "#9CA3AF", margin: "4px 0 0", fontWeight: 400 }}>
+          <p style={{ fontSize: "13px", color: "var(--text-dim2)", margin: "4px 0 0", fontWeight: 400 }}>
             Complete business performance & product insights
           </p>
         </div>
@@ -1225,20 +1225,20 @@ export default function AnalyticsPage() {
               padding: "8px 16px",
               borderRadius: "10px",
               border: "1px solid #E5E7EB",
-              background: "#fff",
+              background: "var(--bg-surface)",
               fontSize: "13px",
               fontWeight: 500,
-              color: "#374151",
+              color: "var(--text)",
               cursor: "pointer",
               transition: "all 0.2s ease",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#F9FAFB";
+              e.currentTarget.style.background = "var(--bg-elev)";
               e.currentTarget.style.borderColor = ACCENT;
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = "#fff";
-              e.currentTarget.style.borderColor = "#E5E7EB";
+              e.currentTarget.style.background = "var(--bg-surface)";
+              e.currentTarget.style.borderColor = "var(--border)";
             }}
           >
             <RefreshCw style={{ width: "14px", height: "14px" }} />
@@ -1404,10 +1404,10 @@ export default function AnalyticsPage() {
         <SectionCard title="Daily Sales Trend" subtitle="Revenue over the last 30 days" loading={loading}>
           <div style={{ width: "100%", height: "260px" }}>
             {salesByDay.length === 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", color: "#9CA3AF" }}>
-                <BarChart3 style={{ width: "40px", height: "40px", marginBottom: "8px", color: "#D1D5DB" }} />
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-dim2)" }}>
+                <BarChart3 style={{ width: "40px", height: "40px", marginBottom: "8px", color: "var(--text-dim2)" }} />
                 <p style={{ fontSize: "13px", fontWeight: 500 }}>No sales data yet</p>
-                <p style={{ fontSize: "12px", color: "#D1D5DB" }}>Start billing to see your chart</p>
+                <p style={{ fontSize: "12px", color: "var(--text-dim2)" }}>Start billing to see your chart</p>
               </div>
             ) : (
               <ResponsiveContainer>
@@ -1419,11 +1419,11 @@ export default function AnalyticsPage() {
                       <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid stroke="#F3F4F6" strokeDasharray="4 4" vertical={false} />
-                  <XAxis dataKey="day" stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={{ stroke: "#E5E7EB" }} dy={8} />
-                  <YAxis stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v} dx={-6} />
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
+                  <XAxis dataKey="day" stroke="var(--text-dim2)" fontSize={11} tickLine={false} axisLine={{ stroke: "var(--border)" }} dy={8} />
+                  <YAxis stroke="var(--text-dim2)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v} dx={-6} />
                   <Tooltip content={<CustomTooltip currency={currency} />} cursor={{ stroke: ACCENT, strokeWidth: 1, strokeDasharray: "4 4" }} />
-                  <Area type="monotone" dataKey="revenue" stroke={ACCENT} fill="url(#revenueGradAnalytics)" strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: ACCENT, stroke: "#fff", strokeWidth: 2 }} name="Revenue" />
+                  <Area type="monotone" dataKey="revenue" stroke={ACCENT} fill="url(#revenueGradAnalytics)" strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: ACCENT, stroke: "var(--bg-surface)", strokeWidth: 2 }} name="Revenue" />
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -1434,20 +1434,20 @@ export default function AnalyticsPage() {
         <SectionCard title="Revenue vs Profit" subtitle="Comparing revenue and profit trends" loading={loading}>
           <div style={{ width: "100%", height: "260px" }}>
             {salesByDay.length === 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", color: "#9CA3AF" }}>
-                <Activity style={{ width: "40px", height: "40px", marginBottom: "8px", color: "#D1D5DB" }} />
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-dim2)" }}>
+                <Activity style={{ width: "40px", height: "40px", marginBottom: "8px", color: "var(--text-dim2)" }} />
                 <p style={{ fontSize: "13px", fontWeight: 500 }}>No data available</p>
               </div>
             ) : (
               <ResponsiveContainer>
                 <LineChart data={salesByDay}>
-                  <CartesianGrid stroke="#F3F4F6" strokeDasharray="4 4" vertical={false} />
-                  <XAxis dataKey="day" stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={{ stroke: "#E5E7EB" }} dy={8} />
-                  <YAxis stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v} dx={-6} />
-                  <Tooltip content={<CustomTooltip currency={currency} />} cursor={{ stroke: "#D1D5DB", strokeWidth: 1, strokeDasharray: "4 4" }} />
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
+                  <XAxis dataKey="day" stroke="var(--text-dim2)" fontSize={11} tickLine={false} axisLine={{ stroke: "var(--border)" }} dy={8} />
+                  <YAxis stroke="var(--text-dim2)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v} dx={-6} />
+                  <Tooltip content={<CustomTooltip currency={currency} />} cursor={{ stroke: "var(--text-dim2)", strokeWidth: 1, strokeDasharray: "4 4" }} />
                   <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "12px" }} />
-                  <Line type="monotone" dataKey="revenue" stroke={ACCENT} strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: ACCENT, stroke: "#fff", strokeWidth: 2 }} name="Revenue" />
-                  <Line type="monotone" dataKey="profit" stroke={SUCCESS} strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: SUCCESS, stroke: "#fff", strokeWidth: 2 }} name="Profit" />
+                  <Line type="monotone" dataKey="revenue" stroke={ACCENT} strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: ACCENT, stroke: "var(--bg-surface)", strokeWidth: 2 }} name="Revenue" />
+                  <Line type="monotone" dataKey="profit" stroke={SUCCESS} strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: SUCCESS, stroke: "var(--bg-surface)", strokeWidth: 2 }} name="Profit" />
                 </LineChart>
               </ResponsiveContainer>
             )}
@@ -1466,17 +1466,17 @@ export default function AnalyticsPage() {
         className=""
       >
         {revenueByProduct.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "40px 0", color: "#9CA3AF" }}>
-            <BarChart3 style={{ width: "40px", height: "40px", margin: "0 auto 8px", color: "#D1D5DB" }} />
+          <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-dim2)" }}>
+            <BarChart3 style={{ width: "40px", height: "40px", margin: "0 auto 8px", color: "var(--text-dim2)" }} />
             <p style={{ fontSize: "13px", fontWeight: 500 }}>No revenue data yet</p>
           </div>
         ) : (
           <div style={{ width: "100%", height: `${Math.max(revenueByProduct.length * 50, 200)}px` }}>
             <ResponsiveContainer>
               <BarChart data={revenueByProduct} layout="vertical" margin={{ left: 10, right: 20 }}>
-                <CartesianGrid stroke="#F3F4F6" strokeDasharray="4 4" horizontal={false} />
-                <XAxis type="number" stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v} />
-                <YAxis type="category" dataKey="name" stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={false} width={100} />
+                <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" horizontal={false} />
+                <XAxis type="number" stroke="var(--text-dim2)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v} />
+                <YAxis type="category" dataKey="name" stroke="var(--text-dim2)" fontSize={11} tickLine={false} axisLine={false} width={100} />
                 <Tooltip content={<RevenueTooltip />} cursor={{ fill: "rgba(249, 115, 22, 0.04)" }} />
                 <Bar dataKey="revenue" name="Revenue" radius={[0, 6, 6, 0]} barSize={24}>
                   {revenueByProduct.map((entry, i) => (
@@ -1522,8 +1522,8 @@ export default function AnalyticsPage() {
         }
       >
         {productAnalytics.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "40px 0", color: "#9CA3AF" }}>
-            <Package style={{ width: "40px", height: "40px", margin: "0 auto 8px", color: "#D1D5DB" }} />
+          <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-dim2)" }}>
+            <Package style={{ width: "40px", height: "40px", margin: "0 auto 8px", color: "var(--text-dim2)" }} />
             <p style={{ fontSize: "13px", fontWeight: 500 }}>No sales data yet</p>
           </div>
         ) : (
@@ -1538,7 +1538,7 @@ export default function AnalyticsPage() {
                 borderBottom: "2px solid #F0F0F0",
                 fontSize: "11px",
                 fontWeight: 600,
-                color: "#9CA3AF",
+                color: "var(--text-dim2)",
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
               }}
@@ -1583,8 +1583,8 @@ export default function AnalyticsPage() {
         {/* Expenses by Category */}
         <SectionCard title="Expenses by Category" subtitle="Monthly expense breakdown" loading={loading}>
           {expensesByCategory.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "30px 0", color: "#9CA3AF" }}>
-              <Wallet style={{ width: "36px", height: "36px", margin: "0 auto 8px", color: "#D1D5DB" }} />
+            <div style={{ textAlign: "center", padding: "30px 0", color: "var(--text-dim2)" }}>
+              <Wallet style={{ width: "36px", height: "36px", margin: "0 auto 8px", color: "var(--text-dim2)" }} />
               <p style={{ fontSize: "13px", fontWeight: 500 }}>No monthly expenses recorded</p>
             </div>
           ) : (
@@ -1609,7 +1609,7 @@ export default function AnalyticsPage() {
                   borderTop: "2px solid #F0F0F0",
                   fontSize: "13px",
                   fontWeight: 700,
-                  color: "#111827",
+                  color: "var(--text)",
                 }}
               >
                 <span>Total</span>
@@ -1622,8 +1622,8 @@ export default function AnalyticsPage() {
         {/* Category Breakdown with Pie Chart */}
         <SectionCard title="Product Categories" subtitle="Distribution across categories" loading={loading}>
           {categoryBreakdown.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "30px 0", color: "#9CA3AF" }}>
-              <Layers style={{ width: "36px", height: "36px", margin: "0 auto 8px", color: "#D1D5DB" }} />
+            <div style={{ textAlign: "center", padding: "30px 0", color: "var(--text-dim2)" }}>
+              <Layers style={{ width: "36px", height: "36px", margin: "0 auto 8px", color: "var(--text-dim2)" }} />
               <p style={{ fontSize: "13px", fontWeight: 500 }}>No products yet</p>
             </div>
           ) : (
@@ -1650,15 +1650,15 @@ export default function AnalyticsPage() {
                         if (!active || !payload?.length) return null;
                         return (
                           <div style={{
-                            background: "#fff",
+                            background: "var(--bg-surface)",
                             border: "1px solid #E5E7EB",
                             borderRadius: "10px",
                             padding: "8px 14px",
                             boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
                             fontSize: "12px",
                           }}>
-                            <div style={{ fontWeight: 600, color: "#111827" }}>{payload[0].name}</div>
-                            <div style={{ color: "#6B7280" }}>{payload[0].value} products</div>
+                            <div style={{ fontWeight: 600, color: "var(--text)" }}>{payload[0].name}</div>
+                            <div style={{ color: "var(--text-dim)" }}>{payload[0].value} products</div>
                           </div>
                         );
                       }}
@@ -1715,8 +1715,8 @@ export default function AnalyticsPage() {
         }
       >
         {products.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "40px 0", color: "#9CA3AF" }}>
-            <Box style={{ width: "40px", height: "40px", margin: "0 auto 8px", color: "#D1D5DB" }} />
+          <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-dim2)" }}>
+            <Box style={{ width: "40px", height: "40px", margin: "0 auto 8px", color: "var(--text-dim2)" }} />
             <p style={{ fontSize: "13px", fontWeight: 500 }}>No products yet</p>
           </div>
         ) : (
@@ -1779,7 +1779,7 @@ export default function AnalyticsPage() {
                     borderRadius: "10px",
                     overflow: "hidden",
                     border: "1px solid #E5E7EB",
-                    background: "#fff",
+                    background: "var(--bg-surface)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -1793,7 +1793,7 @@ export default function AnalyticsPage() {
                   )}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "13px", fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {p.title}
                   </div>
                   <div style={{ fontSize: "11px", color: Number(p.stock) <= 0 ? DANGER : WARNING, fontWeight: 600 }}>
@@ -1828,17 +1828,17 @@ export default function AnalyticsPage() {
         loading={loading || productsQuery.isLoading}
       >
         {stockChartData.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "60px 0", color: "#9CA3AF" }}>
-            <BarChart3 style={{ width: "48px", height: "48px", margin: "0 auto 12px", color: "#D1D5DB" }} />
+          <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-dim2)" }}>
+            <BarChart3 style={{ width: "48px", height: "48px", margin: "0 auto 12px", color: "var(--text-dim2)" }} />
             <p style={{ fontSize: "14px", fontWeight: 500 }}>Add products to see the stock chart</p>
           </div>
         ) : (
           <div style={{ width: "100%", height: `${Math.max(stockChartData.length * 45, 300)}px` }}>
             <ResponsiveContainer>
               <BarChart data={stockChartData} layout="vertical" margin={{ left: 10, right: 30 }}>
-                <CartesianGrid stroke="#F3F4F6" strokeDasharray="4 4" horizontal={false} />
-                <XAxis type="number" stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis type="category" dataKey="name" stroke="#6B7280" fontSize={11} tickLine={false} axisLine={false} width={120} />
+                <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" horizontal={false} />
+                <XAxis type="number" stroke="var(--text-dim2)" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis type="category" dataKey="name" stroke="var(--text-dim)" fontSize={11} tickLine={false} axisLine={false} width={120} />
                 <Tooltip content={<StockTooltip />} cursor={{ fill: "rgba(249, 115, 22, 0.04)" }} />
                 <Bar dataKey="stock" name="Stock" radius={[0, 8, 8, 0]} barSize={22}>
                   {stockChartData.map((entry, i) => {
@@ -1869,23 +1869,23 @@ export default function AnalyticsPage() {
         loading={loading}
       >
         {profitMarginChart.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "60px 0", color: "#9CA3AF" }}>
-            <Target style={{ width: "48px", height: "48px", margin: "0 auto 12px", color: "#D1D5DB" }} />
+          <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-dim2)" }}>
+            <Target style={{ width: "48px", height: "48px", margin: "0 auto 12px", color: "var(--text-dim2)" }} />
             <p style={{ fontSize: "14px", fontWeight: 500 }}>Sell products to see the analysis</p>
           </div>
         ) : (
           <div style={{ width: "100%", height: "420px" }}>
             <ResponsiveContainer>
               <ComposedChart data={profitMarginChart} margin={{ top: 10, right: 30, left: 10, bottom: 20 }}>
-                <CartesianGrid stroke="#F3F4F6" strokeDasharray="4 4" vertical={false} />
-                <XAxis dataKey="name" stroke="#6B7280" fontSize={11} tickLine={false} axisLine={{ stroke: "#E5E7EB" }} angle={-30} textAnchor="end" height={60} />
-                <YAxis yAxisId="left" stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v} />
-                <YAxis yAxisId="right" orientation="right" stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={false} unit="%" domain={[0, 100]} />
+                <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
+                <XAxis dataKey="name" stroke="var(--text-dim)" fontSize={11} tickLine={false} axisLine={{ stroke: "var(--border)" }} angle={-30} textAnchor="end" height={60} />
+                <YAxis yAxisId="left" stroke="var(--text-dim2)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v} />
+                <YAxis yAxisId="right" orientation="right" stroke="var(--text-dim2)" fontSize={11} tickLine={false} axisLine={false} unit="%" domain={[0, 100]} />
                 <Tooltip content={<RevenueTooltip />} cursor={{ fill: "rgba(0,0,0,0.02)" }} />
                 <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }} />
                 <Bar yAxisId="left" dataKey="revenue" name="Revenue" fill={ACCENT} radius={[4, 4, 0, 0]} barSize={28} opacity={0.9} />
                 <Bar yAxisId="left" dataKey="profit" name="Profit" fill={SUCCESS} radius={[4, 4, 0, 0]} barSize={28} opacity={0.7} />
-                <Line yAxisId="right" type="monotone" dataKey="margin" name="Margin %" stroke={PURPLE} strokeWidth={2.5} dot={{ r: 4, fill: PURPLE, stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                <Line yAxisId="right" type="monotone" dataKey="margin" name="Margin %" stroke={PURPLE} strokeWidth={2.5} dot={{ r: 4, fill: PURPLE, stroke: "var(--bg-surface)", strokeWidth: 2 }} activeDot={{ r: 6 }} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -1904,60 +1904,60 @@ export default function AnalyticsPage() {
         loading={loading}
       >
         {marginScatter.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "60px 0", color: "#9CA3AF" }}>
-            <PieChartIcon style={{ width: "48px", height: "48px", margin: "0 auto 12px", color: "#D1D5DB" }} />
+          <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-dim2)" }}>
+            <PieChartIcon style={{ width: "48px", height: "48px", margin: "0 auto 12px", color: "var(--text-dim2)" }} />
             <p style={{ fontSize: "14px", fontWeight: 500 }}>Sell products to see scatter analysis</p>
           </div>
         ) : (
           <div style={{ width: "100%", height: "360px" }}>
             <ResponsiveContainer>
               <ComposedChart data={marginScatter} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                <CartesianGrid stroke="#F3F4F6" strokeDasharray="4 4" />
-                <XAxis dataKey="margin" stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={{ stroke: "#E5E7EB" }} label={{ value: "Margin %", position: "insideBottom", offset: -10, style: { fontSize: "11px", fill: "#9CA3AF" } }} />
-                <YAxis dataKey="revenue" stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v} label={{ value: "Revenue", angle: -90, position: "insideLeft", offset: 0, style: { fontSize: "11px", fill: "#9CA3AF" } }} />
+                <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" />
+                <XAxis dataKey="margin" stroke="var(--text-dim2)" fontSize={11} tickLine={false} axisLine={{ stroke: "var(--border)" }} label={{ value: "Margin %", position: "insideBottom", offset: -10, style: { fontSize: "11px", fill: "var(--text-dim2)" } }} />
+                <YAxis dataKey="revenue" stroke="var(--text-dim2)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v} label={{ value: "Revenue", angle: -90, position: "insideLeft", offset: 0, style: { fontSize: "11px", fill: "var(--text-dim2)" } }} />
                 <Tooltip
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null;
                     const d = payload[0]?.payload;
                     return (
-                      <div style={{ background: "#fff", border: "1px solid #E5E7EB", borderRadius: "14px", padding: "14px 18px", boxShadow: "0 8px 30px rgba(0,0,0,0.1)", maxWidth: "220px" }}>
+                      <div style={{ background: "var(--bg-surface)", border: "1px solid #E5E7EB", borderRadius: "14px", padding: "14px 18px", boxShadow: "0 8px 30px rgba(0,0,0,0.1)", maxWidth: "220px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
                           {d?.image && <img src={d.image} alt="" style={{ width: "32px", height: "32px", borderRadius: "8px", objectFit: "cover", border: "1px solid #E5E7EB" }} />}
-                          <div style={{ fontSize: "13px", fontWeight: 700, color: "#111827" }}>{d?.name}</div>
+                          <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)" }}>{d?.name}</div>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: "12px" }}>
-                          <span style={{ color: "#6B7280" }}>Margin</span>
+                          <span style={{ color: "var(--text-dim)" }}>Margin</span>
                           <span style={{ fontWeight: 600, color: ACCENT }}>{d?.margin?.toFixed(1)}%</span>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: "12px" }}>
-                          <span style={{ color: "#6B7280" }}>Revenue</span>
-                          <span style={{ fontWeight: 600, color: "#111827" }}>{fmt(d?.revenue || 0)}</span>
+                          <span style={{ color: "var(--text-dim)" }}>Revenue</span>
+                          <span style={{ fontWeight: 600, color: "var(--text)" }}>{fmt(d?.revenue || 0)}</span>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: "12px" }}>
-                          <span style={{ color: "#6B7280" }}>Units</span>
-                          <span style={{ fontWeight: 600, color: "#111827" }}>{d?.sold || 0}</span>
+                          <span style={{ color: "var(--text-dim)" }}>Units</span>
+                          <span style={{ fontWeight: 600, color: "var(--text)" }}>{d?.sold || 0}</span>
                         </div>
                       </div>
                     );
                   }}
                 />
-                <Scatter dataKey="revenue" fill={ACCENT} stroke="#fff" strokeWidth={2} r={8} name="Products" opacity={0.8} />
+                <Scatter dataKey="revenue" fill={ACCENT} stroke="var(--bg-surface)" strokeWidth={2} r={8} name="Products" opacity={0.8} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
         )}
 
         {marginScatter.length > 0 && (
-          <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap", marginTop: "16px", padding: "12px 16px", background: "#FAFAFA", borderRadius: "12px", border: "1px solid #F0F0F0" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#6B7280" }}>
+          <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap", marginTop: "16px", padding: "12px 16px", background: "var(--bg-elev)", borderRadius: "12px", border: "1px solid #F0F0F0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "var(--text-dim)" }}>
               <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: SUCCESS }} />
               <span>High Margin (≥50%)</span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#6B7280" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "var(--text-dim)" }}>
               <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: ACCENT }} />
               <span>Medium (20-50%)</span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#6B7280" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "var(--text-dim)" }}>
               <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: DANGER }} />
               <span>Low (&lt;20%)</span>
             </div>
@@ -1976,18 +1976,18 @@ export default function AnalyticsPage() {
           <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${ACCENT_BG}, #fff)`, border: `1px solid ${ACCENT_BORDER}`, transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
               <IndianRupee style={{ width: "16px", height: "16px", color: ACCENT }} />
-              <span style={{ fontSize: "12px", color: "#9CA3AF", fontWeight: 500 }}>Month Revenue</span>
+              <span style={{ fontSize: "12px", color: "var(--text-dim2)", fontWeight: 500 }}>Month Revenue</span>
             </div>
-            <div style={{ fontSize: "24px", fontWeight: 800, color: "#111827" }}>{fmt(stats.monthRevenue || 0)}</div>
-            <div style={{ fontSize: "12px", color: "#6B7280", marginTop: "4px" }}>{stats.monthCount || 0} transactions</div>
+            <div style={{ fontSize: "24px", fontWeight: 800, color: "var(--text)" }}>{fmt(stats.monthRevenue || 0)}</div>
+            <div style={{ fontSize: "12px", color: "var(--text-dim)", marginTop: "4px" }}>{stats.monthCount || 0} transactions</div>
           </div>
 
           <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${SUCCESS_BG}, #fff)`, border: `1px solid ${SUCCESS_BORDER}`, transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
               <TrendingUp style={{ width: "16px", height: "16px", color: SUCCESS }} />
-              <span style={{ fontSize: "12px", color: "#9CA3AF", fontWeight: 500 }}>Month Profit</span>
+              <span style={{ fontSize: "12px", color: "var(--text-dim2)", fontWeight: 500 }}>Month Profit</span>
             </div>
-            <div style={{ fontSize: "24px", fontWeight: 800, color: "#111827" }}>{fmt(stats.monthProfit || 0)}</div>
+            <div style={{ fontSize: "24px", fontWeight: 800, color: "var(--text)" }}>{fmt(stats.monthProfit || 0)}</div>
             <div style={{ fontSize: "12px", color: SUCCESS, fontWeight: 600, marginTop: "4px" }}>
               {stats.monthRevenue > 0 ? `${((stats.monthProfit / stats.monthRevenue) * 100).toFixed(1)}% margin` : "\u2014"}
             </div>
@@ -1996,36 +1996,36 @@ export default function AnalyticsPage() {
           <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${DANGER_BG}, #fff)`, border: `1px solid ${DANGER_BORDER}`, transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
               <Wallet style={{ width: "16px", height: "16px", color: DANGER }} />
-              <span style={{ fontSize: "12px", color: "#9CA3AF", fontWeight: 500 }}>Month Expenses</span>
+              <span style={{ fontSize: "12px", color: "var(--text-dim2)", fontWeight: 500 }}>Month Expenses</span>
             </div>
-            <div style={{ fontSize: "24px", fontWeight: 800, color: "#111827" }}>{fmt(stats.monthExpenses || 0)}</div>
-            <div style={{ fontSize: "12px", color: "#6B7280", marginTop: "4px" }}>Deducted from profit</div>
+            <div style={{ fontSize: "24px", fontWeight: 800, color: "var(--text)" }}>{fmt(stats.monthExpenses || 0)}</div>
+            <div style={{ fontSize: "12px", color: "var(--text-dim)", marginTop: "4px" }}>Deducted from profit</div>
           </div>
 
           <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${(stats.netProfit || 0) >= 0 ? SUCCESS_BG : DANGER_BG}, #fff)`, border: `1px solid ${(stats.netProfit || 0) >= 0 ? SUCCESS_BORDER : DANGER_BORDER}`, transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
               <Activity style={{ width: "16px", height: "16px", color: (stats.netProfit || 0) >= 0 ? SUCCESS : DANGER }} />
-              <span style={{ fontSize: "12px", color: "#9CA3AF", fontWeight: 500 }}>Net Profit</span>
+              <span style={{ fontSize: "12px", color: "var(--text-dim2)", fontWeight: 500 }}>Net Profit</span>
             </div>
             <div style={{ fontSize: "24px", fontWeight: 800, color: (stats.netProfit || 0) >= 0 ? SUCCESS : DANGER }}>{fmt(stats.netProfit || 0)}</div>
-            <div style={{ fontSize: "12px", color: "#6B7280", marginTop: "4px" }}>Revenue - Expenses</div>
+            <div style={{ fontSize: "12px", color: "var(--text-dim)", marginTop: "4px" }}>Revenue - Expenses</div>
           </div>
 
           <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${INFO_BG}, #fff)`, border: "1px solid rgba(37, 99, 235, 0.2)", transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
               <Calendar style={{ width: "16px", height: "16px", color: INFO }} />
-              <span style={{ fontSize: "12px", color: "#9CA3AF", fontWeight: 500 }}>Today Revenue</span>
+              <span style={{ fontSize: "12px", color: "var(--text-dim2)", fontWeight: 500 }}>Today Revenue</span>
             </div>
-            <div style={{ fontSize: "24px", fontWeight: 800, color: "#111827" }}>{fmt(stats.todayRevenue || 0)}</div>
-            <div style={{ fontSize: "12px", color: "#6B7280", marginTop: "4px" }}>{stats.todayCount || 0} sales today</div>
+            <div style={{ fontSize: "24px", fontWeight: 800, color: "var(--text)" }}>{fmt(stats.todayRevenue || 0)}</div>
+            <div style={{ fontSize: "12px", color: "var(--text-dim)", marginTop: "4px" }}>{stats.todayCount || 0} sales today</div>
           </div>
 
           <div style={{ padding: "20px", borderRadius: "14px", background: `linear-gradient(135deg, ${PURPLE_BG}, #fff)`, border: "1px solid rgba(139, 92, 246, 0.2)", transition: "transform 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
               <Sparkles style={{ width: "16px", height: "16px", color: PURPLE }} />
-              <span style={{ fontSize: "12px", color: "#9CA3AF", fontWeight: 500 }}>Today Profit</span>
+              <span style={{ fontSize: "12px", color: "var(--text-dim2)", fontWeight: 500 }}>Today Profit</span>
             </div>
-            <div style={{ fontSize: "24px", fontWeight: 800, color: "#111827" }}>{fmt(stats.todayProfit || 0)}</div>
+            <div style={{ fontSize: "24px", fontWeight: 800, color: "var(--text)" }}>{fmt(stats.todayProfit || 0)}</div>
             <div style={{ fontSize: "12px", color: PURPLE, fontWeight: 600, marginTop: "4px" }}>
               {stats.todayRevenue > 0 ? `${((stats.todayProfit / stats.todayRevenue) * 100).toFixed(1)}% margin` : "\u2014"}
             </div>
@@ -2041,15 +2041,15 @@ export default function AnalyticsPage() {
        * ═══════════════════════════════════════════════════════════════════ */}
       <SectionCard title="Detailed Margin Table" subtitle="Complete product profitability breakdown" loading={loading}>
         {productAnalytics.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "40px 0", color: "#9CA3AF" }}>
-            <FileText style={{ width: "40px", height: "40px", margin: "0 auto 8px", color: "#D1D5DB" }} />
+          <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-dim2)" }}>
+            <FileText style={{ width: "40px", height: "40px", margin: "0 auto 8px", color: "var(--text-dim2)" }} />
             <p style={{ fontSize: "13px", fontWeight: 500 }}>No sales data yet</p>
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
               <thead>
-                <tr style={{ borderBottom: "2px solid #F0F0F0", fontSize: "11px", fontWeight: 600, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                <tr style={{ borderBottom: "2px solid #F0F0F0", fontSize: "11px", fontWeight: 600, color: "var(--text-dim2)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   <th style={{ textAlign: "left", padding: "10px 12px" }}>Product</th>
                   <th style={{ textAlign: "right", padding: "10px 12px" }}>Cost</th>
                   <th style={{ textAlign: "right", padding: "10px 12px" }}>Price</th>
@@ -2065,23 +2065,23 @@ export default function AnalyticsPage() {
                   const perUnit = Number(p.sellingPrice || 0) - Number(p.costPrice || 0);
                   const mc = (p.margin || 0) >= 50 ? SUCCESS : (p.margin || 0) >= 20 ? ACCENT : DANGER;
                   return (
-                    <tr key={p.productId} style={{ borderBottom: "1px solid #F5F5F5", transition: "background 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.background = "#FAFAFA"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                    <tr key={p.productId} style={{ borderBottom: "1px solid #F5F5F5", transition: "background 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elev)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
                       <td style={{ padding: "10px 12px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                          <div style={{ width: "32px", height: "32px", borderRadius: "8px", overflow: "hidden", border: "1px solid #E5E7EB", background: "#FAFAFA", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                            {p.imageUrl ? <img src={p.imageUrl} alt={p.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Package style={{ width: "14px", height: "14px", color: "#D1D5DB" }} />}
+                          <div style={{ width: "32px", height: "32px", borderRadius: "8px", overflow: "hidden", border: "1px solid #E5E7EB", background: "var(--bg-elev)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                            {p.imageUrl ? <img src={p.imageUrl} alt={p.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Package style={{ width: "14px", height: "14px", color: "var(--text-dim2)" }} />}
                           </div>
-                          <span style={{ fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "150px" }}>{p.title}</span>
+                          <span style={{ fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "150px" }}>{p.title}</span>
                         </div>
                       </td>
-                      <td style={{ textAlign: "right", padding: "10px 12px", color: "#6B7280" }}>{fmt(p.costPrice)}</td>
-                      <td style={{ textAlign: "right", padding: "10px 12px", color: "#374151" }}>{fmt(p.sellingPrice)}</td>
+                      <td style={{ textAlign: "right", padding: "10px 12px", color: "var(--text-dim)" }}>{fmt(p.costPrice)}</td>
+                      <td style={{ textAlign: "right", padding: "10px 12px", color: "var(--text)" }}>{fmt(p.sellingPrice)}</td>
                       <td style={{ textAlign: "right", padding: "10px 12px", color: SUCCESS, fontWeight: 600 }}>{fmt(perUnit)}</td>
                       <td style={{ textAlign: "right", padding: "10px 12px" }}>
                         <span style={{ fontSize: "11px", fontWeight: 600, padding: "3px 8px", borderRadius: "20px", color: mc, background: mc === SUCCESS ? SUCCESS_BG : mc === ACCENT ? ACCENT_BG : DANGER_BG }}>{(p.margin || 0).toFixed(1)}%</span>
                       </td>
-                      <td style={{ textAlign: "right", padding: "10px 12px", fontWeight: 600, color: "#374151" }}>{p.quantitySold}</td>
-                      <td style={{ textAlign: "right", padding: "10px 12px", fontWeight: 700, color: "#111827" }}>{fmt(p.revenue)}</td>
+                      <td style={{ textAlign: "right", padding: "10px 12px", fontWeight: 600, color: "var(--text)" }}>{p.quantitySold}</td>
+                      <td style={{ textAlign: "right", padding: "10px 12px", fontWeight: 700, color: "var(--text)" }}>{fmt(p.revenue)}</td>
                       <td style={{ textAlign: "right", padding: "10px 12px", fontWeight: 700, color: SUCCESS }}>{fmt(p.profit)}</td>
                     </tr>
                   );
@@ -2089,10 +2089,10 @@ export default function AnalyticsPage() {
               </tbody>
               <tfoot>
                 <tr style={{ borderTop: "2px solid #F0F0F0" }}>
-                  <td style={{ padding: "12px", fontWeight: 700, color: "#111827" }}>Total ({productAnalytics.length})</td>
+                  <td style={{ padding: "12px", fontWeight: 700, color: "var(--text)" }}>Total ({productAnalytics.length})</td>
                   <td colSpan={4} />
-                  <td style={{ textAlign: "right", padding: "12px", fontWeight: 700, color: "#374151" }}>{productAnalytics.reduce((s, p) => s + p.quantitySold, 0)}</td>
-                  <td style={{ textAlign: "right", padding: "12px", fontWeight: 700, color: "#111827" }}>{fmt(productAnalytics.reduce((s, p) => s + p.revenue, 0))}</td>
+                  <td style={{ textAlign: "right", padding: "12px", fontWeight: 700, color: "var(--text)" }}>{productAnalytics.reduce((s, p) => s + p.quantitySold, 0)}</td>
+                  <td style={{ textAlign: "right", padding: "12px", fontWeight: 700, color: "var(--text)" }}>{fmt(productAnalytics.reduce((s, p) => s + p.revenue, 0))}</td>
                   <td style={{ textAlign: "right", padding: "12px", fontWeight: 700, color: SUCCESS }}>{fmt(productAnalytics.reduce((s, p) => s + p.profit, 0))}</td>
                 </tr>
               </tfoot>
@@ -2118,7 +2118,7 @@ export default function AnalyticsPage() {
       {/* ═══════════════════════════════════════════════════════════════════
        * FOOTER
        * ═══════════════════════════════════════════════════════════════════ */}
-      <div style={{ textAlign: "center", padding: "20px 0", fontSize: "12px", color: "#D1D5DB" }}>
+      <div style={{ textAlign: "center", padding: "20px 0", fontSize: "12px", color: "var(--text-dim2)" }}>
         Powered by <span style={{ color: ACCENT, fontWeight: 600 }}>MDX Billing</span> · Premium Shop Management
       </div>
     </DashboardShell>
