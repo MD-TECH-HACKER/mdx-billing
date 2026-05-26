@@ -3,7 +3,26 @@
 @tailwind utilities;
 
 @layer base {
+  html,
+  body,
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar,
+  *::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
   input, textarea, select, button {
     @apply outline-none focus:outline-none;
   }
+}
+
+.mdx-route-loader {
+  background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
 }

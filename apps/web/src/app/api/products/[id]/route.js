@@ -1,11 +1,26 @@
 import sql from "@/app/api/utils/sql";
 import { auth } from "@/auth";
+import { sanitizeProductUnit } from "@/utils/productUnits";
+
+async function ensureProductUnitColumns() {
+  await sql`
+    ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS primary_unit TEXT DEFAULT 'piece',
+    ADD COLUMN IF NOT EXISTS secondary_unit TEXT
+  `;
+  await sql`
+    UPDATE products
+    SET primary_unit = 'piece'
+    WHERE primary_unit IS NULL OR primary_unit = ''
+  `;
+}
 
 export async function GET(request, { params }) {
   try {
     const session = await auth();
     if (!session?.user?.id)
       return Response.json({ error: "Unauthorized" }, { status: 401 });
+    await ensureProductUnitColumns();
     const id = parseInt(params.id);
     if (!id) return Response.json({ error: "Invalid id" }, { status: 400 });
     const rows =
@@ -23,6 +38,7 @@ export async function PUT(request, { params }) {
     const session = await auth();
     if (!session?.user?.id)
       return Response.json({ error: "Unauthorized" }, { status: 401 });
+    await ensureProductUnitColumns();
     const id = parseInt(params.id);
     if (!id) return Response.json({ error: "Invalid id" }, { status: 400 });
 
@@ -44,6 +60,14 @@ export async function PUT(request, { params }) {
       fields.category = body.category.trim().slice(0, 50) || null;
     if (typeof body.sku === "string")
       fields.sku = body.sku.trim().slice(0, 50) || null;
+    if (body.primaryUnit !== undefined)
+      fields.primary_unit = sanitizeProductUnit(body.primaryUnit, {
+        fallback: "piece",
+      });
+    if (body.secondaryUnit !== undefined)
+      fields.secondary_unit = sanitizeProductUnit(body.secondaryUnit, {
+        fallback: null,
+      });
 
     const keys = Object.keys(fields);
     if (keys.length === 0)
@@ -67,6 +91,7 @@ export async function DELETE(request, { params }) {
     const session = await auth();
     if (!session?.user?.id)
       return Response.json({ error: "Unauthorized" }, { status: 401 });
+    await ensureProductUnitColumns();
     const id = parseInt(params.id);
     if (!id) return Response.json({ error: "Invalid id" }, { status: 400 });
     const result =

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import {
   Sparkles,
   ArrowRight,
@@ -18,6 +19,7 @@ import useUser from "@/utils/useUser";
 export default function WelcomePage() {
   const { data: user, loading } = useUser();
   const [checking, setChecking] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (loading || !user) return;
@@ -25,10 +27,10 @@ export default function WelcomePage() {
     fetch("/api/shop")
       .then((r) => r.json())
       .then((d) => {
-        window.location.href = d.shop ? "/dashboard" : "/setup-shop";
+        navigate(d.shop ? "/dashboard" : "/setup-shop", { replace: true });
       })
       .catch(() => setChecking(false));
-  }, [user, loading]);
+  }, [user, loading, navigate]);
 
   const goSignIn = () =>
     (window.location.href = `/account/signin?callbackUrl=${encodeURIComponent("/")}`);

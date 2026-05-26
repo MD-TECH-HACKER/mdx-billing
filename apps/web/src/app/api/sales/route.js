@@ -1,5 +1,14 @@
 import sql from "@/app/api/utils/sql";
 import { auth } from "@/auth";
+import { sanitizeProductUnit } from "@/utils/productUnits";
+
+async function ensureProductUnitColumns() {
+  await sql`
+    ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS primary_unit TEXT DEFAULT 'piece',
+    ADD COLUMN IF NOT EXISTS secondary_unit TEXT
+  `;
+}
 
 export async function GET(request) {
   try {
@@ -56,6 +65,7 @@ export async function POST(request) {
     const session = await auth();
     if (!session?.user?.id)
       return Response.json({ error: "Unauthorized" }, { status: 401 });
+    await ensureProductUnitColumns();
 
     const shopRows =
       await sql`SELECT shop_id, receipt_prefix, tax_percent FROM shops WHERE owner_id = ${session.user.id} LIMIT 1`;
@@ -132,6 +142,12 @@ export async function POST(request) {
         quantity: qty,
         unitPrice: sp,
         costPrice: cp,
+        primaryUnit: sanitizeProductUnit(p.primary_unit, {
+          fallback: "piece",
+        }),
+        secondaryUnit: sanitizeProductUnit(p.secondary_unit, {
+          fallback: null,
+        }),
         subtotal: sp * qty,
       });
     }

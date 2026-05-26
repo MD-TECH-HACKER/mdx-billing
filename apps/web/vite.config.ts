@@ -83,7 +83,7 @@ export default defineConfig({
   server: {
     allowedHosts: true,
     host: '0.0.0.0',
-    port: 443,
+    port: Number(process.env.PORT || 443),
     https: true,
     fs: {
       allow: ['..', '../../shared'],

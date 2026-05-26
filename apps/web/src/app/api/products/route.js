@@ -1,5 +1,19 @@
 import sql from "@/app/api/utils/sql";
 import { auth } from "@/auth";
+import { sanitizeProductUnit } from "@/utils/productUnits";
+
+async function ensureProductUnitColumns() {
+  await sql`
+    ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS primary_unit TEXT DEFAULT 'piece',
+    ADD COLUMN IF NOT EXISTS secondary_unit TEXT
+  `;
+  await sql`
+    UPDATE products
+    SET primary_unit = 'piece'
+    WHERE primary_unit IS NULL OR primary_unit = ''
+  `;
+}
 
 async function getShopForUser(userId) {
   const rows =
@@ -13,6 +27,7 @@ export async function GET(request) {
     if (!session?.user?.id) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    await ensureProductUnitColumns();
     const url = new URL(request.url);
     const search = url.searchParams.get("search");
     const category = url.searchParams.get("category");
@@ -44,6 +59,7 @@ export async function POST(request) {
     if (!session?.user?.id) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    await ensureProductUnitColumns();
     const shopId = await getShopForUser(session.user.id);
     if (!shopId) {
       return Response.json(
@@ -66,10 +82,16 @@ export async function POST(request) {
     const category =
       (body.category || "").toString().trim().slice(0, 50) || null;
     const sku = (body.sku || "").toString().trim().slice(0, 50) || null;
+    const primaryUnit = sanitizeProductUnit(body.primaryUnit, {
+      fallback: "piece",
+    });
+    const secondaryUnit = sanitizeProductUnit(body.secondaryUnit, {
+      fallback: null,
+    });
 
     const created = await sql`
-      INSERT INTO products (owner_id, shop_id, image_url, title, description, selling_price, cost_price, stock, category, sku)
-      VALUES (${session.user.id}, ${shopId}, ${imageUrl}, ${title}, ${description}, ${sellingPrice}, ${costPrice}, ${stock}, ${category}, ${sku})
+      INSERT INTO products (owner_id, shop_id, image_url, title, description, selling_price, cost_price, stock, category, sku, primary_unit, secondary_unit)
+      VALUES (${session.user.id}, ${shopId}, ${imageUrl}, ${title}, ${description}, ${sellingPrice}, ${costPrice}, ${stock}, ${category}, ${sku}, ${primaryUnit}, ${secondaryUnit})
       RETURNING *`;
     return Response.json({ product: created[0] });
   } catch (err) {

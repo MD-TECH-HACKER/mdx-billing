@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 import { Store, Upload, ArrowRight, IndianRupee } from "lucide-react";
 import useUser from "@/utils/useUser";
 import useUpload from "@/utils/useUpload";
+import { AppLoader } from "@/components/ui";
 
 export default function SetupShopPage() {
   const { data: user, loading: userLoading } = useUser();
   const [upload, { loading: uploading }] = useUpload();
+  const navigate = useNavigate();
   const [displayName, setDisplayName] = useState("");
   const [shopName, setShopName] = useState("");
   const [shopDescription, setShopDescription] = useState("");
@@ -14,6 +17,7 @@ export default function SetupShopPage() {
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [shopChecking, setShopChecking] = useState(true);
 
   useEffect(() => {
     if (!userLoading && !user) {
@@ -27,14 +31,12 @@ export default function SetupShopPage() {
       .then((r) => r.json())
       .then((d) => {
         if (d.shop) {
-          setShopName(d.shop.shop_name || "");
-          setShopDescription(d.shop.shop_description || "");
-          setShopLogo(d.shop.shop_logo || "");
-          setAddress(d.shop.address || "");
-          setPhone(d.shop.phone || "");
+          navigate("/dashboard", { replace: true });
+          return;
         }
+        setShopChecking(false);
       })
-      .catch(() => {});
+      .catch(() => setShopChecking(false));
     // also fetch profile to prefill display name
     fetch("/api/profile")
       .then((r) => r.json())
@@ -43,7 +45,7 @@ export default function SetupShopPage() {
           setDisplayName(d.profile.displayName || d.profile.name || "");
       })
       .catch(() => {});
-  }, [user]);
+  }, [user, navigate]);
 
   const handleLogo = async (e) => {
     const file = e.target.files?.[0];
@@ -97,13 +99,17 @@ export default function SetupShopPage() {
       }
       const results = await Promise.all(promises);
       if (!results[0].ok) throw new Error("Failed to save shop");
-      window.location.href = "/dashboard";
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       console.error(err);
       setError("Could not save shop. Try again.");
       setSaving(false);
     }
   };
+
+  if (userLoading || !user || shopChecking) {
+    return <AppLoader fullScreen label="Checking your shop..." />;
+  }
 
   return (
     <div className="min-h-screen w-full relative overflow-hidden flex items-center justify-center px-4 py-10 font-inter">

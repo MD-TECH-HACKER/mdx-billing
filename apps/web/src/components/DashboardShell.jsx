@@ -2,6 +2,7 @@
 // Reacts to theme tokens, supports prefetching, and works as a single shared layout.
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router";
 import {
   LayoutDashboard,
   Package,
@@ -20,6 +21,7 @@ import useCart from "@/utils/useCart";
 import ThemeStyles from "@/components/ThemeStyles";
 import ToastHost from "@/components/Toast";
 import { initTheme } from "@/utils/theme";
+import { AppLoader } from "@/components/ui";
 
 const NAV = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
@@ -65,6 +67,7 @@ export default function DashboardShell({
   const { count: cartCount } = useCart();
   const qc = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navigate = useNavigate();
 
   // initial theme paint from localStorage (before shop loads)
   useEffect(() => {
@@ -74,9 +77,9 @@ export default function DashboardShell({
   // gate
   useEffect(() => {
     if (!userLoading && !user && typeof window !== "undefined") {
-      window.location.href = `/account/signin?callbackUrl=${encodeURIComponent(currentPath || "/dashboard")}`;
+      navigate("/", { replace: true });
     }
-  }, [user, userLoading, currentPath]);
+  }, [user, userLoading, navigate]);
 
   // shop check redirect (only when explicitly required by page)
   useEffect(() => {
@@ -84,10 +87,26 @@ export default function DashboardShell({
     if (shopLoading) return; // wait until fetch resolved
     if (shop === null && typeof window !== "undefined") {
       if (!window.location.pathname.startsWith("/setup-shop")) {
-        window.location.href = "/setup-shop";
+        navigate("/setup-shop", { replace: true });
       }
     }
-  }, [user, shop, shopLoading, requireShop]);
+  }, [user, shop, shopLoading, requireShop, navigate]);
+
+  if (userLoading) {
+    return <AppLoader fullScreen label="Checking your secure session..." />;
+  }
+
+  if (!user) {
+    return <AppLoader fullScreen label="Redirecting to MDX Billing..." />;
+  }
+
+  if (requireShop && shopLoading) {
+    return <AppLoader fullScreen label="Loading your shop..." />;
+  }
+
+  if (requireShop && shop === null) {
+    return <AppLoader fullScreen label="Opening shop setup..." />;
+  }
 
   const isActive = (href) =>
     currentPath === href ||
@@ -110,7 +129,7 @@ export default function DashboardShell({
         {/* Desktop sidebar */}
         <aside className="hidden lg:flex flex-col w-64 fixed h-screen p-4 z-30 no-print">
           <div className="flex-1 t-card p-4 flex flex-col">
-            <a href="/dashboard" className="flex items-center gap-3 mb-7 px-2">
+            <Link to="/dashboard" className="flex items-center gap-3 mb-7 px-2">
               <div
                 className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg"
                 style={{
@@ -128,16 +147,16 @@ export default function DashboardShell({
                   Premium
                 </div>
               </div>
-            </a>
+            </Link>
 
             <nav className="flex-1 space-y-1">
               {NAV.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
                 return (
-                  <a
+                  <Link
                     key={item.href}
-                    href={item.href}
+                    to={item.href}
                     onMouseEnter={() => prefetchRoute(qc, item.href)}
                     className={linkClass(active)}
                     style={
@@ -160,7 +179,7 @@ export default function DashboardShell({
                         {cartCount}
                       </span>
                     ) : null}
-                  </a>
+                  </Link>
                 );
               })}
             </nav>
@@ -209,9 +228,9 @@ export default function DashboardShell({
                     const Icon = item.icon;
                     const active = isActive(item.href);
                     return (
-                      <a
+                      <Link
                         key={item.href}
-                        href={item.href}
+                        to={item.href}
                         onClick={() => setMobileOpen(false)}
                         className={linkClass(active)}
                         style={
@@ -227,7 +246,7 @@ export default function DashboardShell({
                       >
                         <Icon className="w-5 h-5" />
                         <span>{item.label}</span>
-                      </a>
+                      </Link>
                     );
                   })}
                 </nav>
@@ -256,7 +275,7 @@ export default function DashboardShell({
                 <Menu className="w-5 h-5" />
               </button>
 
-              <a href="/dashboard" className="flex items-center gap-2 min-w-0">
+              <Link to="/dashboard" className="flex items-center gap-2 min-w-0">
                 {shop?.shop_logo ? (
                   <img
                     src={shop.shop_logo}
@@ -284,20 +303,20 @@ export default function DashboardShell({
                     </div>
                   ) : null}
                 </div>
-              </a>
+              </Link>
 
               <div className="flex-1" />
 
-              <a
-                href="/billing"
+              <Link
+                to="/billing"
                 className="relative flex items-center gap-2 px-3 py-1.5 rounded-xl t-elev hover:bg-[var(--bg-input-focus)] t-text"
                 title="Cart"
               >
                 <ShoppingCart className="w-4 h-4" />
                 <span className="text-xs font-semibold">{cartCount}</span>
-              </a>
-              <a
-                href="/settings"
+              </Link>
+              <Link
+                to="/settings"
                 className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-[var(--bg-elev)] transition"
               >
                 {user?.image ? (
@@ -325,7 +344,7 @@ export default function DashboardShell({
                     {user?.email}
                   </div>
                 </div>
-              </a>
+              </Link>
             </div>
           </header>
 
@@ -340,9 +359,9 @@ export default function DashboardShell({
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
-              <a
+              <Link
                 key={item.href}
-                href={item.href}
+                to={item.href}
                 className="relative flex flex-col items-center gap-0.5 px-2.5 py-1 rounded-xl"
                 style={
                   active
@@ -375,7 +394,7 @@ export default function DashboardShell({
                     {cartCount}
                   </span>
                 ) : null}
-              </a>
+              </Link>
             );
           })}
         </div>

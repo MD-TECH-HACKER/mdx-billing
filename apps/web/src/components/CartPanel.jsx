@@ -5,6 +5,7 @@ import { QtyStepper, Button } from "@/components/ui";
 import { formatMoney } from "@/utils/currency";
 import { updateQuantity, removeFromCart, clearCart } from "@/utils/cartStore";
 import useCart from "@/utils/useCart";
+import { getProductUnitLabel } from "@/utils/productUnits";
 
 export default function CartPanel({
   currency = "INR",
@@ -70,6 +71,7 @@ export default function CartPanel({
             {cart.map((item) => {
               const subtotal =
                 Number(item.selling_price) * Number(item.quantity);
+              const unitLabel = getProductUnitLabel(item);
               return (
                 <div
                   key={item.product_id}
@@ -91,7 +93,7 @@ export default function CartPanel({
                       {item.title}
                     </div>
                     <div className="t-dim text-[11px] mb-1">
-                      {fmt(item.selling_price)} each
+                      {fmt(item.selling_price)} / {unitLabel}
                     </div>
                     <div className="flex items-center justify-between gap-2">
                       <QtyStepper

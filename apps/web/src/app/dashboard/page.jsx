@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router";
 import {
   Package,
   ShoppingCart,
@@ -400,11 +401,11 @@ export default function DashboardPage() {
           <h3 className="t-text font-semibold text-sm md:text-base">
             Recent Sales
           </h3>
-          <a href="/sales">
+          <Link to="/sales">
             <Button variant="secondary" size="sm">
               View all <ArrowRight className="w-3.5 h-3.5" />
             </Button>
-          </a>
+          </Link>
         </div>
         {recentSales.length === 0 ? (
           <div className="text-center py-8">
@@ -414,9 +415,9 @@ export default function DashboardPage() {
         ) : (
           <div className="space-y-2">
             {recentSales.map((s) => (
-              <a
+              <Link
                 key={s.sale_id}
-                href={`/sales/${s.sale_id}`}
+                to={`/sales/${s.sale_id}`}
                 className="flex items-center gap-3 rounded-xl t-elev p-3 hover:bg-[var(--bg-input-focus)] transition"
               >
                 <div
@@ -445,7 +446,7 @@ export default function DashboardPage() {
                     {s.total_quantity} units
                   </div>
                 </div>
-              </a>
+              </Link>
             ))}
           </div>
         )}

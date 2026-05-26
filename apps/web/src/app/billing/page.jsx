@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router";
 import {
   Trash2,
   ShoppingCart,
@@ -23,6 +24,7 @@ import {
   Select,
   QtyStepper,
 } from "@/components/ui";
+import { getProductUnitLabel } from "@/utils/productUnits";
 
 const PAYMENT_METHODS = [
   { value: "cash", label: "💵 Cash" },
@@ -42,6 +44,7 @@ export default function BillingPage() {
   const { data: user } = useUser();
   const { shop } = useShop({ enabled: !!user });
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const {
     cart,
     totalAmount,
@@ -93,7 +96,7 @@ export default function BillingPage() {
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["analytics"] });
       showToast("Receipt generated!");
-      window.location.href = `/sales/${data.sale.sale_id}`;
+      navigate(`/sales/${data.sale.sale_id}`);
     } catch (e) {
       console.error(e);
       showToast(e.message || "Checkout failed", "error");
@@ -119,11 +122,11 @@ export default function BillingPage() {
           <p className="t-muted text-sm mb-4">
             Add products from the Products page to start a sale.
           </p>
-          <a href="/products" className="inline-block">
+          <Link to="/products" className="inline-block">
             <Button variant="primary">
               Browse Products <ArrowRight className="w-4 h-4" />
             </Button>
-          </a>
+          </Link>
         </Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -176,6 +179,7 @@ export default function BillingPage() {
                   const cost = Number(item.cost_price);
                   const subtotal = unit * item.quantity;
                   const profit = (unit - cost) * item.quantity;
+                  const unitLabel = getProductUnitLabel(item);
                   return (
                     <div
                       key={item.product_id}
@@ -201,7 +205,7 @@ export default function BillingPage() {
                             {item.description || "—"}
                           </div>
                           <div className="t-muted text-xs mt-0.5">
-                            {fmt(unit)} each
+                            {fmt(unit)} / {unitLabel}
                           </div>
                         </div>
                       </div>

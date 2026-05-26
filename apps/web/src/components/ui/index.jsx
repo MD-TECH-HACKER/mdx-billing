@@ -1,5 +1,6 @@
 // Themed primitive UI components used across the dashboard.
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Check,
   ChevronDown,
@@ -110,15 +111,89 @@ export function Select({
   align = "left",
 }) {
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState(null);
   const ref = useRef(null);
+  const menuRef = useRef(null);
+  const updatePosition = () => {
+    if (!ref.current || typeof window === "undefined") return;
+    const rect = ref.current.getBoundingClientRect();
+    const width = Math.max(rect.width, 180);
+    const left =
+      align === "right"
+        ? Math.max(8, rect.right - width)
+        : Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    const below = rect.bottom + 6;
+    const above = rect.top - 262;
+    const top =
+      below + 260 <= window.innerHeight || above < 8
+        ? Math.min(below, window.innerHeight - 72)
+        : Math.max(8, above);
+    setPosition({ left, top, width });
+  };
   useEffect(() => {
     const h = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (
+        ref.current &&
+        !ref.current.contains(e.target) &&
+        menuRef.current &&
+        !menuRef.current.contains(e.target)
+      )
+        setOpen(false);
     };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, align]);
   const selected = options.find((o) => o.value === value);
+  const dropdown =
+    open && position
+      ? createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-[9999] max-h-64 overflow-y-auto t-card p-1 shadow-2xl"
+            style={{
+              left: position.left,
+              top: position.top,
+              width: position.width,
+            }}
+          >
+            {options.map((opt) => {
+              const active = opt.value === value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left ${active ? "t-accent-soft" : "hover:bg-[var(--bg-elev)] t-text"}`}
+                >
+                  {opt.prefix ? (
+                    <span
+                      className={`font-semibold ${active ? "" : "t-accent-text"} w-6`}
+                    >
+                      {opt.prefix}
+                    </span>
+                  ) : null}
+                  <span className="flex-1">{opt.label}</span>
+                  {active ? <Check className="w-4 h-4" /> : null}
+                </button>
+              );
+            })}
+          </div>,
+          document.body,
+        )
+      : null;
   return (
     <div ref={ref} className={`relative ${className}`}>
       <button
@@ -144,36 +219,37 @@ export function Select({
           className={`w-4 h-4 t-dim transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
-      {open ? (
+      {dropdown}
+    </div>
+  );
+}
+
+export function AppLoader({
+  label = "Loading MDX Billing...",
+  fullScreen = false,
+}) {
+  return (
+    <div
+      className={`${fullScreen ? "min-h-screen" : "min-h-[240px]"} mdx-route-loader flex items-center justify-center p-6 rounded-3xl`}
+    >
+      <div className="t-card t-card-strong px-6 py-5 text-center max-w-xs w-full">
         <div
-          className={`absolute z-50 mt-1 w-full max-h-64 overflow-y-auto t-card p-1 shadow-xl ${align === "right" ? "right-0" : "left-0"}`}
+          className="mx-auto mb-3 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--accent), var(--accent-dark))",
+          }}
         >
-          {options.map((opt) => {
-            const active = opt.value === value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left ${active ? "t-accent-soft" : "hover:bg-[var(--bg-elev)] t-text"}`}
-              >
-                {opt.prefix ? (
-                  <span
-                    className={`font-semibold ${active ? "" : "t-accent-text"} w-6`}
-                  >
-                    {opt.prefix}
-                  </span>
-                ) : null}
-                <span className="flex-1">{opt.label}</span>
-                {active ? <Check className="w-4 h-4" /> : null}
-              </button>
-            );
-          })}
+          <span className="text-white font-bold">M</span>
         </div>
-      ) : null}
+        <div className="t-text font-semibold">{label}</div>
+        <div className="mt-4 h-1.5 rounded-full overflow-hidden t-elev">
+          <div
+            className="h-full w-1/2 rounded-full animate-pulse"
+            style={{ background: "var(--accent)" }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

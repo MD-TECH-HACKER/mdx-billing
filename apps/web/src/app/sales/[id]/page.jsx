@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router";
 import {
   Printer,
   Download,
@@ -15,17 +16,19 @@ import useUser from "@/utils/useUser";
 import ToastHost, { showToast } from "@/components/Toast";
 import { formatMoney } from "@/utils/currency";
 import { Tabs } from "@/components/ui";
+import { getProductUnitLabel } from "@/utils/productUnits";
 
 export default function ReceiptPage(props) {
   const id = props?.params?.id;
   const { data: user, loading: userLoading } = useUser();
+  const navigate = useNavigate();
   const [printMode, setPrintMode] = useState("color"); // "color" | "bw"
   const [paperSize, setPaperSize] = useState("a4"); // "a4" | "thermal"
 
   useEffect(() => {
     if (!userLoading && !user && typeof window !== "undefined")
-      window.location.href = `/account/signin?callbackUrl=/sales/${id}`;
-  }, [user, userLoading, id]);
+      navigate("/", { replace: true });
+  }, [user, userLoading, navigate]);
 
   // Auto-print when ?print=1 in URL
   useEffect(() => {
@@ -93,9 +96,9 @@ export default function ReceiptPage(props) {
       >
         <div className="text-center">
           <p className="t-text mb-3">Receipt not found.</p>
-          <a href="/sales" className="t-accent-text">
+          <Link to="/sales" className="t-accent-text">
             ← Back to sales
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -126,12 +129,12 @@ export default function ReceiptPage(props) {
       >
         {/* Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4 no-print">
-          <a
-            href="/sales"
+          <Link
+            to="/sales"
             className="flex items-center gap-2 t-muted hover:t-text text-sm"
           >
             <ArrowLeft className="w-4 h-4" /> Back
-          </a>
+          </Link>
           <div className="flex flex-wrap items-center gap-2">
             <Tabs
               value={printMode}
@@ -321,15 +324,17 @@ export default function ReceiptPage(props) {
               </div>
             ) : null}
             <div className="space-y-1.5">
-              {items.map((it, idx) => (
-                <div
-                  key={idx}
-                  className={
-                    thermal
-                      ? "flex justify-between gap-2 text-xs"
-                      : "grid grid-cols-12 gap-2 items-center px-1"
-                  }
-                >
+              {items.map((it, idx) => {
+                const unitLabel = getProductUnitLabel(it);
+                return (
+                  <div
+                    key={idx}
+                    className={
+                      thermal
+                        ? "flex justify-between gap-2 text-xs"
+                        : "grid grid-cols-12 gap-2 items-center px-1"
+                    }
+                  >
                   {thermal ? (
                     <>
                       <div className="flex-1 min-w-0">
@@ -340,7 +345,7 @@ export default function ReceiptPage(props) {
                           {it.title}
                         </div>
                         <div style={{ color: textMuted }}>
-                          {it.quantity} × {fmt(it.unitPrice)}
+                          {it.quantity} {unitLabel} × {fmt(it.unitPrice)}
                         </div>
                       </div>
                       <div
@@ -395,7 +400,7 @@ export default function ReceiptPage(props) {
                         className="col-span-2 text-sm text-center"
                         style={{ color: textPrimary }}
                       >
-                        ×{it.quantity}
+                        ×{it.quantity} {unitLabel}
                       </div>
                       <div
                         className="col-span-2 text-sm text-right"
@@ -411,8 +416,9 @@ export default function ReceiptPage(props) {
                       </div>
                     </>
                   )}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           </div>
 

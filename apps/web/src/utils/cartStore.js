@@ -1,3 +1,5 @@
+import { sanitizeProductUnit } from "@/utils/productUnits";
+
 // Cart store backed by localStorage with stock-safe operations.
 const KEY = "mdx_cart_v2";
 const EVENT = "cart-changed";
@@ -32,6 +34,12 @@ export function addToCart(product, qty = 1) {
   if (!product || !product.product_id) return { ok: false, reason: "invalid" };
   const stock = Number(product.stock) || 0;
   if (stock <= 0) return { ok: false, reason: "out_of_stock" };
+  const primaryUnit = sanitizeProductUnit(product.primary_unit, {
+    fallback: "piece",
+  });
+  const secondaryUnit = sanitizeProductUnit(product.secondary_unit, {
+    fallback: null,
+  });
 
   const cart = getCart();
   const existing = cart.find((c) => c.product_id === product.product_id);
@@ -44,6 +52,8 @@ export function addToCart(product, qty = 1) {
     existing.stock = stock;
     existing.selling_price = Number(product.selling_price);
     existing.cost_price = Number(product.cost_price);
+    existing.primary_unit = primaryUnit;
+    existing.secondary_unit = secondaryUnit;
     setCart(cart);
     return { ok: true, exceeded, quantity: newQty };
   }
@@ -58,6 +68,8 @@ export function addToCart(product, qty = 1) {
     cost_price: Number(product.cost_price),
     stock,
     quantity: finalQty,
+    primary_unit: primaryUnit,
+    secondary_unit: secondaryUnit,
   });
   setCart(cart);
   return { ok: true, exceeded: wantQty > stock, quantity: finalQty };

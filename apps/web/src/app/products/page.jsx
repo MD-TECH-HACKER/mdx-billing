@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router";
 import {
   Plus,
   Package,
@@ -29,8 +30,15 @@ import {
   ConfirmDialog,
   Badge,
   Skeleton,
+  Select,
 } from "@/components/ui";
 import CartPanel from "@/components/CartPanel";
+import { getProductUnitLabel, PRODUCT_UNITS } from "@/utils/productUnits";
+
+const SECONDARY_PRODUCT_UNITS = [
+  { value: "", label: "No secondary unit" },
+  ...PRODUCT_UNITS,
+];
 
 function ProductForm({ open, onClose, initial, onSaved }) {
   const [upload, { loading: uploading }] = useUpload();
@@ -43,6 +51,8 @@ function ProductForm({ open, onClose, initial, onSaved }) {
     stock: "",
     category: "",
     sku: "",
+    primaryUnit: "piece",
+    secondaryUnit: "",
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -58,6 +68,8 @@ function ProductForm({ open, onClose, initial, onSaved }) {
         stock: String(initial.stock || ""),
         category: initial.category || "",
         sku: initial.sku || "",
+        primaryUnit: initial.primary_unit || "piece",
+        secondaryUnit: initial.secondary_unit || "",
       });
     } else {
       setForm({
@@ -69,6 +81,8 @@ function ProductForm({ open, onClose, initial, onSaved }) {
         stock: "",
         category: "",
         sku: "",
+        primaryUnit: "piece",
+        secondaryUnit: "",
       });
     }
     setError("");
@@ -111,6 +125,8 @@ function ProductForm({ open, onClose, initial, onSaved }) {
         stock: parseInt(form.stock) || 0,
         category: form.category,
         sku: form.sku,
+        primaryUnit: form.primaryUnit,
+        secondaryUnit: form.secondaryUnit,
       };
       const res = await fetch(
         initial ? `/api/products/${initial.product_id}` : "/api/products",
@@ -236,6 +252,27 @@ function ProductForm({ open, onClose, initial, onSaved }) {
           </div>
         </div>
 
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block t-muted text-xs mb-1">Primary unit</label>
+            <Select
+              value={form.primaryUnit}
+              onChange={(value) => setForm({ ...form, primaryUnit: value })}
+              options={PRODUCT_UNITS}
+              placeholder="Primary unit"
+            />
+          </div>
+          <div>
+            <label className="block t-muted text-xs mb-1">Secondary unit</label>
+            <Select
+              value={form.secondaryUnit}
+              onChange={(value) => setForm({ ...form, secondaryUnit: value })}
+              options={SECONDARY_PRODUCT_UNITS}
+              placeholder="Secondary unit"
+            />
+          </div>
+        </div>
+
         {error ? (
           <div className="rounded-xl t-danger-bg text-xs px-3 py-2">
             {error}
@@ -272,6 +309,7 @@ function ProductInfo({ product, onClose, onEdit, currency }) {
   const profit = sp - cp;
   const margin = sp > 0 ? (profit / sp) * 100 : 0;
   const fmt = (n) => formatMoney(n, currency);
+  const unitLabel = getProductUnitLabel(product);
   return (
     <Modal open={!!product} onClose={onClose} title="Product Details">
       {product.image_url ? (
@@ -309,8 +347,12 @@ function ProductInfo({ product, onClose, onEdit, currency }) {
         <div className="rounded-xl t-elev px-3 py-2 col-span-2">
           <div className="t-dim text-[10px]">Stock</div>
           <div className="t-text font-semibold text-sm">
-            {product.stock} units
+            {product.stock} {unitLabel}
           </div>
+        </div>
+        <div className="rounded-xl t-elev px-3 py-2 col-span-2">
+          <div className="t-dim text-[10px]">Unit</div>
+          <div className="t-text font-semibold text-sm">{unitLabel}</div>
         </div>
       </div>
       <div className="flex gap-2 mt-4">
@@ -332,6 +374,7 @@ function ProductCard({ product, currency, onInfo, onEdit, onDelete }) {
   const margin = sp > 0 ? ((sp - cp) / sp) * 100 : 0;
   const outOfStock = product.stock <= 0;
   const fmt = (n) => formatMoney(n, currency);
+  const unitLabel = getProductUnitLabel(product);
 
   const handleAdd = () => {
     const res = addToCart(product, qty);
@@ -375,7 +418,9 @@ function ProductCard({ product, currency, onInfo, onEdit, onDelete }) {
           </div>
         ) : null}
         <div className="absolute top-2 right-2">
-          <Badge tone="neutral">{product.stock} left</Badge>
+          <Badge tone="neutral">
+            {product.stock} {unitLabel} left
+          </Badge>
         </div>
       </div>
       <div className="p-3 flex-1 flex flex-col">
@@ -389,7 +434,7 @@ function ProductCard({ product, currency, onInfo, onEdit, onDelete }) {
           <div>
             <div className="t-text font-bold text-base">{fmt(sp)}</div>
             <div className="t-accent-text text-[10px] font-medium">
-              {margin.toFixed(0)}% margin
+              {margin.toFixed(0)}% margin · / {unitLabel}
             </div>
           </div>
           {product.category ? (
@@ -447,6 +492,7 @@ export default function ProductsPage() {
   const { data: user } = useUser();
   const { shop } = useShop({ enabled: !!user });
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -493,7 +539,7 @@ export default function ProductsPage() {
   const currency = shop?.currency || "INR";
 
   const checkout = () => {
-    if (typeof window !== "undefined") window.location.href = "/billing";
+    navigate("/billing");
   };
 
   return (

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router";
 import {
   Receipt as ReceiptIcon,
   Eye,
@@ -177,9 +178,9 @@ export default function SalesPage() {
           <p className="t-muted text-sm mb-4">
             Sales will appear here after you generate a receipt.
           </p>
-          <a href="/billing">
+          <Link to="/billing">
             <Button variant="primary">Start a sale</Button>
-          </a>
+          </Link>
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -237,19 +238,19 @@ export default function SalesPage() {
                   </div>
                 </div>
                 <div className="flex gap-2 mt-auto">
-                  <a
-                    href={`/sales/${s.sale_id}`}
+                  <Link
+                    to={`/sales/${s.sale_id}`}
                     className="flex-1 t-btn-primary px-3 py-2 text-xs font-semibold flex items-center justify-center gap-1 rounded-xl"
                   >
                     <Eye className="w-3 h-3" /> View
-                  </a>
-                  <a
-                    href={`/sales/${s.sale_id}?print=1`}
+                  </Link>
+                  <Link
+                    to={`/sales/${s.sale_id}?print=1`}
                     className="t-btn px-2 py-2 text-xs rounded-xl"
                     title="Print"
                   >
                     <Printer className="w-3.5 h-3.5" />
-                  </a>
+                  </Link>
                   <button
                     onClick={() => setDeleting(s)}
                     className="t-btn-danger px-2 py-2 rounded-xl"
