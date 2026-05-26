@@ -7,21 +7,29 @@ import useShop from "@/utils/useShop";
 import useUser from "@/utils/useUser";
 import { formatMoney } from "@/utils/currency";
 import { shopHeaders } from "@/utils/shopContext";
+import { availableSaleUnits, getUnitModel } from "@/utils/productUnits";
 
-const EMPTY_LINE = { productId: "", quantity: "1", unitCost: "" };
+const EMPTY_LINE = { productId: "", quantity: "1", selectedUnit: "piece", unitCost: "", sellingPrice: "" };
 const EMPTY_FORM = {
   supplierId: "",
   billNumber: "",
   purchaseDate: "",
   taxAmount: "",
   paymentStatus: "paid",
+  paidAmount: "",
+  paymentMethod: "cash",
   notes: "",
   items: [{ ...EMPTY_LINE }],
 };
 const PAYMENT_STATUS = [
   { value: "paid", label: "Paid" },
-  { value: "pending", label: "Pending" },
   { value: "partial", label: "Partial" },
+  { value: "credit", label: "Credit" },
+];
+const PAYMENT_METHODS = [
+  { value: "cash", label: "Cash" },
+  { value: "upi", label: "UPI" },
+  { value: "bank", label: "Bank" },
 ];
 
 export default function PurchasesPage() {
@@ -114,6 +122,8 @@ export default function PurchasesPage() {
     updateLine(index, {
       productId,
       unitCost: product ? String(product.cost_price || "") : "",
+      sellingPrice: product ? String(product.selling_price || "") : "",
+      selectedUnit: product ? getUnitModel(product).primaryUnit : "piece",
     });
   };
 
@@ -153,12 +163,13 @@ export default function PurchasesPage() {
                     <div className="text-right">
                       <Badge tone={purchase.payment_status === "paid" ? "success" : "warning"}>{purchase.payment_status}</Badge>
                       <div className="t-text font-bold mt-1">{formatMoney(purchase.total_amount, currency)}</div>
+                      {Number(purchase.balance_amount) > 0 ? <div className="t-dim text-xs">Due {formatMoney(purchase.balance_amount, currency)}</div> : null}
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(purchase.items || []).map((item) => (
                       <span key={item.productId} className="t-elev rounded-xl px-3 py-1.5 text-xs t-muted">
-                        {item.title} x {item.quantity}
+                        {item.productNameSnapshot || item.title} x {item.quantity} {item.selectedUnit || ""}
                       </span>
                     ))}
                   </div>
@@ -200,10 +211,17 @@ export default function PurchasesPage() {
 
           <div className="space-y-2">
             {form.items.map((line, index) => (
-              <div key={index} className="grid grid-cols-[1fr_88px_112px_38px] gap-2 items-center">
+              <div key={index} className="grid grid-cols-2 sm:grid-cols-[1fr_80px_100px_105px_105px_38px] gap-2 items-center">
                 <Select value={line.productId} onChange={(productId) => chooseProduct(index, productId)} options={productOptions} placeholder="Product" />
-                <Input required min="1" type="number" value={line.quantity} onChange={(event) => updateLine(index, { quantity: event.target.value })} />
+                <Input required min="0.001" step="0.001" type="number" value={line.quantity} onChange={(event) => updateLine(index, { quantity: event.target.value })} />
+                <Select
+                  value={line.selectedUnit}
+                  onChange={(selectedUnit) => updateLine(index, { selectedUnit })}
+                  options={(availableSaleUnits(products.find((product) => String(product.product_id) === line.productId) || {}).map((unit) => ({ value: unit, label: unit })))}
+                  placeholder="Unit"
+                />
                 <Input required min="0" step="0.01" type="number" value={line.unitCost} placeholder="Cost" onChange={(event) => updateLine(index, { unitCost: event.target.value })} />
+                <Input min="0" step="0.01" type="number" value={line.sellingPrice} placeholder="New sale price" onChange={(event) => updateLine(index, { sellingPrice: event.target.value })} />
                 <button
                   type="button"
                   className="t-btn-danger h-10 rounded-xl flex items-center justify-center disabled:opacity-40"
@@ -219,13 +237,15 @@ export default function PurchasesPage() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <Select value={form.paymentStatus} onChange={(paymentStatus) => setForm({ ...form, paymentStatus })} options={PAYMENT_STATUS} />
+            <Select value={form.paymentMethod} onChange={(paymentMethod) => setForm({ ...form, paymentMethod })} options={PAYMENT_METHODS} />
+            <Input type="number" step="0.01" min="0" placeholder="Amount paid" value={form.paidAmount} onChange={(event) => setForm({ ...form, paidAmount: event.target.value })} />
             <Input type="number" step="0.01" min="0" placeholder="Tax amount" value={form.taxAmount} onChange={(event) => setForm({ ...form, taxAmount: event.target.value })} />
-            <div className="t-elev rounded-xl px-3 py-2">
-              <div className="t-dim text-[10px]">Total</div>
-              <div className="t-text font-semibold">{formatMoney(total, currency)}</div>
-            </div>
+          </div>
+          <div className="t-elev rounded-xl px-3 py-2 flex justify-between">
+            <div><div className="t-dim text-[10px]">Total</div><div className="t-text font-semibold">{formatMoney(total, currency)}</div></div>
+            <div className="text-right"><div className="t-dim text-[10px]">Balance Due</div><div className="t-text font-semibold">{formatMoney(Math.max(0, total - (Number(form.paidAmount) || (form.paymentStatus === "paid" ? total : 0))), currency)}</div></div>
           </div>
           <Textarea rows={2} placeholder="Notes" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
           <Button type="submit" className="w-full" disabled={create.isPending || products.length === 0}>

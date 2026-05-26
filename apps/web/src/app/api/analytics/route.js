@@ -5,15 +5,16 @@ import {
   requireShopAccess,
 } from "@/app/api/utils/shopAccess";
 import { ensureBusinessFeatureSchema } from "@/app/api/utils/businessSchema";
+import { formatStockQuantity, getStockBaseQuantity } from "@/utils/productUnits";
 
 export async function GET(request) {
   try {
     const context = await requireShopAccess(request, "analytics.read");
     await ensureBusinessFeatureSchema();
     const shopId = context.shopId;
-    const [products, sales, todaySales, monthSales, salesByDay, expenseSummary, expensesByCategory, purchasesMonth] =
+    const [products, sales, todaySales, monthSales, salesByDay, expenseSummary, expensesByCategory, purchasesMonth, customerDue, supplierDue, saleCollections] =
       await sql.transaction([
-        sql`SELECT product_id, title, image_url, selling_price, cost_price, stock, category FROM products WHERE shop_id = ${shopId}`,
+        sql`SELECT product_id, title, image_url, selling_price, cost_price, stock, stock_base_unit, sold_base_unit, low_stock_base_unit, primary_unit, secondary_unit, conversion_rate, category FROM products WHERE shop_id = ${shopId}`,
         sql`SELECT sale_id, receipt_number, items, total_amount, total_cost, total_profit, total_quantity, created_at FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') ORDER BY created_at DESC`,
         sql`SELECT COALESCE(SUM(total_amount),0) AS total, COALESCE(SUM(total_profit),0) AS profit, COUNT(*) AS count FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= CURRENT_DATE`,
         sql`SELECT COALESCE(SUM(total_amount),0) AS total, COALESCE(SUM(total_profit),0) AS profit, COUNT(*) AS count FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= date_trunc('month', CURRENT_DATE)`,
@@ -21,6 +22,13 @@ export async function GET(request) {
         sql`SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS count FROM expenses WHERE shop_id = ${shopId} AND expense_date >= date_trunc('month', CURRENT_DATE)::date`,
         sql`SELECT category, SUM(amount) AS total FROM expenses WHERE shop_id = ${shopId} AND expense_date >= date_trunc('month', CURRENT_DATE)::date GROUP BY category ORDER BY total DESC`,
         sql`SELECT COALESCE(SUM(total_amount),0) AS total, COUNT(*) AS count FROM purchases WHERE shop_id = ${shopId} AND purchase_date >= date_trunc('month', CURRENT_DATE)::date`,
+        sql`SELECT COALESCE(SUM(s.total_amount - COALESCE(s.paid_amount, 0)), 0) AS total FROM sales s WHERE s.shop_id = ${shopId} AND (s.sale_status IS NULL OR s.sale_status = 'completed')`,
+        sql`SELECT COALESCE(SUM(p.total_amount - COALESCE(p.paid_amount, 0)), 0) AS total FROM purchases p WHERE p.shop_id = ${shopId}`,
+        sql`SELECT
+          COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN total_amount ELSE 0 END), 0) AS cash_sales,
+          COALESCE(SUM(CASE WHEN payment_status = 'credit' THEN total_amount ELSE 0 END), 0) AS credit_sales,
+          COALESCE(SUM(paid_amount), 0) AS total_collected
+        FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed')`,
       ]);
 
     const totalRevenue = sales.reduce((amount, sale) => amount + Number(sale.total_amount), 0);
@@ -31,6 +39,16 @@ export async function GET(request) {
     const avgMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
     const totalProductsSold = sales.reduce(
       (amount, sale) => amount + Number(sale.total_quantity),
+      0,
+    );
+    const totalStockValue = products.reduce((sum, product) => {
+      const primaryQuantity = Number(product.conversion_rate) > 0
+        ? getStockBaseQuantity(product) / Number(product.conversion_rate)
+        : getStockBaseQuantity(product);
+      return sum + primaryQuantity * Number(product.cost_price || 0);
+    }, 0);
+    const totalRemainingStock = products.reduce(
+      (sum, product) => sum + getStockBaseQuantity(product),
       0,
     );
     const productStats = {};
@@ -48,13 +66,16 @@ export async function GET(request) {
             revenue: 0,
             profit: 0,
             cost: 0,
+            soldByUnit: {},
           };
         }
         const stat = productStats[item.productId];
-        stat.quantitySold += item.quantity;
+        stat.quantitySold += Number(item.quantityBaseUnit ?? item.quantity);
         stat.revenue += item.subtotal;
-        stat.cost += item.costPrice * item.quantity;
-        stat.profit += (item.unitPrice - item.costPrice) * item.quantity;
+        stat.cost += Number(item.totalCost ?? (item.costPrice * item.quantity));
+        stat.profit += Number(item.totalProfit ?? ((item.unitPrice - item.costPrice) * item.quantity));
+        const soldUnit = item.selectedUnit || item.primaryUnit || "piece";
+        stat.soldByUnit[soldUnit] = (stat.soldByUnit[soldUnit] || 0) + Number(item.quantity);
       });
     });
 
@@ -79,6 +100,8 @@ export async function GET(request) {
           : 0;
         // Attach current stock for display
         stat.stock = product.stock;
+        stat.remainingStock = formatStockQuantity(getStockBaseQuantity(product), product);
+        stat.soldStock = formatStockQuantity(Number(product.sold_base_unit) || 0, product);
       }
     });
 
@@ -133,7 +156,9 @@ export async function GET(request) {
         })),
     ].sort((a, b) => b.margin - a.margin);
 
-    const lowStock = products.filter((product) => product.stock < 5);
+    const lowStock = products.filter(
+      (product) => getStockBaseQuantity(product) <= Number(product.low_stock_base_unit ?? 5),
+    );
     const categoryMap = {};
     products.forEach((product) => {
       const category = product.category || "Uncategorized";
@@ -150,6 +175,8 @@ export async function GET(request) {
         totalCost,
         avgMargin,
         totalProductsSold,
+        totalStockValue,
+        totalRemainingStock,
         todayRevenue: Number(todaySales[0].total),
         todayProfit: Number(todaySales[0].profit),
         todayCount: Number(todaySales[0].count),
@@ -161,6 +188,11 @@ export async function GET(request) {
         monthPurchaseCount: Number(purchasesMonth[0].count),
         monthCount: Number(monthSales[0].count),
         lowStockCount: lowStock.length,
+        customerDueAmount: Number(customerDue[0].total),
+        supplierDueAmount: Number(supplierDue[0].total),
+        creditSales: Number(saleCollections[0].credit_sales),
+        cashSales: Number(saleCollections[0].cash_sales),
+        totalCollected: Number(saleCollections[0].total_collected),
       },
       bestSelling,
       highestMargin: allProductsWithMargin[0] || null,

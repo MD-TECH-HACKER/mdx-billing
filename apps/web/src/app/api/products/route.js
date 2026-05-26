@@ -88,6 +88,14 @@ export async function POST(request) {
     const supplierId = Number.isInteger(Number.parseInt(body.supplierId, 10))
       ? Number.parseInt(body.supplierId, 10)
       : null;
+    if (supplierId) {
+      const supplier = await sql`
+        SELECT supplier_id FROM suppliers
+        WHERE supplier_id = ${supplierId} AND shop_id = ${context.shopId} AND is_deleted = FALSE
+        LIMIT 1
+      `;
+      if (!supplier[0]) return Response.json({ error: "Supplier not found" }, { status: 400 });
+    }
 
     const created = await sql`
       INSERT INTO products

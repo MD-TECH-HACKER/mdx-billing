@@ -255,6 +255,10 @@ export async function ensureBusinessFeatureSchema() {
         `,
         sql`
           ALTER TABLE sales
+          ALTER COLUMN total_quantity TYPE NUMERIC USING total_quantity::NUMERIC
+        `,
+        sql`
+          ALTER TABLE sales
           ADD COLUMN IF NOT EXISTS sale_status TEXT DEFAULT 'completed',
           ADD COLUMN IF NOT EXISTS currency_snapshot TEXT,
           ADD COLUMN IF NOT EXISTS tax_percent_snapshot NUMERIC,

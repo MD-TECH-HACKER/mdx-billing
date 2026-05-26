@@ -25,14 +25,30 @@ export async function GET(request) {
     await ensureBusinessFeatureSchema();
     const search = new URL(request.url).searchParams.get("search")?.trim();
     const pattern = search ? `%${search.toLowerCase()}%` : null;
-    const customers = pattern
-      ? await sql`
-          SELECT * FROM customers
-          WHERE shop_id = ${context.shopId}
-            AND (LOWER(name) LIKE ${pattern} OR LOWER(COALESCE(phone, '')) LIKE ${pattern})
-          ORDER BY name ASC
-        `
-      : await sql`SELECT * FROM customers WHERE shop_id = ${context.shopId} ORDER BY name ASC`;
+    const customers = await sql`
+      SELECT c.*,
+        COALESCE(SUM(CASE WHEN s.sale_status IS NULL OR s.sale_status = 'completed' THEN s.total_amount ELSE 0 END), 0) AS total_purchases,
+        COALESCE(SUM(CASE WHEN s.sale_status IS NULL OR s.sale_status = 'completed' THEN s.paid_amount ELSE 0 END), 0) AS total_paid,
+        COALESCE(SUM(CASE WHEN s.sale_status IS NULL OR s.sale_status = 'completed' THEN s.total_amount - COALESCE(s.paid_amount, 0) ELSE 0 END), 0) AS total_due,
+        COALESCE(c.opening_balance, 0) + COALESCE(SUM(CASE WHEN s.sale_status IS NULL OR s.sale_status = 'completed' THEN s.total_amount - COALESCE(s.paid_amount, 0) ELSE 0 END), 0) AS credit_balance,
+        MAX(CASE WHEN s.sale_status IS NULL OR s.sale_status = 'completed' THEN s.created_at END) AS last_purchase_date,
+        COUNT(s.sale_id) FILTER (WHERE s.sale_status IS NULL OR s.sale_status = 'completed') AS invoice_count,
+        (
+          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'paymentId', pay.payment_id,
+            'amount', pay.amount,
+            'method', pay.payment_method,
+            'date', pay.payment_date
+          ) ORDER BY pay.created_at DESC), '[]'::jsonb)
+          FROM payments pay WHERE pay.customer_id = c.customer_id AND pay.shop_id = c.shop_id
+        ) AS payment_history
+      FROM customers c
+      LEFT JOIN sales s ON s.customer_id = c.customer_id AND s.shop_id = c.shop_id
+      WHERE c.shop_id = ${context.shopId} AND c.is_deleted = FALSE
+        AND (${pattern}::text IS NULL OR LOWER(c.name) LIKE ${pattern} OR LOWER(COALESCE(c.phone, '')) LIKE ${pattern})
+      GROUP BY c.customer_id
+      ORDER BY c.name ASC
+    `;
     return Response.json({ customers });
   } catch (error) {
     if (error instanceof AccessError) return accessErrorResponse(error);

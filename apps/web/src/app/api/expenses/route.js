@@ -37,6 +37,7 @@ export async function POST(request) {
     const expenseDate = (body.expenseDate || "").toString().slice(0, 10) || null;
     const vendor = (body.vendor || "").toString().trim().slice(0, 120) || null;
     const notes = (body.notes || "").toString().trim().slice(0, 500) || null;
+    const receiptUrl = (body.receiptUrl || "").toString().trim().slice(0, 1000) || null;
     const paymentMethod = PAYMENT_METHODS.has(body.paymentMethod)
       ? body.paymentMethod
       : "cash";
@@ -44,8 +45,8 @@ export async function POST(request) {
       return Response.json({ error: "Category and positive amount are required" }, { status: 400 });
     }
     const rows = await sql`
-      INSERT INTO expenses (shop_id, expense_date, category, amount, payment_method, vendor, notes, created_by)
-      VALUES (${context.shopId}, COALESCE(${expenseDate}::date, CURRENT_DATE), ${category}, ${amount}, ${paymentMethod}, ${vendor}, ${notes}, ${context.userId})
+      INSERT INTO expenses (shop_id, expense_date, category, amount, payment_method, vendor, notes, receipt_url, created_by)
+      VALUES (${context.shopId}, COALESCE(${expenseDate}::date, CURRENT_DATE), ${category}, ${amount}, ${paymentMethod}, ${vendor}, ${notes}, ${receiptUrl}, ${context.userId})
       RETURNING *
     `;
     await writeAuditEvent(context, "expense.create", "expense", rows[0].expense_id, {

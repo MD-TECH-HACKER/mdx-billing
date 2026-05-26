@@ -1,34 +1,30 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
-import {
-  Receipt as ReceiptIcon,
-  Eye,
-  Trash2,
-  Calendar,
-  Printer,
-} from "lucide-react";
+import { Calendar, CircleDollarSign, Eye, Printer, Receipt, Trash2 } from "lucide-react";
 import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
 import { showToast } from "@/components/Toast";
 import { formatMoney } from "@/utils/currency";
 import { shopHeaders } from "@/utils/shopContext";
 import {
-  Card,
+  Badge,
   Button,
+  Card,
+  ConfirmDialog,
+  Input,
+  Modal,
   SearchInput,
   Select,
-  Input,
-  Badge,
-  ConfirmDialog,
   Skeleton,
 } from "@/components/ui";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
   { value: "paid", label: "Paid" },
-  { value: "pending", label: "Pending" },
   { value: "partial", label: "Partial" },
+  { value: "credit", label: "Credit" },
+  { value: "cancelled", label: "Cancelled" },
 ];
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest first" },
@@ -36,257 +32,186 @@ const SORT_OPTIONS = [
   { value: "amount_desc", label: "Highest amount" },
   { value: "amount_asc", label: "Lowest amount" },
 ];
+const PAYMENT_METHODS = [
+  { value: "cash", label: "Cash" },
+  { value: "upi", label: "UPI" },
+  { value: "bank", label: "Bank" },
+];
 
 export default function SalesPage() {
   const { data: user } = useUser();
   const { shop, role } = useShop({ enabled: !!user });
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [status, setStatus] = useState("all");
   const [sort, setSort] = useState("newest");
-  const [deleting, setDeleting] = useState(null);
-
-  const filtersKey = { search, fromDate, toDate, status, sort };
+  const [cancelling, setCancelling] = useState(null);
+  const [paying, setPaying] = useState(null);
+  const [payment, setPayment] = useState({ amount: "", paymentMethod: "cash", notes: "" });
+  const currency = shop?.currency || "INR";
+  const fmt = (number) => formatMoney(number, currency);
+  const canManage = role === "owner" || role === "manager";
 
   const query = useQuery({
-    queryKey: ["sales", filtersKey],
+    queryKey: ["sales", search, fromDate, toDate, status, sort],
     queryFn: async () => {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ status, sort });
       if (search) params.set("search", search);
       if (fromDate) params.set("from", fromDate);
       if (toDate) params.set("to", toDate);
-      if (status) params.set("status", status);
-      if (sort) params.set("sort", sort);
-      const res = await fetch(`/api/sales?${params.toString()}`, {
-        headers: shopHeaders(),
-      });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
+      const response = await fetch(`/api/sales?${params}`, { headers: shopHeaders() });
+      if (!response.ok) throw new Error("Failed to load sales");
+      return response.json();
     },
     enabled: !!user,
-    keepPreviousData: true,
     staleTime: 15000,
   });
-
   const sales = query.data?.sales || [];
-  const currency = shop?.currency || "INR";
-  const fmt = (n) => formatMoney(n, currency);
-  const canViewMargins = role === "owner" || role === "manager";
-  const canDeleteSales = canViewMargins;
-
-  const deleteMut = useMutation({
-    mutationFn: async (id) => {
-      const res = await fetch(`/api/sales/${id}`, {
-        method: "DELETE",
-        headers: shopHeaders(),
-      });
-      if (!res.ok) throw new Error();
-      return res.json();
-    },
-    onSuccess: () => {
-      showToast("Receipt deleted · stock restored");
-      qc.invalidateQueries({ queryKey: ["sales"] });
-      qc.invalidateQueries({ queryKey: ["products"] });
-      qc.invalidateQueries({ queryKey: ["analytics"] });
-    },
-    onError: () => showToast("Failed to delete", "error"),
-  });
-
-  // Totals across visible sales
   const totals = sales.reduce(
-    (a, s) => {
-      a.revenue += Number(s.total_amount) || 0;
-      a.profit += Number(s.total_profit) || 0;
-      a.qty += Number(s.total_quantity) || 0;
-      return a;
+    (total, sale) => {
+      total.amount += Number(sale.total_amount) || 0;
+      total.received += Number(sale.paid_amount) || 0;
+      total.balance += Math.max(0, Number(sale.total_amount) - Number(sale.paid_amount || 0));
+      total.profit += Number(sale.total_profit) || 0;
+      return total;
     },
-    { revenue: 0, profit: 0, qty: 0 },
+    { amount: 0, received: 0, balance: 0, profit: 0 },
   );
 
-  const statusTone = (s) =>
-    s === "paid" ? "success" : s === "pending" ? "warning" : "accent";
+  const cancel = useMutation({
+    mutationFn: async (saleId) => {
+      const response = await fetch(`/api/sales/${saleId}`, { method: "DELETE", headers: shopHeaders() });
+      if (!response.ok) throw new Error("Could not cancel sale");
+    },
+    onSuccess: () => {
+      showToast("Sale cancelled and stock restored");
+      setCancelling(null);
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics"] });
+    },
+    onError: (error) => showToast(error.message, "error"),
+  });
+  const recordPayment = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/sales/${paying.sale_id}`, {
+        method: "PATCH",
+        headers: shopHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(payment),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Could not record payment");
+      return data;
+    },
+    onSuccess: () => {
+      showToast("Payment recorded");
+      setPaying(null);
+      setPayment({ amount: "", paymentMethod: "cash", notes: "" });
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics"] });
+    },
+    onError: (error) => showToast(error.message, "error"),
+  });
 
   return (
     <>
       <div className="mb-5">
-        <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">
-          Sales & Receipts
-        </h1>
-        <p className="t-muted text-sm">All your previous sales</p>
+        <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">Sales & Invoices</h1>
+        <p className="t-muted text-sm">Paid, partial and credit invoices with permanent history.</p>
       </div>
-
-      {/* Filters */}
       <Card className="mb-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
-          <div className="lg:col-span-2">
-            <SearchInput
-              value={search}
-              onChange={setSearch}
-              placeholder="Buyer name or receipt #"
-            />
-          </div>
-          <div className="flex items-center gap-2 t-input px-3 py-2">
-            <Calendar className="w-4 h-4 t-dim" />
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="flex-1 bg-transparent outline-none text-sm t-text"
-              style={{ colorScheme: "dark" }}
-            />
-          </div>
-          <div className="flex items-center gap-2 t-input px-3 py-2">
-            <Calendar className="w-4 h-4 t-dim" />
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="flex-1 bg-transparent outline-none text-sm t-text"
-              style={{ colorScheme: "dark" }}
-            />
-          </div>
-          <Select
-            value={status}
-            onChange={setStatus}
-            options={STATUS_OPTIONS}
-          />
+          <div className="lg:col-span-2"><SearchInput value={search} onChange={setSearch} placeholder="Customer, phone or invoice number" /></div>
+          <DateInput value={fromDate} onChange={setFromDate} />
+          <DateInput value={toDate} onChange={setToDate} />
+          <Select value={status} onChange={setStatus} options={STATUS_OPTIONS} />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 mt-3">
           <Select value={sort} onChange={setSort} options={SORT_OPTIONS} />
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <div className="rounded-xl t-elev px-3 py-2">
-              <div className="t-dim">Revenue</div>
-              <div className="t-text font-semibold">{fmt(totals.revenue)}</div>
-            </div>
-            {canViewMargins ? <div className="rounded-xl t-success-bg px-3 py-2">
-              <div className="opacity-80">Profit</div>
-              <div className="font-semibold">{fmt(totals.profit)}</div>
-            </div> : null}
-            <div className="rounded-xl t-elev px-3 py-2">
-              <div className="t-dim">Units</div>
-              <div className="t-text font-semibold">{totals.qty}</div>
-            </div>
-          </div>
+          <Metric label="Total" value={fmt(totals.amount)} />
+          <Metric label="Received" value={fmt(totals.received)} />
+          <Metric label="Balance" value={fmt(totals.balance)} />
+          {canManage ? <Metric label="Profit" value={fmt(totals.profit)} /> : null}
         </div>
       </Card>
-
       {query.isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-44" />
-          ))}
-        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">{Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="h-52" />)}</div>
       ) : sales.length === 0 ? (
         <Card className="text-center py-12">
-          <ReceiptIcon className="w-12 h-12 t-dim2 mx-auto mb-3" />
-          <h3 className="t-text font-semibold mb-1">No sales found</h3>
-          <p className="t-muted text-sm mb-4">
-            Sales will appear here after you generate a receipt.
-          </p>
-          <Link to="/billing">
-            <Button variant="primary">Start a sale</Button>
-          </Link>
+          <Receipt className="w-12 h-12 t-dim2 mx-auto mb-3" />
+          <h2 className="t-text font-semibold">No invoices found</h2>
+          <Link to="/billing"><Button className="mt-4">Create invoice</Button></Link>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {sales.map((s) => {
-            const itemsCount = Array.isArray(s.items) ? s.items.length : 0;
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          {sales.map((sale) => {
+            const cancelled = sale.sale_status === "cancelled";
+            const balance = Math.max(0, Number(sale.total_amount) - Number(sale.paid_amount || 0));
+            const state = cancelled ? "Cancelled" : sale.payment_status;
             return (
-              <Card key={s.sale_id} className="flex flex-col">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="min-w-0">
-                    <div className="t-dim text-[10px] uppercase tracking-wide">
-                      Receipt
-                    </div>
-                    <div className="t-text font-bold text-sm truncate">
-                      {s.receipt_number}
-                    </div>
-                  </div>
-                  <Badge tone={statusTone(s.payment_status)}>
-                    {s.payment_status}
-                  </Badge>
-                </div>
-                <div className="space-y-1 mb-3">
-                  <div className="t-text text-sm font-medium">
-                    {s.buyer_name || "Walk-in customer"}
-                  </div>
-                  <div className="t-dim text-xs">
-                    {new Date(s.created_at).toLocaleString("en-IN")}
-                  </div>
-                  <div className="t-muted text-xs">
-                    {itemsCount} items · {s.total_quantity} units ·{" "}
-                    <span className="capitalize">
-                      {(s.payment_method || "cash").replace("_", " ")}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-end justify-between mb-3">
+              <Card key={sale.sale_id} className="flex flex-col gap-3">
+                <div className="flex justify-between gap-2">
                   <div>
-                    <div className="t-dim text-[10px]">Total</div>
-                    <div className="t-text font-bold text-lg">
-                      {fmt(s.total_amount)}
-                    </div>
+                    <div className="t-dim text-[10px] uppercase">Invoice</div>
+                    <div className="t-text font-bold">{sale.receipt_number}</div>
                   </div>
-                  {canViewMargins ? <div className="text-right">
-                    <div
-                      className="text-[10px]"
-                      style={{ color: "var(--success)" }}
-                    >
-                      Profit
-                    </div>
-                    <div
-                      className="font-semibold text-sm"
-                      style={{ color: "var(--success)" }}
-                    >
-                      {fmt(s.total_profit)}
-                    </div>
-                  </div> : null}
+                  <Badge tone={cancelled ? "danger" : state === "paid" ? "success" : state === "credit" ? "warning" : "accent"}>{state}</Badge>
+                </div>
+                <div>
+                  <div className="t-text text-sm font-medium">{sale.buyer_name}</div>
+                  <div className="t-dim text-xs">{sale.buyer_phone || "No phone"} / {new Date(sale.created_at).toLocaleDateString("en-IN")}</div>
+                  <div className="t-muted text-xs capitalize">{(sale.payment_method || "cash").replace("_", " ")}</div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <Metric label="Total" value={fmt(sale.total_amount)} />
+                  <Metric label="Received" value={fmt(sale.paid_amount || 0)} />
+                  <Metric label="Balance" value={fmt(balance)} />
                 </div>
                 <div className="flex gap-2 mt-auto">
-                  <Link
-                    to={`/sales/${s.sale_id}`}
-                    className="flex-1 t-btn-primary px-3 py-2 text-xs font-semibold flex items-center justify-center gap-1 rounded-xl"
-                  >
-                    <Eye className="w-3 h-3" /> View
-                  </Link>
-                  <Link
-                    to={`/sales/${s.sale_id}?print=1`}
-                    className="t-btn px-2 py-2 text-xs rounded-xl"
-                    title="Print"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                  </Link>
-                  {canDeleteSales ? <button
-                    onClick={() => setDeleting(s)}
-                    className="t-btn-danger px-2 py-2 rounded-xl"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button> : null}
+                  <Link className="flex-1 t-btn-primary rounded-xl px-3 py-2 text-xs flex justify-center items-center gap-1" to={`/sales/${sale.sale_id}`}><Eye className="w-3.5 h-3.5" /> View</Link>
+                  <Link className="t-btn rounded-xl px-2 py-2" title="Print" to={`/sales/${sale.sale_id}?print=1`}><Printer className="w-3.5 h-3.5" /></Link>
+                  {!cancelled && balance > 0 ? <button className="t-btn rounded-xl px-2 py-2" title="Record payment" onClick={() => setPaying(sale)}><CircleDollarSign className="w-3.5 h-3.5" /></button> : null}
+                  {canManage && !cancelled ? <button className="t-btn-danger rounded-xl px-2 py-2" title="Cancel sale" onClick={() => setCancelling(sale)}><Trash2 className="w-3.5 h-3.5" /></button> : null}
                 </div>
               </Card>
             );
           })}
         </div>
       )}
-
-      {canDeleteSales ? <ConfirmDialog
-        open={!!deleting}
-        title="Delete receipt?"
-        message={
-          deleting
-            ? `Receipt ${deleting.receipt_number} will be removed and stock will be restored.`
-            : ""
-        }
+      <ConfirmDialog
+        open={!!cancelling}
+        title="Cancel sale?"
+        message={cancelling ? `Invoice ${cancelling.receipt_number} remains in history and its stock will be returned.` : ""}
         destructive
-        confirmText="Delete"
-        onClose={() => setDeleting(null)}
-        onConfirm={() => {
-          if (deleting) deleteMut.mutate(deleting.sale_id);
-          setDeleting(null);
-        }}
-      /> : null}
+        confirmText="Cancel Sale"
+        onClose={() => setCancelling(null)}
+        onConfirm={() => cancelling && cancel.mutate(cancelling.sale_id)}
+      />
+      <Modal open={!!paying} onClose={() => setPaying(null)} title="Record Payment">
+        <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); recordPayment.mutate(); }}>
+          <div className="t-muted text-sm">{paying?.buyer_name} / Balance {fmt(Math.max(0, Number(paying?.total_amount || 0) - Number(paying?.paid_amount || 0)))}</div>
+          <Input required type="number" min="0.01" step="0.01" placeholder="Amount received" value={payment.amount} onChange={(event) => setPayment({ ...payment, amount: event.target.value })} />
+          <Select value={payment.paymentMethod} onChange={(paymentMethod) => setPayment({ ...payment, paymentMethod })} options={PAYMENT_METHODS} />
+          <Input placeholder="Notes (optional)" value={payment.notes} onChange={(event) => setPayment({ ...payment, notes: event.target.value })} />
+          <Button type="submit" className="w-full" disabled={recordPayment.isPending}>Save payment</Button>
+        </form>
+      </Modal>
     </>
   );
+}
+
+function DateInput({ value, onChange }) {
+  return (
+    <div className="t-input flex items-center gap-2 px-3 py-2">
+      <Calendar className="w-4 h-4 t-dim" />
+      <input className="bg-transparent outline-none t-text text-sm w-full" type="date" value={value} onChange={(event) => onChange(event.target.value)} />
+    </div>
+  );
+}
+
+function Metric({ label, value }) {
+  return <div className="t-elev rounded-xl px-3 py-2 text-xs"><div className="t-dim">{label}</div><div className="t-text font-semibold truncate">{value}</div></div>;
 }

@@ -100,6 +100,14 @@ export async function PUT(request, { params }) {
       fields.tax_rate = Math.max(0, Math.min(100, Number(body.taxRate) || 0));
     if (body.supplierId !== undefined)
       fields.supplier_id = Number.parseInt(body.supplierId, 10) || null;
+    if (fields.supplier_id) {
+      const supplier = await sql`
+        SELECT supplier_id FROM suppliers
+        WHERE supplier_id = ${fields.supplier_id} AND shop_id = ${context.shopId} AND is_deleted = FALSE
+        LIMIT 1
+      `;
+      if (!supplier[0]) return Response.json({ error: "Supplier not found" }, { status: 400 });
+    }
     if (body.primaryUnit !== undefined || changesUnitModel)
       fields.primary_unit = nextUnits.primary_unit;
     if (

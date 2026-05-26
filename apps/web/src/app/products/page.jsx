@@ -32,7 +32,12 @@ import {
   Select,
 } from "@/components/ui";
 import CartPanel from "@/components/CartPanel";
-import { getProductUnitLabel, PRODUCT_UNITS } from "@/utils/productUnits";
+import {
+  formatStockQuantity,
+  getProductUnitLabel,
+  getStockBaseQuantity,
+  PRODUCT_UNITS,
+} from "@/utils/productUnits";
 import { shopHeaders } from "@/utils/shopContext";
 
 const SECONDARY_PRODUCT_UNITS = [
@@ -42,6 +47,18 @@ const SECONDARY_PRODUCT_UNITS = [
 
 function ProductForm({ open, onClose, initial, onSaved }) {
   const [upload, { loading: uploading }] = useUpload();
+  const suppliersQuery = useQuery({
+    queryKey: ["suppliers", "product-form"],
+    queryFn: async () => (await fetch("/api/suppliers", { headers: shopHeaders() })).json(),
+    enabled: open,
+  });
+  const supplierOptions = [
+    { value: "", label: "No supplier selected" },
+    ...(suppliersQuery.data?.suppliers || []).map((supplier) => ({
+      value: String(supplier.supplier_id),
+      label: supplier.name,
+    })),
+  ];
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -49,6 +66,11 @@ function ProductForm({ open, onClose, initial, onSaved }) {
     sellingPrice: "",
     costPrice: "",
     stock: "",
+    conversionRate: "",
+    hsnSac: "",
+    lowStockAlertQuantity: "",
+    taxRate: "",
+    supplierId: "",
     category: "",
     sku: "",
     primaryUnit: "piece",
@@ -70,6 +92,11 @@ function ProductForm({ open, onClose, initial, onSaved }) {
         sku: initial.sku || "",
         primaryUnit: initial.primary_unit || "piece",
         secondaryUnit: initial.secondary_unit || "",
+        conversionRate: String(initial.conversion_rate || ""),
+        hsnSac: initial.hsn_sac || "",
+        lowStockAlertQuantity: String(initial.reorder_level || ""),
+        taxRate: String(initial.tax_rate || ""),
+        supplierId: String(initial.supplier_id || ""),
       });
     } else {
       setForm({
@@ -83,6 +110,11 @@ function ProductForm({ open, onClose, initial, onSaved }) {
         sku: "",
         primaryUnit: "piece",
         secondaryUnit: "",
+        conversionRate: "",
+        hsnSac: "",
+        lowStockAlertQuantity: "",
+        taxRate: "",
+        supplierId: "",
       });
     }
     setError("");
@@ -122,11 +154,17 @@ function ProductForm({ open, onClose, initial, onSaved }) {
         imageUrl: form.imageUrl,
         sellingPrice: Number(form.sellingPrice) || 0,
         costPrice: Number(form.costPrice) || 0,
-        stock: parseInt(form.stock) || 0,
+        stock: Number(form.stock) || 0,
+        openingStock: Number(form.stock) || 0,
         category: form.category,
         sku: form.sku,
         primaryUnit: form.primaryUnit,
         secondaryUnit: form.secondaryUnit,
+        conversionRate: Number(form.conversionRate) || null,
+        hsnSac: form.hsnSac,
+        lowStockAlertQuantity: Number(form.lowStockAlertQuantity) || 0,
+        taxRate: Number(form.taxRate) || 0,
+        supplierId: form.supplierId || null,
       };
       const res = await fetch(
         initial ? `/api/products/${initial.product_id}` : "/api/products",
@@ -228,9 +266,10 @@ function ProductForm({ open, onClose, initial, onSaved }) {
 
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="block t-muted text-xs mb-1">Stock</label>
+            <label className="block t-muted text-xs mb-1">{initial ? "Current stock" : "Opening stock"}</label>
             <Input
               type="number"
+              step="0.001"
               min="0"
               value={form.stock}
               onChange={(e) => setForm({ ...form, stock: e.target.value })}
@@ -272,6 +311,42 @@ function ProductForm({ open, onClose, initial, onSaved }) {
             />
           </div>
         </div>
+        {form.secondaryUnit ? (
+          <div>
+            <label className="block t-muted text-xs mb-1">Conversion rate</label>
+            <Input
+              type="number"
+              min="0.001"
+              step="0.001"
+              value={form.conversionRate}
+              onChange={(e) => setForm({ ...form, conversionRate: e.target.value })}
+              placeholder={`1 ${form.primaryUnit} = how many ${form.secondaryUnit}?`}
+            />
+            {form.conversionRate ? (
+              <div className="t-dim text-xs mt-1">
+                1 {form.primaryUnit} = {form.conversionRate} {form.secondaryUnit}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block t-muted text-xs mb-1">HSN/SAC</label>
+            <Input value={form.hsnSac} onChange={(e) => setForm({ ...form, hsnSac: e.target.value })} />
+          </div>
+          <div>
+            <label className="block t-muted text-xs mb-1">Low stock alert</label>
+            <Input type="number" min="0" step="0.001" value={form.lowStockAlertQuantity} onChange={(e) => setForm({ ...form, lowStockAlertQuantity: e.target.value })} />
+          </div>
+          <div>
+            <label className="block t-muted text-xs mb-1">Tax / GST %</label>
+            <Input type="number" min="0" max="100" step="0.01" value={form.taxRate} onChange={(e) => setForm({ ...form, taxRate: e.target.value })} />
+          </div>
+        </div>
+        <div>
+          <label className="block t-muted text-xs mb-1">Supplier</label>
+          <Select value={form.supplierId} onChange={(supplierId) => setForm({ ...form, supplierId })} options={supplierOptions} placeholder="Supplier (optional)" />
+        </div>
 
         {error ? (
           <div className="rounded-xl t-danger-bg text-xs px-3 py-2">
@@ -310,6 +385,9 @@ function ProductInfo({ product, onClose, onEdit, currency, canManage, canViewMar
   const margin = sp > 0 ? (profit / sp) * 100 : 0;
   const fmt = (n) => formatMoney(n, currency);
   const unitLabel = getProductUnitLabel(product);
+  const remainingStock = formatStockQuantity(getStockBaseQuantity(product), product);
+  const soldStock = formatStockQuantity(Number(product.sold_base_unit) || 0, product);
+  const openingStock = formatStockQuantity(Number(product.opening_stock_base_unit) || 0, product);
   return (
     <Modal open={!!product} onClose={onClose} title="Product Details">
       {product.image_url ? (
@@ -351,7 +429,7 @@ function ProductInfo({ product, onClose, onEdit, currency, canManage, canViewMar
         <div className="rounded-xl t-elev px-3 py-2 col-span-2">
           <div className="t-dim text-[10px]">Stock</div>
           <div className="t-text font-semibold text-sm">
-            {product.stock} {unitLabel}
+            {remainingStock}
           </div>
         </div>
         <div className="rounded-xl t-elev px-3 py-2 col-span-2">
@@ -369,6 +447,12 @@ function ProductInfo({ product, onClose, onEdit, currency, canManage, canViewMar
           </Button>
         ) : null}
       </div>
+      <div className="mt-3 space-y-2 text-xs">
+        <div className="flex justify-between t-muted"><span>Opening stock</span><span className="t-text">{openingStock}</span></div>
+        <div className="flex justify-between t-muted"><span>Sold quantity</span><span className="t-text">{soldStock}</span></div>
+        <div className="flex justify-between t-muted"><span>Stock value</span><span className="t-text">{fmt((Number(product.stock) || 0) * cp)}</span></div>
+        {product.conversion_rate ? <div className="flex justify-between t-muted"><span>Conversion</span><span className="t-text">1 {product.primary_unit} = {product.conversion_rate} {product.secondary_unit}</span></div> : null}
+      </div>
     </Modal>
   );
 }
@@ -378,9 +462,12 @@ function ProductCard({ product, currency, onInfo, onEdit, onDelete, canManage, c
   const sp = Number(product.selling_price);
   const cp = Number(product.cost_price);
   const margin = sp > 0 ? ((sp - cp) / sp) * 100 : 0;
-  const outOfStock = product.stock <= 0;
+  const stockBase = getStockBaseQuantity(product);
+  const outOfStock = stockBase <= 0;
+  const lowStock = stockBase <= Number(product.low_stock_base_unit ?? 5);
   const fmt = (n) => formatMoney(n, currency);
   const unitLabel = getProductUnitLabel(product);
+  const remainingStock = formatStockQuantity(getStockBaseQuantity(product), product);
 
   const handleAdd = () => {
     const res = addToCart(product, qty);
@@ -418,14 +505,14 @@ function ProductCard({ product, currency, onInfo, onEdit, onDelete, canManage, c
           <div className="absolute top-2 left-2">
             <Badge tone="danger">Out of stock</Badge>
           </div>
-        ) : product.stock < 5 ? (
+        ) : lowStock ? (
           <div className="absolute top-2 left-2">
             <Badge tone="warning">Low stock</Badge>
           </div>
         ) : null}
         <div className="absolute top-2 right-2">
           <Badge tone="neutral">
-            {product.stock} {unitLabel} left
+            {remainingStock} left
           </Badge>
         </div>
       </div>

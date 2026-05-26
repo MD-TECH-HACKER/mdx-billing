@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Receipt, Trash2, Wallet } from "lucide-react";
 import { Button, Card, ConfirmDialog, Input, Modal, Select, Textarea } from "@/components/ui";
 import { showToast } from "@/components/Toast";
 import useShop from "@/utils/useShop";
@@ -14,7 +15,10 @@ const METHODS = [
   { value: "bank_transfer", label: "Bank transfer" },
   { value: "other", label: "Other" },
 ];
-const EMPTY = { category: "", amount: "", expenseDate: "", vendor: "", paymentMethod: "cash", notes: "" };
+const CATEGORIES = [
+  "Rent", "Salary", "Transport", "Electricity", "Internet", "Purchase expense", "Maintenance", "Other",
+].map((value) => ({ value, label: value }));
+const EMPTY = { category: "", amount: "", expenseDate: "", vendor: "", paymentMethod: "cash", notes: "", receiptUrl: "" };
 
 export default function ExpensesPage() {
   const { data: user } = useUser();
@@ -124,7 +128,7 @@ export default function ExpensesPage() {
       <Modal open={open} onClose={() => setOpen(false)} title="Record expense">
         <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); create.mutate(); }}>
           <div className="grid grid-cols-2 gap-3">
-            <Input required placeholder="Category" value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} />
+            <Select value={form.category} onChange={(category) => setForm({ ...form, category })} options={CATEGORIES} placeholder="Expense category" />
             <Input required type="number" min="0.01" step="0.01" placeholder="Amount" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -132,6 +136,7 @@ export default function ExpensesPage() {
             <Select value={form.paymentMethod} onChange={(paymentMethod) => setForm({ ...form, paymentMethod })} options={METHODS} />
           </div>
           <Input placeholder="Vendor (optional)" value={form.vendor} onChange={(event) => setForm({ ...form, vendor: event.target.value })} />
+          <Input placeholder="Receipt attachment URL (optional)" value={form.receiptUrl} onChange={(event) => setForm({ ...form, receiptUrl: event.target.value })} />
           <Textarea rows={2} placeholder="Notes" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
           <Button className="w-full" type="submit" disabled={create.isPending}>
             {create.isPending ? "Saving..." : "Save expense"}

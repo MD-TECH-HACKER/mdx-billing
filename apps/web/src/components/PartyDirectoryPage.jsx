@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { MapPin, Pencil, Phone, Plus, Trash2, UserRound } from "lucide-react";
 import { Button, Card, ConfirmDialog, Input, Modal, SearchInput, Textarea } from "@/components/ui";
 import { showToast } from "@/components/Toast";
 import useShop from "@/utils/useShop";
@@ -144,7 +145,7 @@ export default function PartyDirectoryPage({
                   <div className="t-dim text-xs truncate">{record.email || "No email recorded"}</div>
                 </div>
                 <div className="t-accent-soft rounded-xl px-2.5 py-1 h-fit text-xs font-medium">
-                  {formatMoney(record.opening_balance || 0, currency)}
+                  Due: {formatMoney(record.credit_balance ?? record.balance_due ?? record.opening_balance ?? 0, currency)}
                 </div>
               </div>
               <div className="space-y-1 text-xs t-muted">
@@ -158,6 +159,20 @@ export default function PartyDirectoryPage({
                 </div>
               </div>
               {record.gstin ? <div className="t-elev rounded-xl px-3 py-2 t-muted text-xs">GSTIN: {record.gstin}</div> : null}
+              {endpoint === "customers" ? (
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <Stat label="Purchases" value={formatMoney(record.total_purchases || 0, currency)} />
+                  <Stat label="Paid" value={formatMoney(record.total_paid || 0, currency)} />
+                  <Stat label="Invoices" value={record.invoice_count || 0} />
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <Stat label="Purchases" value={formatMoney(record.total_purchase_amount || 0, currency)} />
+                  <Stat label="Paid" value={formatMoney(record.amount_paid || 0, currency)} />
+                  <Stat label="Bills" value={record.purchase_count || 0} />
+                </div>
+              )}
+              {record.last_purchase_date ? <div className="t-dim text-xs">Last purchase: {new Date(record.last_purchase_date).toLocaleDateString("en-IN")}</div> : null}
               <div className="flex gap-2 mt-auto">
                 <Button variant="secondary" size="sm" className="flex-1" onClick={() => startEdit(record)}>
                   <Pencil className="w-3.5 h-3.5" /> Edit
@@ -206,5 +221,14 @@ export default function PartyDirectoryPage({
         onConfirm={() => remove.mutate(deleting)}
       />
     </>
+  );
+}
+
+function Stat({ label, value }) {
+  return (
+    <div className="t-elev rounded-xl px-2 py-2">
+      <div className="t-dim text-[10px]">{label}</div>
+      <div className="t-text font-semibold truncate">{value}</div>
+    </div>
   );
 }

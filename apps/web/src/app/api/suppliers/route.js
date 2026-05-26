@@ -25,14 +25,29 @@ export async function GET(request) {
     await ensureBusinessFeatureSchema();
     const search = new URL(request.url).searchParams.get("search")?.trim();
     const pattern = search ? `%${search.toLowerCase()}%` : null;
-    const suppliers = pattern
-      ? await sql`
-          SELECT * FROM suppliers
-          WHERE shop_id = ${context.shopId}
-            AND (LOWER(name) LIKE ${pattern} OR LOWER(COALESCE(phone, '')) LIKE ${pattern})
-          ORDER BY name ASC
-        `
-      : await sql`SELECT * FROM suppliers WHERE shop_id = ${context.shopId} ORDER BY name ASC`;
+    const suppliers = await sql`
+      SELECT s.*,
+        COALESCE(SUM(p.total_amount), 0) AS total_purchase_amount,
+        COALESCE(SUM(p.paid_amount), 0) AS amount_paid,
+        COALESCE(SUM(p.total_amount - COALESCE(p.paid_amount, 0)), 0) AS balance_due,
+        COUNT(p.purchase_id) AS purchase_count,
+        MAX(p.purchase_date) AS last_purchase_date,
+        (
+          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'paymentId', pay.payment_id,
+            'amount', pay.amount,
+            'method', pay.payment_method,
+            'date', pay.payment_date
+          ) ORDER BY pay.created_at DESC), '[]'::jsonb)
+          FROM payments pay WHERE pay.supplier_id = s.supplier_id AND pay.shop_id = s.shop_id
+        ) AS payment_history
+      FROM suppliers s
+      LEFT JOIN purchases p ON p.supplier_id = s.supplier_id AND p.shop_id = s.shop_id
+      WHERE s.shop_id = ${context.shopId} AND s.is_deleted = FALSE
+        AND (${pattern}::text IS NULL OR LOWER(s.name) LIKE ${pattern} OR LOWER(COALESCE(s.phone, '')) LIKE ${pattern})
+      GROUP BY s.supplier_id
+      ORDER BY s.name ASC
+    `;
     return Response.json({ suppliers });
   } catch (error) {
     if (error instanceof AccessError) return accessErrorResponse(error);

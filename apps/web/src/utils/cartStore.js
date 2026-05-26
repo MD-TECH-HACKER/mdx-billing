@@ -58,6 +58,10 @@ export function addToCart(product, qty = 1) {
     existing.selling_price = Number(product.selling_price);
     existing.primary_unit = primaryUnit;
     existing.secondary_unit = secondaryUnit;
+    existing.conversion_rate = Number(product.conversion_rate) || null;
+    existing.stock_base_unit = Number(product.stock_base_unit) || stock;
+    existing.hsn_sac = product.hsn_sac || null;
+    existing.tax_rate = Number(product.tax_rate) || 0;
     setCart(cart);
     return { ok: true, exceeded, quantity: newQty };
   }
@@ -73,6 +77,10 @@ export function addToCart(product, qty = 1) {
     quantity: finalQty,
     primary_unit: primaryUnit,
     secondary_unit: secondaryUnit,
+    conversion_rate: Number(product.conversion_rate) || null,
+    stock_base_unit: Number(product.stock_base_unit) || stock,
+    hsn_sac: product.hsn_sac || null,
+    tax_rate: Number(product.tax_rate) || 0,
   });
   setCart(cart);
   return { ok: true, exceeded: wantQty > stock, quantity: finalQty };

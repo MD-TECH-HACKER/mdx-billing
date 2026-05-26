@@ -1,73 +1,86 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router";
-import {
-  Trash2,
-  ShoppingCart,
-  Receipt as ReceiptIcon,
-  Loader2,
-  Package,
-  ArrowRight,
-} from "lucide-react";
+import { useNavigate } from "react-router";
+import { Loader2, PackagePlus, Plus, Receipt, Trash2 } from "lucide-react";
 import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
 import useCart from "@/utils/useCart";
-import { updateQuantity, removeFromCart, clearCart } from "@/utils/cartStore";
+import { clearCart } from "@/utils/cartStore";
 import { showToast } from "@/components/Toast";
 import { formatMoney } from "@/utils/currency";
+import { Button, Card, Input, Modal, Select, Textarea } from "@/components/ui";
 import {
-  Button,
-  Card,
-  Input,
-  Textarea,
-  Select,
-  QtyStepper,
-} from "@/components/ui";
-import { getProductUnitLabel } from "@/utils/productUnits";
+  availableSaleUnits,
+  priceForUnit,
+  PRODUCT_UNITS,
+} from "@/utils/productUnits";
 import { shopHeaders } from "@/utils/shopContext";
 
 const PAYMENT_METHODS = [
-  { value: "cash", label: "💵 Cash" },
-  { value: "card", label: "💳 Card" },
-  { value: "upi", label: "📱 UPI" },
-  { value: "bank_transfer", label: "🏦 Bank Transfer" },
-  { value: "other", label: "✨ Other" },
+  { value: "cash", label: "Cash" },
+  { value: "credit", label: "Credit" },
+  { value: "upi", label: "UPI" },
+  { value: "bank", label: "Bank" },
 ];
 
-const PAYMENT_STATUSES = [
-  { value: "paid", label: "Paid" },
-  { value: "pending", label: "Pending" },
-  { value: "partial", label: "Partial" },
-];
+function lineId() {
+  return typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function productLine(item) {
+  return {
+    id: lineId(),
+    type: "product",
+    productId: String(item.product_id),
+    product: item,
+    quantity: Number(item.quantity) || 1,
+    selectedUnit: item.primary_unit || "piece",
+    discount: "",
+    taxRate: String(item.tax_rate || ""),
+  };
+}
+
+function newManualLine() {
+  return {
+    id: lineId(),
+    type: "manual",
+    name: "",
+    hsnSac: "",
+    quantity: 1,
+    selectedUnit: "pcs",
+    price: "",
+    discount: "",
+    taxRate: "",
+  };
+}
 
 export default function BillingPage() {
   const { data: user } = useUser();
   const { shop } = useShop({ enabled: !!user });
+  const { cart } = useCart();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const {
-    cart,
-    totalAmount,
-    count: totalQuantity,
-  } = useCart();
-  const [buyerName, setBuyerName] = useState("");
-  const [buyerPhone, setBuyerPhone] = useState("");
+  const [items, setItems] = useState(() => cart.map(productLine));
+  const [customerName, setCustomerName] = useState("");
+  const [phone, setPhone] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [paymentStatus, setPaymentStatus] = useState("paid");
+  const [receivedAmount, setReceivedAmount] = useState("");
   const [discountAmount, setDiscountAmount] = useState("");
-  const [paidAmount, setPaidAmount] = useState("");
-  const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [customerError, setCustomerError] = useState("");
+  const [itemsError, setItemsError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [draftProductId, setDraftProductId] = useState("");
 
   const currency = shop?.currency || "INR";
-  const taxPercent = Number(shop?.tax_percent) || 0;
-  const discount = Math.min(totalAmount, Math.max(0, Number(discountAmount) || 0));
-  const taxableAmount = totalAmount - discount;
-  const taxAmount = taxableAmount * (taxPercent / 100);
-  const grandTotal = taxableAmount + taxAmount;
-  const fmt = (n) => formatMoney(n, currency);
+  const fmt = (amount) => formatMoney(amount, currency);
+  const date = new Date().toLocaleDateString("en-IN");
+  const invoiceNo = `${shop?.receipt_prefix || "INV"}-NEW`;
+
   const customersQuery = useQuery({
     queryKey: ["customers", "billing-select"],
     queryFn: async () => {
@@ -77,278 +90,331 @@ export default function BillingPage() {
     },
     enabled: !!user,
   });
+  const productsQuery = useQuery({
+    queryKey: ["products", "billing-select"],
+    queryFn: async () => {
+      const response = await fetch("/api/products", { headers: shopHeaders() });
+      if (!response.ok) return { products: [] };
+      return response.json();
+    },
+    enabled: !!user,
+  });
   const customers = customersQuery.data?.customers || [];
+  const products = productsQuery.data?.products || [];
   const customerOptions = [
-    { value: "", label: "Walk-in customer" },
+    { value: "", label: "New customer" },
     ...customers.map((customer) => ({ value: String(customer.customer_id), label: customer.name })),
   ];
+  const productOptions = products.map((product) => ({
+    value: String(product.product_id),
+    label: product.title,
+  }));
 
-  const checkout = async () => {
-    if (cart.length === 0) return;
+  const calculated = useMemo(
+    () =>
+      items.map((line) => {
+        const product =
+          line.type === "product"
+            ? products.find((record) => String(record.product_id) === String(line.productId)) || line.product
+            : null;
+        const quantity = Math.max(0, Number(line.quantity) || 0);
+        const price =
+          line.type === "product"
+            ? priceForUnit(product?.selling_price, line.selectedUnit, product)
+            : Math.max(0, Number(line.price) || 0);
+        const discount = Math.min(quantity * price, Math.max(0, Number(line.discount) || 0));
+        const taxable = quantity * price - discount;
+        const taxRate = Math.max(0, Math.min(100, Number(line.taxRate) || 0));
+        const tax = taxable * taxRate / 100;
+        return { ...line, product, quantity, price, discount, taxable, tax, total: taxable + tax };
+      }),
+    [items, products],
+  );
+  const subtotal = calculated.reduce((total, item) => total + item.taxable, 0);
+  const taxTotal = calculated.reduce((total, item) => total + item.tax, 0);
+  const billDiscount = Math.min(subtotal, Math.max(0, Number(discountAmount) || 0));
+  const totalAmount = Math.max(0, subtotal - billDiscount + taxTotal);
+  const defaultReceived = paymentMethod === "credit" ? 0 : totalAmount;
+  const received = Math.min(totalAmount, Math.max(0, receivedAmount === "" ? defaultReceived : Number(receivedAmount) || 0));
+  const balance = Math.max(0, totalAmount - received);
+
+  const updateLine = (id, patch) => {
+    setItems((current) => current.map((line) => (line.id === id ? { ...line, ...patch } : line)));
+  };
+
+  const addProduct = () => {
+    const product = products.find((record) => String(record.product_id) === draftProductId);
+    if (!product) return;
+    setItems((current) => [...current, productLine(product)]);
+    setDraftProductId("");
+    setAddOpen(false);
+    setItemsError("");
+  };
+
+  const addManual = () => {
+    setItems((current) => [...current, newManualLine()]);
+    setAddOpen(false);
+    setItemsError("");
+  };
+
+  const save = async (saveAndNew) => {
+    if (!customerName.trim()) {
+      setCustomerError("Customer name is required.");
+      return;
+    }
+    if (!calculated.length) {
+      setItemsError("Add at least one product or manual bill item.");
+      return;
+    }
+    if (calculated.some((line) => line.quantity <= 0 || (line.type === "manual" && !String(line.name).trim()))) {
+      setItemsError("Complete item names and quantities before saving.");
+      return;
+    }
+    setCustomerError("");
+    setItemsError("");
     setSubmitting(true);
     try {
-      // Generate unique session ID to prevent duplicate bills on double-click
-      const checkoutSessionId = typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      const res = await fetch("/api/sales", {
+      const checkoutSessionId = lineId();
+      const response = await fetch("/api/sales", {
         method: "POST",
         headers: shopHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
-          buyerName,
-          buyerPhone,
+          buyerName: customerName,
+          buyerPhone: phone,
           customerId: customerId || null,
           paymentMethod,
-          paymentStatus,
-          discountAmount: discount,
-          paidAmount: Number(paidAmount) || 0,
-          dueDate: dueDate || null,
+          receivedAmount: received,
+          discountAmount: billDiscount,
           notes,
           checkoutSessionId,
-          items: cart.map((c) => ({
-            productId: c.product_id,
-            quantity: c.quantity,
-          })),
+          items: calculated.map((line) =>
+            line.type === "product"
+              ? {
+                  productId: line.productId,
+                  quantity: line.quantity,
+                  selectedUnit: line.selectedUnit,
+                  discount: line.discount,
+                  taxRate: line.taxRate,
+                }
+              : {
+                  name: line.name,
+                  hsnSac: line.hsnSac,
+                  quantity: line.quantity,
+                  unit: line.selectedUnit,
+                  price: line.price,
+                  discount: line.discount,
+                  taxRate: line.taxRate,
+                },
+          ),
         }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Checkout failed");
-      }
-      const data = await res.json();
-      // Only clear cart on success — failure preserves it
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Could not save invoice");
       clearCart();
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["customers"] });
       qc.invalidateQueries({ queryKey: ["analytics"] });
-      showToast("Receipt generated!");
-      navigate(`/sales/${data.sale.sale_id}`);
-    } catch (e) {
-      console.error(e);
-      showToast(e.message || "Checkout failed", "error");
+      showToast("Invoice saved");
+      if (saveAndNew) {
+        setItems([]);
+        setCustomerName("");
+        setPhone("");
+        setCustomerId("");
+        setReceivedAmount("");
+        setDiscountAmount("");
+        setNotes("");
+      } else {
+        navigate(`/sales/${result.sale.sale_id}`);
+      }
+    } catch (error) {
+      showToast(error.message, "error");
+    } finally {
       setSubmitting(false);
     }
   };
 
   return (
     <>
-      <div className="mb-5">
-        <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">
-          Billing & Checkout
-        </h1>
-        <p className="t-muted text-sm">
-          Review cart, capture buyer details and generate the receipt.
-        </p>
+      <div className="mb-4">
+        <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">Billing</h1>
+        <p className="t-muted text-sm">Create product or manual invoices with payment balance tracking.</p>
       </div>
-
-      {cart.length === 0 ? (
-        <Card className="text-center py-12">
-          <ShoppingCart className="w-12 h-12 t-dim2 mx-auto mb-3" />
-          <h3 className="t-text font-semibold mb-1">Your cart is empty</h3>
-          <p className="t-muted text-sm mb-4">
-            Add products from the Products page to start a sale.
-          </p>
-          <Link to="/products" className="inline-block">
-            <Button variant="primary">
-              Browse Products <ArrowRight className="w-4 h-4" />
-            </Button>
-          </Link>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 space-y-3">
-            <Card>
-              <h3 className="t-text font-semibold mb-3 text-sm">
-                Customer info
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Select
-                  value={customerId}
-                  options={customerOptions}
-                  placeholder="Saved customer"
-                  onChange={(value) => {
-                    setCustomerId(value);
-                    const customer = customers.find((entry) => String(entry.customer_id) === value);
-                    if (customer) {
-                      setBuyerName(customer.name || "");
-                      setBuyerPhone(customer.phone || "");
-                    }
-                  }}
-                />
-                <Input
-                  value={buyerName}
-                  onChange={(e) => setBuyerName(e.target.value)}
-                  placeholder="Buyer name"
-                />
-                <Input
-                  value={buyerPhone}
-                  onChange={(e) => setBuyerPhone(e.target.value)}
-                  placeholder="Buyer phone (optional)"
-                />
-                <Select
-                  value={paymentMethod}
-                  onChange={setPaymentMethod}
-                  options={PAYMENT_METHODS}
-                  placeholder="Payment method"
-                />
-                <Select
-                  value={paymentStatus}
-                  onChange={setPaymentStatus}
-                  options={PAYMENT_STATUSES}
-                  placeholder="Payment status"
-                />
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={discountAmount}
-                  onChange={(e) => setDiscountAmount(e.target.value)}
-                  placeholder="Discount amount"
-                />
-                {paymentStatus !== "paid" ? (
-                  <>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={paidAmount}
-                      onChange={(e) => setPaidAmount(e.target.value)}
-                      placeholder="Amount received"
-                    />
-                    <Input
-                      type="date"
-                      value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
-                    />
-                  </>
-                ) : null}
-              </div>
-              <div className="mt-3">
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  placeholder="Notes (optional)"
-                />
-              </div>
-            </Card>
-
-            <Card>
-              <h3 className="t-text font-semibold mb-3 text-sm">
-                Cart items ({cart.length})
-              </h3>
-              <div className="space-y-2">
-                {cart.map((item) => {
-                  const unit = Number(item.selling_price);
-                  const subtotal = unit * item.quantity;
-                  const unitLabel = getProductUnitLabel(item);
-                  return (
-                    <div
-                      key={item.product_id}
-                      className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl t-elev border t-border p-3"
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-14 h-14 rounded-xl t-elev overflow-hidden flex-shrink-0 flex items-center justify-center">
-                          {item.image_url ? (
-                            <img
-                              src={item.image_url}
-                              alt={item.title}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <Package className="w-6 h-6 t-dim2" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="t-text font-medium text-sm truncate">
-                            {item.title}
-                          </div>
-                          <div className="t-dim text-xs truncate">
-                            {item.description || "—"}
-                          </div>
-                          <div className="t-muted text-xs mt-0.5">
-                            {fmt(unit)} / {unitLabel}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between sm:justify-end gap-3">
-                        <QtyStepper
-                          value={item.quantity}
-                          onChange={(v) => updateQuantity(item.product_id, v)}
-                          min={1}
-                          max={item.stock}
-                          size="sm"
-                        />
-                        <div className="text-right min-w-[80px]">
-                          <div className="t-text font-bold text-sm">
-                            {fmt(subtotal)}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => removeFromCart(item.product_id)}
-                          className="w-8 h-8 rounded-lg t-btn-danger flex items-center justify-center"
-                          aria-label="Remove"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-          </div>
-
+      <Card className="mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <SummaryField label="Invoice No." value={invoiceNo} />
+          <SummaryField label="Date" value={date} />
           <div>
-            <Card className="sticky top-24">
-              <h3 className="t-text font-semibold mb-3 text-sm">Summary</h3>
-              <div className="space-y-2 text-sm">
-                <Row label="Total products" value={cart.length} />
-                <Row label="Total quantity" value={totalQuantity} />
-                <Row label="Subtotal" value={fmt(totalAmount)} />
-                {discount > 0 ? <Row label="Discount" value={`- ${fmt(discount)}`} /> : null}
-                {taxPercent > 0 ? (
-                  <Row label={`Tax (${taxPercent}%)`} value={fmt(taxAmount)} />
-                ) : null}
-                <div className="flex justify-between t-text text-lg font-bold pt-2 t-divider">
-                  <span>Total</span>
-                  <span>{fmt(grandTotal)}</span>
-                </div>
-              </div>
-
-              <Button
-                variant="primary"
-                className="w-full mt-4"
-                onClick={checkout}
-                disabled={submitting || cart.length === 0}
-              >
-                {submitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <ReceiptIcon className="w-4 h-4" />
-                )}
-                {submitting ? "Processing..." : "Generate Receipt"}
-              </Button>
-
-              <button
-                onClick={() => clearCart()}
-                className="w-full mt-2 t-btn px-4 py-2 text-xs"
-              >
-                Clear cart
-              </button>
-            </Card>
+            <label className="block t-muted text-xs mb-1">Payment type</label>
+            <Select value={paymentMethod} onChange={setPaymentMethod} options={PAYMENT_METHODS} />
+          </div>
+          <div className="flex items-end">
+            <Button variant="secondary" className="w-full" onClick={() => setAddOpen(true)}>
+              <Plus className="w-4 h-4" /> Add Items
+            </Button>
           </div>
         </div>
-      )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block t-muted text-xs mb-1">Saved customer</label>
+            <Select
+              value={customerId}
+              options={customerOptions}
+              onChange={(value) => {
+                setCustomerId(value);
+                const customer = customers.find((entry) => String(entry.customer_id) === value);
+                if (customer) {
+                  setCustomerName(customer.name || "");
+                  setPhone(customer.phone || "");
+                  setCustomerError("");
+                }
+              }}
+            />
+          </div>
+          <div>
+            <label className="block t-muted text-xs mb-1">Customer name *</label>
+            <Input
+              value={customerName}
+              onChange={(event) => {
+                setCustomerName(event.target.value);
+                if (event.target.value.trim()) setCustomerError("");
+              }}
+              placeholder="Customer name"
+            />
+            {customerError ? <p className="text-xs mt-1" style={{ color: "var(--danger)" }}>{customerError}</p> : null}
+          </div>
+          <div>
+            <label className="block t-muted text-xs mb-1">Phone number</label>
+            <Input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Optional" />
+          </div>
+          <div>
+            <label className="block t-muted text-xs mb-1">Invoice discount</label>
+            <Input type="number" min="0" step="0.01" value={discountAmount} onChange={(event) => setDiscountAmount(event.target.value)} />
+          </div>
+        </div>
+      </Card>
+
+      <Card className="mb-4 overflow-x-auto">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="t-text font-semibold">Invoice items</h2>
+          <button className="t-accent-text text-sm font-medium" onClick={() => setAddOpen(true)}>+ Add item</button>
+        </div>
+        {calculated.length === 0 ? (
+          <div className="py-8 text-center t-muted text-sm">
+            Add a product or a manual item such as service, delivery or custom charge.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {calculated.map((line) => (
+              <InvoiceLine key={line.id} line={line} currency={currency} update={updateLine} remove={() => setItems((current) => current.filter((item) => item.id !== line.id))} />
+            ))}
+          </div>
+        )}
+        {itemsError ? <p className="text-xs mt-3" style={{ color: "var(--danger)" }}>{itemsError}</p> : null}
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 pb-24 lg:pb-0">
+        <Card>
+          <label className="block t-muted text-xs mb-1">Notes / Terms</label>
+          <Textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional invoice note" />
+        </Card>
+        <Card>
+          <div className="space-y-2 text-sm">
+            <Row label="Subtotal" value={fmt(subtotal)} />
+            {billDiscount > 0 ? <Row label="Discount" value={`- ${fmt(billDiscount)}`} /> : null}
+            <Row label="Tax total" value={fmt(taxTotal)} />
+            <Row strong label="Total Amount" value={fmt(totalAmount)} />
+            <div>
+              <label className="block t-muted text-xs mb-1 mt-3">Received Amount</label>
+              <Input type="number" min="0" step="0.01" value={receivedAmount} onChange={(event) => setReceivedAmount(event.target.value)} placeholder={String(defaultReceived.toFixed(2))} />
+            </div>
+            <Row strong label="Balance Amount" value={fmt(balance)} />
+          </div>
+          <div className="hidden lg:flex gap-2 mt-4">
+            <Button variant="secondary" className="flex-1" disabled={submitting} onClick={() => save(true)}>Save & New</Button>
+            <Button className="flex-1" disabled={submitting} onClick={() => save(false)}>
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />} Save
+            </Button>
+          </div>
+        </Card>
+      </div>
+
+      <div className="lg:hidden fixed bottom-20 left-3 right-3 z-20 t-card t-card-strong p-3 flex gap-2 no-print">
+        <Button variant="secondary" className="flex-1" disabled={submitting} onClick={() => save(true)}>Save & New</Button>
+        <Button className="flex-1" disabled={submitting} onClick={() => save(false)}>Save</Button>
+      </div>
+
+      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add Item">
+        <div className="space-y-4">
+          <div>
+            <div className="t-muted text-xs mb-2">Product item</div>
+            <div className="flex gap-2">
+              <Select value={draftProductId} onChange={setDraftProductId} options={productOptions} placeholder="Choose product" />
+              <Button onClick={addProduct} disabled={!draftProductId}>Add</Button>
+            </div>
+          </div>
+          <div className="t-divider pt-4">
+            <Button variant="secondary" className="w-full" onClick={addManual}>
+              <PackagePlus className="w-4 h-4" /> Add manual bill item
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }
 
-function Row({ label, value, subtle }) {
+function InvoiceLine({ line, currency, update, remove }) {
+  const unitOptions =
+    line.type === "product"
+      ? availableSaleUnits(line.product).map((value) => ({ value, label: value }))
+      : PRODUCT_UNITS.map((unit) => ({ value: unit.value, label: unit.label }));
+  const fmt = (amount) => formatMoney(amount, currency);
   return (
-    <div className={`flex justify-between ${subtle ? "t-dim" : "t-muted"}`}>
-      <span>{label}</span>
-      <span className={subtle ? "" : "t-text"}>{value}</span>
+    <div className="rounded-2xl t-elev border t-border p-3 grid grid-cols-2 sm:grid-cols-8 gap-2 items-end">
+      <div className="col-span-2">
+        <label className="block t-dim text-[10px] mb-1">Item Name</label>
+        {line.type === "product" ? (
+          <div className="t-text text-sm font-medium py-2">{line.product?.title}</div>
+        ) : (
+          <Input value={line.name} onChange={(event) => update(line.id, { name: event.target.value })} placeholder="Manual item" />
+        )}
+      </div>
+      <div>
+        <label className="block t-dim text-[10px] mb-1">Qty</label>
+        <Input type="number" min="0.001" step="0.001" value={line.quantity} onChange={(event) => update(line.id, { quantity: event.target.value })} />
+      </div>
+      <div>
+        <label className="block t-dim text-[10px] mb-1">Unit</label>
+        <Select value={line.selectedUnit} onChange={(value) => update(line.id, { selectedUnit: value })} options={unitOptions} />
+      </div>
+      <div>
+        <label className="block t-dim text-[10px] mb-1">Price / Unit</label>
+        {line.type === "product" ? <div className="t-text text-sm py-2">{fmt(line.price)}</div> : <Input type="number" min="0" step="0.01" value={line.price} onChange={(event) => update(line.id, { price: event.target.value })} />}
+      </div>
+      <div>
+        <label className="block t-dim text-[10px] mb-1">Discount</label>
+        <Input type="number" min="0" step="0.01" value={line.discount} onChange={(event) => update(line.id, { discount: event.target.value })} />
+      </div>
+      <div>
+        <label className="block t-dim text-[10px] mb-1">Tax %</label>
+        <Input type="number" min="0" max="100" step="0.01" value={line.taxRate} onChange={(event) => update(line.id, { taxRate: event.target.value })} />
+      </div>
+      <div className="flex items-center justify-between gap-1">
+        <div>
+          <div className="t-dim text-[10px]">Amount</div>
+          <div className="t-text text-sm font-bold">{fmt(line.total)}</div>
+        </div>
+        <button onClick={remove} className="t-btn-danger w-8 h-8 rounded-lg flex items-center justify-center" aria-label="Remove item"><Trash2 className="w-4 h-4" /></button>
+      </div>
     </div>
   );
+}
+
+function SummaryField({ label, value }) {
+  return <div><div className="t-muted text-xs mb-1">{label}</div><div className="t-text text-sm font-semibold py-2">{value}</div></div>;
+}
+
+function Row({ label, value, strong = false }) {
+  return <div className={`flex justify-between pt-2 ${strong ? "t-text text-base font-bold t-divider" : "t-muted"}`}><span>{label}</span><span className={strong ? "" : "t-text"}>{value}</span></div>;
 }

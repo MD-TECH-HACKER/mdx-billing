@@ -13,6 +13,7 @@ import {
 import useUser from "@/utils/useUser";
 import ToastHost, { showToast } from "@/components/Toast";
 import { formatMoney } from "@/utils/currency";
+import { inrAmountInWords } from "@/utils/amountInWords";
 import { Tabs } from "@/components/ui";
 import { getProductUnitLabel } from "@/utils/productUnits";
 import { shopHeaders } from "@/utils/shopContext";
@@ -322,15 +323,18 @@ export default function ReceiptPage(props) {
                 className="grid grid-cols-12 text-[10px] uppercase tracking-wide mb-2 px-1"
                 style={{ color: textMuted }}
               >
-                <div className="col-span-5 md:col-span-6">Item</div>
-                <div className="col-span-1 md:col-span-2 text-center">Qty</div>
-                <div className="col-span-3 md:col-span-2 text-right">Unit</div>
-                <div className="col-span-3 md:col-span-2 text-right">Subtotal</div>
+                <div className="col-span-5 md:col-span-6">Item / HSN/SAC</div>
+                <div className="col-span-1 md:col-span-2 text-center">Qty / Unit</div>
+                <div className="col-span-3 md:col-span-2 text-right">Price / Unit</div>
+                <div className="col-span-3 md:col-span-2 text-right">Amount</div>
               </div>
             ) : null}
             <div className="space-y-1.5">
               {items.map((it, idx) => {
-                const unitLabel = getProductUnitLabel(it);
+                const unitLabel = it.selectedUnit || getProductUnitLabel(it);
+                const itemName = it.productNameSnapshot || it.title;
+                const pricePerUnit = it.pricePerUnitAtSale ?? it.unitPrice;
+                const lineAmount = it.totalAmount ?? it.subtotal;
                 return (
                   <div
                     key={idx}
@@ -347,17 +351,17 @@ export default function ReceiptPage(props) {
                           className="truncate font-medium"
                           style={{ color: textPrimary }}
                         >
-                          {it.title}
+                          {itemName}
                         </div>
                         <div style={{ color: textMuted }}>
-                          {it.quantity} {unitLabel} × {fmt(it.unitPrice)}
+                          {it.quantity} {unitLabel} x {fmt(pricePerUnit)}
                         </div>
                       </div>
                       <div
                         className="font-semibold"
                         style={{ color: textPrimary }}
                       >
-                        {fmt(it.subtotal)}
+                        {fmt(lineAmount)}
                       </div>
                     </>
                   ) : (
@@ -367,7 +371,7 @@ export default function ReceiptPage(props) {
                           <div className="w-9 h-9 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 bg-gray-100">
                             <img
                               src={it.imageUrl}
-                              alt={it.title}
+                              alt={itemName}
                               className="w-full h-full object-cover"
                             />
                           </div>
@@ -389,9 +393,13 @@ export default function ReceiptPage(props) {
                             className="text-sm font-medium truncate"
                             style={{ color: textPrimary }}
                           >
-                            {it.title}
+                            {itemName}
                           </div>
-                          {it.description ? (
+                          {it.hsnSacSnapshot ? (
+                            <div className="text-xs truncate" style={{ color: textMuted }}>
+                              HSN/SAC: {it.hsnSacSnapshot}
+                            </div>
+                          ) : it.description ? (
                             <div
                               className="text-xs truncate"
                               style={{ color: textMuted }}
@@ -411,13 +419,13 @@ export default function ReceiptPage(props) {
                         className="col-span-3 md:col-span-2 text-sm text-right truncate"
                         style={{ color: textPrimary }}
                       >
-                        {fmt(it.unitPrice)}
+                        {fmt(pricePerUnit)}
                       </div>
                       <div
                         className="col-span-3 md:col-span-2 font-semibold text-sm text-right truncate"
                         style={{ color: textPrimary }}
                       >
-                        {fmt(it.subtotal)}
+                        {fmt(lineAmount)}
                       </div>
                     </>
                   )}
@@ -468,6 +476,11 @@ export default function ReceiptPage(props) {
               <span>Grand Total</span>
               <span>{fmt(sale.total_amount)}</span>
             </div>
+            {!thermal ? (
+              <div className="text-xs pt-2" style={{ color: textMuted }}>
+                Amount in words: <span style={{ color: textPrimary }}>{inrAmountInWords(grandTotal)}</span>
+              </div>
+            ) : null}
             {sale.payment_status !== "paid" ? (
               <>
                 <div className="flex justify-between pt-1" style={{ color: textMuted }}>
@@ -502,6 +515,17 @@ export default function ReceiptPage(props) {
                 Notes
               </div>
               {sale.notes}
+            </div>
+          ) : null}
+          {!thermal ? (
+            <div className="mt-5 grid grid-cols-2 gap-6 text-xs" style={{ color: textMuted }}>
+              <div>
+                <div className="font-semibold mb-1" style={{ color: textPrimary }}>Terms & Conditions</div>
+                {sale.default_terms || "Goods once sold are subject to the shop return policy."}
+              </div>
+              <div className="text-right pt-8">
+                <div style={{ borderTop: `1px solid ${borderColor}`, paddingTop: 6 }}>Authorized Signatory</div>
+              </div>
             </div>
           ) : null}
 
