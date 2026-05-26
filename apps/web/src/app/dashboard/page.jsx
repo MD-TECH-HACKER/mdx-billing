@@ -1795,6 +1795,7 @@ export default function DashboardPage() {
           gridTemplateColumns: "1fr 380px",
           gap: "16px",
           marginBottom: "24px",
+          alignItems: "start",
         }}
         className="dash-chart-grid"
       >
