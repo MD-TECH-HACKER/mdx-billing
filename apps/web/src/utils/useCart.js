@@ -12,12 +12,15 @@ export default function useCart() {
     refresh();
     const onChange = () => refresh();
     const onStorage = (e) => {
-      if (e.key === "mdx_cart_v2") refresh();
+      if (e.key?.startsWith("mdx_cart_v3:")) refresh();
     };
+    const onShopChange = () => refresh();
     window.addEventListener("cart-changed", onChange);
+    window.addEventListener("shop-changed", onShopChange);
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener("cart-changed", onChange);
+      window.removeEventListener("shop-changed", onShopChange);
       window.removeEventListener("storage", onStorage);
     };
   }, [refresh]);
@@ -27,11 +30,5 @@ export default function useCart() {
     (a, c) => a + Number(c.selling_price) * c.quantity,
     0,
   );
-  const totalCost = cart.reduce(
-    (a, c) => a + Number(c.cost_price) * c.quantity,
-    0,
-  );
-  const totalProfit = totalAmount - totalCost;
-
-  return { cart, count, totalAmount, totalCost, totalProfit, refresh };
+  return { cart, count, totalAmount, refresh };
 }

@@ -1,6 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import nodeConsole from 'node:console';
-import { skipCSRFCheck } from '@auth/core';
 import Credentials from '@auth/core/providers/credentials';
 import Google from '@auth/core/providers/google';
 import { authHandler, initAuthConfig } from '@hono/auth-js';
@@ -39,6 +38,9 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 const adapter = NeonAdapter(pool);
+const useSecureAuthCookies = process.env.AUTH_URL
+  ? process.env.AUTH_URL.startsWith('https://')
+  : process.env.NODE_ENV === 'production';
 
 const app = new Hono();
 
@@ -95,7 +97,6 @@ if (process.env.AUTH_SECRET) {
         signIn: '/account/signin',
         signOut: '/account/logout',
       },
-      skipCSRFCheck,
       session: {
         strategy: 'jwt',
       },
@@ -110,19 +111,19 @@ if (process.env.AUTH_SECRET) {
       cookies: {
         csrfToken: {
           options: {
-            secure: true,
+            secure: useSecureAuthCookies,
             sameSite: 'lax',
           },
         },
         sessionToken: {
           options: {
-            secure: true,
+            secure: useSecureAuthCookies,
             sameSite: 'lax',
           },
         },
         callbackUrl: {
           options: {
-            secure: true,
+            secure: useSecureAuthCookies,
             sameSite: 'lax',
           },
         },
@@ -134,7 +135,6 @@ if (process.env.AUTH_SECRET) {
               Google({
                 clientId: process.env.GOOGLE_CLIENT_ID,
                 clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-                allowDangerousEmailAccountLinking: true,
               }),
             ]
           : []),
@@ -285,7 +285,7 @@ app.use('/api/auth/*', async (c, next) => {
 });
 app.route(API_BASENAME, api);
 
-export default await createHonoServer({
+export default createHonoServer({
   app,
   defaultLogger: false,
 });

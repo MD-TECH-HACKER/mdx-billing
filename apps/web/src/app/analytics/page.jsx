@@ -9,6 +9,8 @@ import {
   TrendingDown,
   AlertTriangle,
   IndianRupee,
+  Wallet,
+  ClipboardList,
 } from "lucide-react";
 import {
   LineChart,
@@ -29,6 +31,7 @@ import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
 import { formatMoney } from "@/utils/currency";
 import { Card, Skeleton } from "@/components/ui";
+import { shopHeaders } from "@/utils/shopContext";
 
 const tooltipStyle = {
   background: "var(--bg-surface-strong)",
@@ -79,7 +82,7 @@ export default function AnalyticsPage() {
   const query = useQuery({
     queryKey: ["analytics"],
     queryFn: async () => {
-      const res = await fetch("/api/analytics");
+      const res = await fetch("/api/analytics", { headers: shopHeaders() });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -105,9 +108,13 @@ export default function AnalyticsPage() {
     [data],
   );
   const productAnalytics = data?.productAnalytics || [];
+  const expensesByCategory = (data?.expensesByCategory || []).map((expense) => ({
+    category: expense.category,
+    total: Number(expense.total),
+  }));
 
   return (
-    <DashboardShell currentPath="/analytics">
+    <DashboardShell currentPath="/analytics" allowedRoles={["owner", "manager"]}>
       <div className="mb-5">
         <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">
           Analytics
@@ -116,13 +123,13 @@ export default function AnalyticsPage() {
       </div>
 
       {query.isLoading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <MiniStat
             icon={Package}
             label="Products sold"
@@ -142,6 +149,26 @@ export default function AnalyticsPage() {
             icon={Percent}
             label="Avg margin"
             value={`${(stats.avgMargin || 0).toFixed(1)}%`}
+          />
+          <MiniStat
+            icon={Wallet}
+            label="Month expenses"
+            value={fmt(stats.monthExpenses)}
+          />
+          <MiniStat
+            icon={TrendingUp}
+            label="Month net profit"
+            value={fmt(stats.netProfit)}
+          />
+          <MiniStat
+            icon={ClipboardList}
+            label="Month purchases"
+            value={fmt(stats.monthPurchases)}
+          />
+          <MiniStat
+            icon={Package}
+            label="Purchase entries"
+            value={stats.monthPurchaseCount || 0}
           />
         </div>
       )}
@@ -249,6 +276,25 @@ export default function AnalyticsPage() {
           </div>
         </Card>
       </div>
+
+      <Card className="mb-4">
+        <h3 className="t-text font-semibold mb-3 text-sm">Expenses by category this month</h3>
+        {expensesByCategory.length === 0 ? (
+          <div className="t-dim text-sm text-center py-8">No monthly expenses recorded</div>
+        ) : (
+          <div style={{ width: "100%", height: 220 }}>
+            <ResponsiveContainer>
+              <BarChart data={expensesByCategory}>
+                <CartesianGrid stroke="var(--border)" />
+                <XAxis dataKey="category" stroke={axisColor} fontSize={10} />
+                <YAxis stroke={axisColor} fontSize={10} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Bar dataKey="total" fill="var(--accent)" radius={[7, 7, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </Card>
 
       <Card className="mb-4">
         <h3 className="t-text font-semibold mb-3 text-sm">

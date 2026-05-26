@@ -38,6 +38,7 @@ import useShop from "@/utils/useShop";
 import useProfile from "@/utils/useProfile";
 import { formatMoney } from "@/utils/currency";
 import { Card, Skeleton, Button } from "@/components/ui";
+import { shopHeaders } from "@/utils/shopContext";
 
 const COLORS = [
   "var(--accent)",
@@ -105,7 +106,7 @@ export default function DashboardPage() {
   const analyticsQuery = useQuery({
     queryKey: ["analytics"],
     queryFn: async () => {
-      const res = await fetch("/api/analytics");
+      const res = await fetch("/api/analytics", { headers: shopHeaders() });
       if (!res.ok) throw new Error("Failed to load");
       return res.json();
     },
@@ -116,7 +117,7 @@ export default function DashboardPage() {
   const recentSalesQuery = useQuery({
     queryKey: ["sales", { recent: true }],
     queryFn: async () => {
-      const res = await fetch("/api/sales");
+      const res = await fetch("/api/sales", { headers: shopHeaders() });
       if (!res.ok) throw new Error("Failed to load");
       return res.json();
     },
@@ -176,7 +177,7 @@ export default function DashboardPage() {
   const recentSales = (recentSalesQuery.data?.sales || []).slice(0, 5);
 
   return (
-    <DashboardShell currentPath="/dashboard">
+    <DashboardShell currentPath="/dashboard" allowedRoles={["owner", "manager"]}>
       <div className="mb-6">
         <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">
           Hello{firstName ? `, ${firstName}` : ""} 👋

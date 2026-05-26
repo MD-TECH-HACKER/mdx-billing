@@ -13,6 +13,7 @@ import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
 import { showToast } from "@/components/Toast";
 import { formatMoney } from "@/utils/currency";
+import { shopHeaders } from "@/utils/shopContext";
 import {
   Card,
   Button,
@@ -39,7 +40,7 @@ const SORT_OPTIONS = [
 
 export default function SalesPage() {
   const { data: user } = useUser();
-  const { shop } = useShop({ enabled: !!user });
+  const { shop, role } = useShop({ enabled: !!user });
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -59,7 +60,9 @@ export default function SalesPage() {
       if (toDate) params.set("to", toDate);
       if (status) params.set("status", status);
       if (sort) params.set("sort", sort);
-      const res = await fetch(`/api/sales?${params.toString()}`);
+      const res = await fetch(`/api/sales?${params.toString()}`, {
+        headers: shopHeaders(),
+      });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -71,10 +74,15 @@ export default function SalesPage() {
   const sales = query.data?.sales || [];
   const currency = shop?.currency || "INR";
   const fmt = (n) => formatMoney(n, currency);
+  const canViewMargins = role === "owner" || role === "manager";
+  const canDeleteSales = canViewMargins;
 
   const deleteMut = useMutation({
     mutationFn: async (id) => {
-      const res = await fetch(`/api/sales/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/sales/${id}`, {
+        method: "DELETE",
+        headers: shopHeaders(),
+      });
       if (!res.ok) throw new Error();
       return res.json();
     },
@@ -153,10 +161,10 @@ export default function SalesPage() {
               <div className="t-dim">Revenue</div>
               <div className="t-text font-semibold">{fmt(totals.revenue)}</div>
             </div>
-            <div className="rounded-xl t-success-bg px-3 py-2">
+            {canViewMargins ? <div className="rounded-xl t-success-bg px-3 py-2">
               <div className="opacity-80">Profit</div>
               <div className="font-semibold">{fmt(totals.profit)}</div>
-            </div>
+            </div> : null}
             <div className="rounded-xl t-elev px-3 py-2">
               <div className="t-dim">Units</div>
               <div className="t-text font-semibold">{totals.qty}</div>
@@ -222,7 +230,7 @@ export default function SalesPage() {
                       {fmt(s.total_amount)}
                     </div>
                   </div>
-                  <div className="text-right">
+                  {canViewMargins ? <div className="text-right">
                     <div
                       className="text-[10px]"
                       style={{ color: "var(--success)" }}
@@ -235,7 +243,7 @@ export default function SalesPage() {
                     >
                       {fmt(s.total_profit)}
                     </div>
-                  </div>
+                  </div> : null}
                 </div>
                 <div className="flex gap-2 mt-auto">
                   <Link
@@ -251,12 +259,12 @@ export default function SalesPage() {
                   >
                     <Printer className="w-3.5 h-3.5" />
                   </Link>
-                  <button
+                  {canDeleteSales ? <button
                     onClick={() => setDeleting(s)}
                     className="t-btn-danger px-2 py-2 rounded-xl"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  </button> : null}
                 </div>
               </Card>
             );
@@ -264,7 +272,7 @@ export default function SalesPage() {
         </div>
       )}
 
-      <ConfirmDialog
+      {canDeleteSales ? <ConfirmDialog
         open={!!deleting}
         title="Delete receipt?"
         message={
@@ -279,7 +287,7 @@ export default function SalesPage() {
           if (deleting) deleteMut.mutate(deleting.sale_id);
           setDeleting(null);
         }}
-      />
+      /> : null}
     </DashboardShell>
   );
 }

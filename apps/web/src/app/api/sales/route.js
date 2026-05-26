@@ -1,30 +1,31 @@
 import sql from "@/app/api/utils/sql";
-import { auth } from "@/auth";
+import {
+  accessErrorResponse,
+  AccessError,
+  requireShopAccess,
+  writeAuditEvent,
+} from "@/app/api/utils/shopAccess";
 import { sanitizeProductUnit } from "@/utils/productUnits";
-
-async function ensureProductUnitColumns() {
-  await sql`
-    ALTER TABLE products
-    ADD COLUMN IF NOT EXISTS primary_unit TEXT DEFAULT 'piece',
-    ADD COLUMN IF NOT EXISTS secondary_unit TEXT
-  `;
-}
+import { ensureBusinessFeatureSchema } from "@/app/api/utils/businessSchema";
+import { canAccess } from "@/app/api/utils/permissions";
+import { sanitizeSaleForRole } from "@/app/api/utils/financialVisibility";
+import { calculateInvoiceTotals } from "@/app/api/utils/invoiceTotals";
 
 export async function GET(request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id)
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-
+    const context = await requireShopAccess(request, "sale.read");
     const url = new URL(request.url);
     const search = url.searchParams.get("search");
     const fromDate = url.searchParams.get("from");
     const toDate = url.searchParams.get("to");
     const status = url.searchParams.get("status");
     const sort = url.searchParams.get("sort") || "newest";
+    const columns = canAccess(context.role, "analytics.profit")
+      ? "*"
+      : "sale_id, shop_id, customer_id, receipt_number, buyer_name, buyer_phone, items, total_amount, total_quantity, tax_amount, discount_amount, paid_amount, due_date, payment_status, payment_method, notes, created_at, updated_at";
+    let query = `SELECT ${columns} FROM sales WHERE shop_id = $1`;
+    const values = [context.shopId];
 
-    let query = `SELECT * FROM sales WHERE owner_id = $1`;
-    const values = [session.user.id];
     if (search) {
       values.push(`%${search.toLowerCase()}%`);
       query += ` AND (LOWER(COALESCE(buyer_name,'')) LIKE $${values.length} OR LOWER(receipt_number) LIKE $${values.length})`;
@@ -34,7 +35,7 @@ export async function GET(request) {
       query += ` AND created_at >= $${values.length}`;
     }
     if (toDate) {
-      values.push(toDate + "T23:59:59.999Z");
+      values.push(`${toDate}T23:59:59.999Z`);
       query += ` AND created_at <= $${values.length}`;
     }
     if (status && status !== "all") {
@@ -53,43 +54,56 @@ export async function GET(request) {
     query += ` ORDER BY ${orderBy} LIMIT 500`;
 
     const sales = await sql(query, values);
-    return Response.json({ sales });
-  } catch (err) {
-    console.error("GET /api/sales", err);
+    return Response.json({
+      sales: sales.map((sale) => sanitizeSaleForRole(sale, context.role)),
+    });
+  } catch (error) {
+    if (error instanceof AccessError) return accessErrorResponse(error);
+    console.error("GET /api/sales", error);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
 export async function POST(request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id)
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    await ensureProductUnitColumns();
-
-    const shopRows =
-      await sql`SELECT shop_id, receipt_prefix, tax_percent FROM shops WHERE owner_id = ${session.user.id} LIMIT 1`;
-    const shop = shopRows[0];
-    if (!shop)
-      return Response.json({ error: "Shop not set up" }, { status: 400 });
-
+    const context = await requireShopAccess(request, "sale.write");
+    await ensureBusinessFeatureSchema();
     const body = await request.json();
     const items = Array.isArray(body.items) ? body.items : [];
-    if (items.length === 0)
-      return Response.json({ error: "No items" }, { status: 400 });
 
+    if (items.length === 0) {
+      return Response.json({ error: "No items" }, { status: 400 });
+    }
+
+    const productIds = items.map((item) => Number.parseInt(item.productId, 10));
+    if (productIds.some((id) => !Number.isInteger(id) || id <= 0)) {
+      return Response.json({ error: "Invalid items" }, { status: 400 });
+    }
+    if (new Set(productIds).size !== productIds.length) {
+      return Response.json({ error: "Duplicate products are not allowed" }, { status: 400 });
+    }
+
+    let customer = null;
+    if (body.customerId) {
+      const customerId = Number.parseInt(body.customerId, 10);
+      const customerRows = await sql`
+        SELECT customer_id, name, phone FROM customers
+        WHERE customer_id = ${customerId} AND shop_id = ${context.shopId}
+        LIMIT 1
+      `;
+      if (!customerRows[0]) {
+        return Response.json({ error: "Customer not found" }, { status: 400 });
+      }
+      customer = customerRows[0];
+    }
     const buyerName =
-      (body.buyerName || "").toString().trim().slice(0, 100) || null;
+      (body.buyerName || customer?.name || "").toString().trim().slice(0, 100) || null;
     const buyerPhone =
-      (body.buyerPhone || "").toString().trim().slice(0, 50) || null;
+      (body.buyerPhone || customer?.phone || "").toString().trim().slice(0, 50) || null;
     const notes = (body.notes || "").toString().trim().slice(0, 500) || null;
-    const paymentMethod = [
-      "cash",
-      "card",
-      "upi",
-      "bank_transfer",
-      "other",
-    ].includes(body.paymentMethod)
+    const paymentMethod = ["cash", "card", "upi", "bank_transfer", "other"].includes(
+      body.paymentMethod,
+    )
       ? body.paymentMethod
       : "cash";
     const paymentStatus = ["paid", "pending", "partial"].includes(
@@ -98,21 +112,14 @@ export async function POST(request) {
       ? body.paymentStatus
       : "paid";
 
-    // Validate each item exists and belongs to this user, compute totals
-    const productIds = items.map((i) => parseInt(i.productId)).filter(Boolean);
-    if (productIds.length !== items.length)
-      return Response.json({ error: "Invalid items" }, { status: 400 });
-
-    const placeholders = productIds.map((_, i) => `$${i + 2}`).join(",");
+    const placeholders = productIds.map((_, index) => `$${index + 2}`).join(",");
     const productRows = await sql(
-      `SELECT * FROM products WHERE owner_id = $1 AND product_id IN (${placeholders})`,
-      [session.user.id, ...productIds],
+      `SELECT * FROM products WHERE shop_id = $1 AND product_id IN (${placeholders})`,
+      [context.shopId, ...productIds],
     );
-
-    const productMap = {};
-    productRows.forEach((p) => {
-      productMap[p.product_id] = p;
-    });
+    const productMap = Object.fromEntries(
+      productRows.map((product) => [product.product_id, product]),
+    );
 
     let totalAmount = 0;
     let totalCost = 0;
@@ -120,61 +127,148 @@ export async function POST(request) {
     const lineItems = [];
 
     for (const item of items) {
-      const p = productMap[parseInt(item.productId)];
-      if (!p)
+      const product = productMap[Number.parseInt(item.productId, 10)];
+      if (!product) {
         return Response.json({ error: "Product not found" }, { status: 400 });
-      const qty = Math.max(1, parseInt(item.quantity) || 1);
-      if (qty > p.stock)
+      }
+
+      const quantity = Math.max(1, Number.parseInt(item.quantity, 10) || 1);
+      if (quantity > product.stock) {
         return Response.json(
-          { error: `Not enough stock for ${p.title}` },
+          { error: `Not enough stock for ${product.title}` },
           { status: 400 },
         );
-      const sp = Number(p.selling_price);
-      const cp = Number(p.cost_price);
-      totalAmount += sp * qty;
-      totalCost += cp * qty;
-      totalQuantity += qty;
+      }
+
+      const unitPrice = Number(product.selling_price);
+      const costPrice = Number(product.cost_price);
+      totalAmount += unitPrice * quantity;
+      totalCost += costPrice * quantity;
+      totalQuantity += quantity;
       lineItems.push({
-        productId: p.product_id,
-        title: p.title,
-        description: p.description,
-        imageUrl: p.image_url,
-        quantity: qty,
-        unitPrice: sp,
-        costPrice: cp,
-        primaryUnit: sanitizeProductUnit(p.primary_unit, {
+        productId: product.product_id,
+        title: product.title,
+        description: product.description,
+        imageUrl: product.image_url,
+        quantity,
+        unitPrice,
+        costPrice,
+        primaryUnit: sanitizeProductUnit(product.primary_unit, {
           fallback: "piece",
         }),
-        secondaryUnit: sanitizeProductUnit(p.secondary_unit, {
+        secondaryUnit: sanitizeProductUnit(product.secondary_unit, {
           fallback: null,
         }),
-        subtotal: sp * qty,
+        subtotal: unitPrice * quantity,
       });
     }
 
-    const totalProfit = totalAmount - totalCost;
-    const taxPercent = Number(shop.tax_percent) || 0;
-    const taxAmount = +(totalAmount * (taxPercent / 100)).toFixed(2);
-    const grandTotal = +(totalAmount + taxAmount).toFixed(2);
-
-    const receiptNumber = `${shop.receipt_prefix || "INV"}-${Date.now()}`;
-
-    // Transaction: insert sale and decrement stock
-    const queries = [
-      sql`
-        INSERT INTO sales (owner_id, shop_id, receipt_number, buyer_name, buyer_phone, items, total_amount, total_cost, total_profit, total_quantity, tax_amount, payment_status, payment_method, notes)
-        VALUES (${session.user.id}, ${shop.shop_id}, ${receiptNumber}, ${buyerName}, ${buyerPhone}, ${JSON.stringify(lineItems)}, ${grandTotal}, ${totalCost}, ${totalProfit}, ${totalQuantity}, ${taxAmount}, ${paymentStatus}, ${paymentMethod}, ${notes})
-        RETURNING *`,
-    ];
-    for (const li of lineItems) {
-      queries.push(
-        sql`UPDATE products SET stock = stock - ${li.quantity}, updated_at = NOW() WHERE product_id = ${li.productId} AND owner_id = ${session.user.id}`,
+    const { discountAmount, taxableAmount, taxAmount, grandTotal } = calculateInvoiceTotals(
+      totalAmount,
+      context.shop.tax_percent,
+      body.discountAmount,
+    );
+    const totalProfit = taxableAmount - totalCost;
+    const paidAmount =
+      paymentStatus === "paid"
+        ? grandTotal
+        : Math.min(grandTotal, Math.max(0, Number(body.paidAmount) || 0));
+    const dueDate = (body.dueDate || "").toString().slice(0, 10) || null;
+    const receiptNumber = `${context.shop.receipt_prefix || "INV"}-${Date.now()}`;
+    const requestedStock = JSON.stringify(
+      lineItems.map((lineItem) => ({
+        productId: lineItem.productId,
+        quantity: lineItem.quantity,
+      })),
+    );
+    const saleRows = await sql`
+      WITH requested AS (
+        SELECT item."productId" AS product_id, item.quantity
+        FROM jsonb_to_recordset(${requestedStock}::jsonb)
+          AS item("productId" INTEGER, quantity INTEGER)
+      ),
+      decremented AS (
+        UPDATE products product
+        SET stock = product.stock - requested.quantity, updated_at = NOW()
+        FROM requested
+        WHERE product.product_id = requested.product_id
+          AND product.shop_id = ${context.shopId}
+          AND product.stock >= requested.quantity
+        RETURNING product.product_id
+      ),
+      verified AS (
+        SELECT 1 / (
+          CASE
+            WHEN COUNT(*) = ${lineItems.length} THEN 1
+            ELSE COUNT(*)::INTEGER - COUNT(*)::INTEGER
+          END
+        ) AS ok
+        FROM decremented
+      ),
+      created_sale AS (
+        INSERT INTO sales
+          (owner_id, shop_id, customer_id, receipt_number, buyer_name, buyer_phone, items, total_amount, total_cost, total_profit, total_quantity, tax_amount, discount_amount, paid_amount, due_date, payment_status, payment_method, notes)
+        SELECT
+          ${context.shopOwnerId},
+          ${context.shopId},
+          ${customer?.customer_id || null},
+          ${receiptNumber},
+          ${buyerName},
+          ${buyerPhone},
+          ${JSON.stringify(lineItems)},
+          ${grandTotal},
+          ${totalCost},
+          ${totalProfit},
+          ${totalQuantity},
+          ${taxAmount},
+          ${discountAmount},
+          ${paidAmount},
+          ${dueDate},
+          ${paymentStatus},
+          ${paymentMethod},
+          ${notes}
+        FROM verified
+        WHERE verified.ok = 1
+        RETURNING *
+      ),
+      recorded_movements AS (
+        INSERT INTO stock_movements
+          (shop_id, product_id, movement_type, quantity_change, reference_type, reference_id, created_by)
+        SELECT
+          ${context.shopId},
+          requested.product_id,
+          'sale',
+          -requested.quantity,
+          'sale',
+          created_sale.sale_id::TEXT,
+          ${context.userId}
+        FROM requested
+        CROSS JOIN created_sale
+        RETURNING movement_id
+      )
+      SELECT created_sale.*
+      FROM created_sale
+      CROSS JOIN (SELECT COUNT(*) FROM recorded_movements) movement_count
+    `;
+    const sale = saleRows[0];
+    await writeAuditEvent(context, "sale.create", "sale", sale.sale_id, {
+      receiptNumber,
+      totalAmount: grandTotal,
+      itemCount: lineItems.length,
+    });
+    return Response.json(
+      { sale: sanitizeSaleForRole(sale, context.role) },
+      { status: 201 },
+    );
+  } catch (error) {
+    if (error instanceof AccessError) return accessErrorResponse(error);
+    if (error?.code === "22012" || /division by zero/i.test(String(error?.message))) {
+      return Response.json(
+        { error: "Stock changed before checkout. Refresh products and try again." },
+        { status: 409 },
       );
     }
-    const results = await sql.transaction(queries);
-    return Response.json({ sale: results[0][0] });
-  } catch (err) {
-    console.error("POST /api/sales", err);
+    console.error("POST /api/sales", error);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

@@ -73,10 +73,10 @@ export default function NeonAdapter(client: Pool): NeonAdapter {
         VALUES ($1, $2, $3, $4)
         RETURNING id, name, email, "emailVerified", image`;
       const result = await client.query(sql, [
-        name,
-        email,
-        emailVerified,
-        image,
+        name ?? null,
+        email ?? null,
+        emailVerified ?? null,
+        image ?? null,
       ]);
       return result.rows[0];
     },
@@ -137,11 +137,11 @@ export default function NeonAdapter(client: Pool): NeonAdapter {
         RETURNING name, id, email, "emailVerified", image
       `;
       const query2 = await client.query(updateSql, [
-        id,
-        name,
-        email,
-        emailVerified,
-        image,
+        id ?? null,
+        name ?? null,
+        email ?? null,
+        emailVerified ?? null,
+        image ?? null,
       ]);
       return query2.rows[0];
     },
@@ -180,18 +180,18 @@ export default function NeonAdapter(client: Pool): NeonAdapter {
       `;
 
       const params = [
-        account.userId,
-        account.provider,
-        account.type,
-        account.providerAccountId,
-        account.access_token,
-        account.expires_at,
-        account.refresh_token,
-        account.id_token,
-        account.scope,
-        account.session_state,
-        account.token_type,
-        account.extraData?.password,
+        account.userId ?? null,
+        account.provider ?? null,
+        account.type ?? null,
+        account.providerAccountId ?? null,
+        account.access_token ?? null,
+        account.expires_at ?? null,
+        account.refresh_token ?? null,
+        account.id_token ?? null,
+        account.scope ?? null,
+        account.session_state ?? null,
+        account.token_type ?? null,
+        account.extraData?.password ?? null,
       ];
 
       const result = await client.query(sql, params);

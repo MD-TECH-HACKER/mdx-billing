@@ -34,6 +34,7 @@ import {
 } from "@/components/ui";
 import CartPanel from "@/components/CartPanel";
 import { getProductUnitLabel, PRODUCT_UNITS } from "@/utils/productUnits";
+import { shopHeaders } from "@/utils/shopContext";
 
 const SECONDARY_PRODUCT_UNITS = [
   { value: "", label: "No secondary unit" },
@@ -132,7 +133,7 @@ function ProductForm({ open, onClose, initial, onSaved }) {
         initial ? `/api/products/${initial.product_id}` : "/api/products",
         {
           method: initial ? "PUT" : "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: shopHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify(payload),
         },
       );
@@ -302,7 +303,7 @@ function ProductForm({ open, onClose, initial, onSaved }) {
   );
 }
 
-function ProductInfo({ product, onClose, onEdit, currency }) {
+function ProductInfo({ product, onClose, onEdit, currency, canManage, canViewMargins }) {
   if (!product) return null;
   const sp = Number(product.selling_price);
   const cp = Number(product.cost_price);
@@ -332,18 +333,22 @@ function ProductInfo({ product, onClose, onEdit, currency }) {
           <div className="t-dim text-[10px]">Selling</div>
           <div className="t-text font-semibold text-sm">{fmt(sp)}</div>
         </div>
-        <div className="rounded-xl t-elev px-3 py-2">
-          <div className="t-dim text-[10px]">Cost</div>
-          <div className="t-text font-semibold text-sm">{fmt(cp)}</div>
-        </div>
-        <div className="rounded-xl t-success-bg px-3 py-2">
-          <div className="text-[10px] opacity-80">Profit</div>
-          <div className="font-semibold text-sm">{fmt(profit)}</div>
-        </div>
-        <div className="rounded-xl t-accent-soft px-3 py-2">
-          <div className="text-[10px] opacity-80">Margin</div>
-          <div className="font-semibold text-sm">{margin.toFixed(1)}%</div>
-        </div>
+        {canViewMargins ? (
+          <>
+            <div className="rounded-xl t-elev px-3 py-2">
+              <div className="t-dim text-[10px]">Cost</div>
+              <div className="t-text font-semibold text-sm">{fmt(cp)}</div>
+            </div>
+            <div className="rounded-xl t-success-bg px-3 py-2">
+              <div className="text-[10px] opacity-80">Profit</div>
+              <div className="font-semibold text-sm">{fmt(profit)}</div>
+            </div>
+            <div className="rounded-xl t-accent-soft px-3 py-2">
+              <div className="text-[10px] opacity-80">Margin</div>
+              <div className="font-semibold text-sm">{margin.toFixed(1)}%</div>
+            </div>
+          </>
+        ) : null}
         <div className="rounded-xl t-elev px-3 py-2 col-span-2">
           <div className="t-dim text-[10px]">Stock</div>
           <div className="t-text font-semibold text-sm">
@@ -359,15 +364,17 @@ function ProductInfo({ product, onClose, onEdit, currency }) {
         <Button variant="secondary" className="flex-1" onClick={onClose}>
           Close
         </Button>
-        <Button variant="primary" className="flex-1" onClick={onEdit}>
-          Edit
-        </Button>
+        {canManage ? (
+          <Button variant="primary" className="flex-1" onClick={onEdit}>
+            Edit
+          </Button>
+        ) : null}
       </div>
     </Modal>
   );
 }
 
-function ProductCard({ product, currency, onInfo, onEdit, onDelete }) {
+function ProductCard({ product, currency, onInfo, onEdit, onDelete, canManage, canViewMargins }) {
   const [qty, setQty] = useState(1);
   const sp = Number(product.selling_price);
   const cp = Number(product.cost_price);
@@ -433,9 +440,13 @@ function ProductCard({ product, currency, onInfo, onEdit, onDelete }) {
         <div className="flex items-end justify-between mt-2">
           <div>
             <div className="t-text font-bold text-base">{fmt(sp)}</div>
-            <div className="t-accent-text text-[10px] font-medium">
-              {margin.toFixed(0)}% margin · / {unitLabel}
-            </div>
+            {canViewMargins ? (
+              <div className="t-accent-text text-[10px] font-medium">
+                {margin.toFixed(0)}% margin / {unitLabel}
+              </div>
+            ) : (
+              <div className="t-dim text-[10px] font-medium">per {unitLabel}</div>
+            )}
           </div>
           {product.category ? (
             <Badge tone="neutral">{product.category}</Badge>
@@ -468,20 +479,24 @@ function ProductCard({ product, currency, onInfo, onEdit, onDelete }) {
           >
             <Info className="w-3 h-3" /> Info
           </button>
-          <button
-            onClick={() => onEdit(product)}
-            className="t-btn px-2 py-1.5 text-xs"
-            aria-label="Edit"
-          >
-            <Edit2 className="w-3 h-3" />
-          </button>
-          <button
-            onClick={() => onDelete(product)}
-            className="t-btn-danger px-2 py-1.5 text-xs"
-            aria-label="Delete"
-          >
-            <Trash2 className="w-3 h-3" />
-          </button>
+          {canManage ? (
+            <>
+              <button
+                onClick={() => onEdit(product)}
+                className="t-btn px-2 py-1.5 text-xs"
+                aria-label="Edit"
+              >
+                <Edit2 className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => onDelete(product)}
+                className="t-btn-danger px-2 py-1.5 text-xs"
+                aria-label="Delete"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </>
+          ) : null}
         </div>
       </div>
     </div>
@@ -490,7 +505,7 @@ function ProductCard({ product, currency, onInfo, onEdit, onDelete }) {
 
 export default function ProductsPage() {
   const { data: user } = useUser();
-  const { shop } = useShop({ enabled: !!user });
+  const { shop, role } = useShop({ enabled: !!user });
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -511,7 +526,7 @@ export default function ProductsPage() {
     queryKey: ["products", search],
     queryFn: async () => {
       const url = `/api/products${search ? `?search=${encodeURIComponent(search)}` : ""}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: shopHeaders() });
       if (!res.ok) throw new Error("Failed to load");
       return res.json();
     },
@@ -524,7 +539,10 @@ export default function ProductsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/products/${id}`, {
+        method: "DELETE",
+        headers: shopHeaders(),
+      });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -537,6 +555,8 @@ export default function ProductsPage() {
   });
 
   const currency = shop?.currency || "INR";
+  const canManageInventory = role === "owner" || role === "manager";
+  const canViewMargins = canManageInventory;
 
   const checkout = () => {
     navigate("/billing");
@@ -553,7 +573,7 @@ export default function ProductsPage() {
               </h1>
               <p className="t-muted text-sm">Manage your inventory</p>
             </div>
-            <Button
+            {canManageInventory ? <Button
               variant="primary"
               onClick={() => {
                 setEditing(null);
@@ -561,7 +581,7 @@ export default function ProductsPage() {
               }}
             >
               <Plus className="w-4 h-4" /> Add Product
-            </Button>
+            </Button> : null}
           </div>
 
           <div className="mb-4">
@@ -594,7 +614,7 @@ export default function ProductsPage() {
                   ? "Try a different search."
                   : "Add your first product to start selling."}
               </p>
-              {!search ? (
+              {!search && canManageInventory ? (
                 <Button
                   variant="primary"
                   onClick={() => {
@@ -619,6 +639,8 @@ export default function ProductsPage() {
                     setModalOpen(true);
                   }}
                   onDelete={setDeleting}
+                  canManage={canManageInventory}
+                  canViewMargins={canViewMargins}
                 />
               ))}
             </div>
@@ -669,7 +691,7 @@ export default function ProductsPage() {
         />
       ) : null}
 
-      <ProductForm
+      {canManageInventory ? <ProductForm
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         initial={editing}
@@ -677,11 +699,13 @@ export default function ProductsPage() {
           qc.invalidateQueries({ queryKey: ["products"] });
           qc.invalidateQueries({ queryKey: ["analytics"] });
         }}
-      />
+      /> : null}
 
       <ProductInfo
         product={infoProduct}
         currency={currency}
+        canManage={canManageInventory}
+        canViewMargins={canViewMargins}
         onClose={() => setInfoProduct(null)}
         onEdit={() => {
           setEditing(infoProduct);
@@ -690,7 +714,7 @@ export default function ProductsPage() {
         }}
       />
 
-      <ConfirmDialog
+      {canManageInventory ? <ConfirmDialog
         open={!!deleting}
         title="Delete product?"
         message={
@@ -703,7 +727,7 @@ export default function ProductsPage() {
           if (deleting) deleteMutation.mutate(deleting.product_id);
           setDeleting(null);
         }}
-      />
+      /> : null}
     </DashboardShell>
   );
 }

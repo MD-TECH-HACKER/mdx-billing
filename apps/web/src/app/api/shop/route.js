@@ -1,78 +1,71 @@
 import sql from "@/app/api/utils/sql";
-import { auth } from "@/auth";
+import { ensureCoreBusinessSchema } from "@/app/api/utils/businessSchema";
+import {
+  accessErrorResponse,
+  AccessError,
+  requireAuthenticatedUser,
+  requireShopAccess,
+  writeAuditEvent,
+} from "@/app/api/utils/shopAccess";
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const rows =
-      await sql`SELECT * FROM shops WHERE owner_id = ${session.user.id} LIMIT 1`;
-    return Response.json({ shop: rows[0] || null });
-  } catch (err) {
-    console.error("GET /api/shop", err);
+    const context = await requireShopAccess(request, "shop.read");
+    return Response.json({ shop: context.shop, role: context.role });
+  } catch (error) {
+    if (error instanceof AccessError) return accessErrorResponse(error);
+    console.error("GET /api/shop", error);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
 export async function POST(request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { userId } = await requireAuthenticatedUser();
+    await ensureCoreBusinessSchema();
+
     const body = await request.json();
     const shopName = (body.shopName || "").toString().trim().slice(0, 100);
     const shopDescription = (body.shopDescription || "")
       .toString()
       .trim()
       .slice(0, 500);
-    const shopLogo =
-      (body.shopLogo || "").toString().trim() || null;
-    const address =
-      (body.address || "").toString().trim().slice(0, 300) || null;
+    const shopLogo = (body.shopLogo || "").toString().trim() || null;
+    const address = (body.address || "").toString().trim().slice(0, 300) || null;
     const phone = (body.phone || "").toString().trim().slice(0, 50) || null;
 
     if (!shopName) {
       return Response.json({ error: "Shop name is required" }, { status: 400 });
     }
 
-    const existing =
-      await sql`SELECT shop_id FROM shops WHERE owner_id = ${session.user.id} LIMIT 1`;
-    if (existing[0]) {
-      const updated = await sql`
-        UPDATE shops SET
-          shop_name = ${shopName},
-          shop_description = ${shopDescription},
-          shop_logo = ${shopLogo},
-          address = ${address},
-          phone = ${phone},
-          updated_at = NOW()
-        WHERE owner_id = ${session.user.id}
-        RETURNING *`;
-      return Response.json({ shop: updated[0] });
-    }
-
     const created = await sql`
       INSERT INTO shops (owner_id, shop_name, shop_description, shop_logo, address, phone, currency)
-      VALUES (${session.user.id}, ${shopName}, ${shopDescription}, ${shopLogo}, ${address}, ${phone}, 'INR')
-      RETURNING *`;
-    return Response.json({ shop: created[0] });
-  } catch (err) {
-    console.error("POST /api/shop", err);
+      VALUES (${userId}, ${shopName}, ${shopDescription}, ${shopLogo}, ${address}, ${phone}, 'INR')
+      RETURNING *
+    `;
+    const shop = created[0];
+    await writeAuditEvent(
+      { userId, role: "owner", shopId: shop.shop_id },
+      "shop.create",
+      "shop",
+      shop.shop_id,
+      { shopName: shop.shop_name },
+    );
+
+    return Response.json({ shop }, { status: 201 });
+  } catch (error) {
+    if (error instanceof AccessError) return accessErrorResponse(error);
+    console.error("POST /api/shop", error);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
 export async function PUT(request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const context = await requireShopAccess(request, "shop.update");
     const body = await request.json();
     const fields = {};
+
     if (typeof body.shopName === "string")
       fields.shop_name = body.shopName.trim().slice(0, 100);
     if (typeof body.shopDescription === "string")
@@ -95,27 +88,28 @@ export async function PUT(request) {
       fields.theme = body.theme.trim().slice(0, 20);
     if (typeof body.accentColor === "string")
       fields.accent_color = body.accentColor.trim().slice(0, 20);
-    if (typeof body.driveConnected === "boolean")
-      fields.drive_connected = body.driveConnected;
-    if (typeof body.driveEmail === "string" || body.driveEmail === null)
-      fields.drive_email = body.driveEmail
-        ? body.driveEmail.trim().slice(0, 200)
-        : null;
-    if (body.driveLastSynced === null) fields.drive_last_synced = null;
-    else if (body.driveLastSynced === "now")
-      fields.drive_last_synced = new Date().toISOString();
-
     const keys = Object.keys(fields);
-    if (keys.length === 0)
+    if (keys.length === 0) {
       return Response.json({ error: "No fields" }, { status: 400 });
+    }
 
-    const setClauses = keys.map((k, i) => `${k} = $${i + 1}`);
-    const values = keys.map((k) => fields[k]);
-    const query = `UPDATE shops SET ${setClauses.join(", ")}, updated_at = NOW() WHERE owner_id = $${values.length + 1} RETURNING *`;
-    const result = await sql(query, [...values, session.user.id]);
+    const values = keys.map((key) => fields[key]);
+    values.push(context.shopId);
+    const setClauses = keys.map((key, index) => `${key} = $${index + 1}`);
+    const query = `UPDATE shops SET ${setClauses.join(", ")}, updated_at = NOW() WHERE shop_id = $${values.length} RETURNING *`;
+    const result = await sql(query, values);
+
+    if (!result[0]) {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
+
+    await writeAuditEvent(context, "shop.update", "shop", context.shopId, {
+      changedFields: keys,
+    });
     return Response.json({ shop: result[0] });
-  } catch (err) {
-    console.error("PUT /api/shop", err);
+  } catch (error) {
+    if (error instanceof AccessError) return accessErrorResponse(error);
+    console.error("PUT /api/shop", error);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

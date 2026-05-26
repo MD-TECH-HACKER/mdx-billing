@@ -10,6 +10,12 @@ import {
   Receipt,
   BarChart3,
   Settings,
+  Users,
+  ContactRound,
+  Truck,
+  ClipboardList,
+  Wallet,
+  ShieldCheck,
   LogOut,
   Menu,
   X,
@@ -24,36 +30,44 @@ import ThemeStyles from "@/components/ThemeStyles";
 import ToastHost from "@/components/Toast";
 import { initTheme } from "@/utils/theme";
 import { AppLoader } from "@/components/ui";
+import { shopHeaders } from "@/utils/shopContext";
 
 const NAV = [
-  { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
+  { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard", roles: ["owner", "manager"] },
   { label: "Products", icon: Package, href: "/products" },
   { label: "Billing", icon: ShoppingCart, href: "/billing" },
   { label: "Sales", icon: Receipt, href: "/sales" },
-  { label: "Analytics", icon: BarChart3, href: "/analytics" },
-  { label: "Settings", icon: Settings, href: "/settings" },
+  { label: "Customers", icon: ContactRound, href: "/customers" },
+  { label: "Suppliers", icon: Truck, href: "/suppliers", roles: ["owner", "manager"] },
+  { label: "Purchases", icon: ClipboardList, href: "/purchases", roles: ["owner", "manager"] },
+  { label: "Expenses", icon: Wallet, href: "/expenses", roles: ["owner", "manager"] },
+  { label: "Analytics", icon: BarChart3, href: "/analytics", roles: ["owner", "manager"] },
+  { label: "Team", icon: Users, href: "/team", roles: ["owner"] },
+  { label: "Audit Log", icon: ShieldCheck, href: "/audit", roles: ["owner"] },
+  { label: "Settings", icon: Settings, href: "/settings", roles: ["owner"] },
 ];
 
 // Prefetch fetch helpers for snappy nav
 function prefetchRoute(qc, href) {
+  const headers = shopHeaders();
   if (href === "/dashboard" || href === "/analytics") {
     qc.prefetchQuery({
       queryKey: ["analytics"],
-      queryFn: async () => (await fetch("/api/analytics")).json(),
+      queryFn: async () => (await fetch("/api/analytics", { headers })).json(),
       staleTime: 30000,
     });
   }
   if (href === "/products") {
     qc.prefetchQuery({
       queryKey: ["products", ""],
-      queryFn: async () => (await fetch("/api/products")).json(),
+      queryFn: async () => (await fetch("/api/products", { headers })).json(),
       staleTime: 30000,
     });
   }
   if (href === "/sales") {
     qc.prefetchQuery({
       queryKey: ["sales", {}],
-      queryFn: async () => (await fetch("/api/sales")).json(),
+      queryFn: async () => (await fetch("/api/sales", { headers })).json(),
       staleTime: 30000,
     });
   }
@@ -63,13 +77,15 @@ export default function DashboardShell({
   children,
   currentPath = "",
   requireShop = true,
+  allowedRoles,
 }) {
   const { data: user, loading: userLoading } = useUser();
-  const { shop, loading: shopLoading } = useShop({ enabled: !!user });
+  const { shop, role, loading: shopLoading } = useShop({ enabled: !!user });
   const { count: cartCount } = useCart();
   const qc = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
+  const roleDenied = !!(role && allowedRoles && !allowedRoles.includes(role));
 
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== "undefined") {
@@ -109,6 +125,12 @@ export default function DashboardShell({
     }
   }, [user, shop, shopLoading, requireShop, navigate]);
 
+  useEffect(() => {
+    if (roleDenied) {
+      navigate(role === "cashier" ? "/billing" : "/dashboard", { replace: true });
+    }
+  }, [navigate, role, roleDenied]);
+
   if (userLoading) {
     return <AppLoader fullScreen label="Checking your secure session..." />;
   }
@@ -125,6 +147,10 @@ export default function DashboardShell({
     return <AppLoader fullScreen label="Opening shop setup..." />;
   }
 
+  if (roleDenied) {
+    return <AppLoader fullScreen label="Opening your authorized workspace..." />;
+  }
+
   const isActive = (href) =>
     currentPath === href ||
     (href !== "/dashboard" && currentPath.startsWith(href));
@@ -135,6 +161,8 @@ export default function DashboardShell({
         ? "t-accent-soft"
         : "t-muted hover:bg-[var(--bg-elev)] hover:t-text"
     }`;
+  const availableNav = NAV.filter((item) => !item.roles || item.roles.includes(role));
+  const homePath = role === "cashier" ? "/billing" : "/dashboard";
 
   return (
     <div className="min-h-screen w-full relative font-inter">
@@ -146,7 +174,7 @@ export default function DashboardShell({
         {/* Desktop sidebar */}
         <aside className={`hidden lg:flex flex-col fixed h-screen p-4 z-30 no-print transition-all duration-300 ${collapsed ? "w-[96px]" : "w-64"}`}>
           <div className={`flex-1 t-card flex flex-col ${collapsed ? "px-2 py-4" : "p-4"}`}>
-            <Link to="/dashboard" className={`flex items-center mb-7 ${collapsed ? "justify-center px-0" : "gap-3 px-2"}`}>
+            <Link to={homePath} className={`flex items-center mb-7 ${collapsed ? "justify-center px-0" : "gap-3 px-2"}`}>
               <div
                 className="w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center shadow-lg"
                 style={{
@@ -169,7 +197,7 @@ export default function DashboardShell({
             </Link>
 
             <nav className="flex-1 space-y-1">
-              {NAV.map((item) => {
+              {availableNav.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
                 return (
@@ -268,7 +296,7 @@ export default function DashboardShell({
                   </button>
                 </div>
                 <nav className="flex-1 space-y-1">
-                  {NAV.map((item) => {
+                  {availableNav.map((item) => {
                     const Icon = item.icon;
                     const active = isActive(item.href);
                     return (
@@ -399,7 +427,7 @@ export default function DashboardShell({
       {/* Mobile bottom nav */}
       <nav className="lg:hidden fixed bottom-3 left-3 right-3 z-30 no-print">
         <div className="t-card px-2 py-2 flex items-center justify-around">
-          {NAV.slice(0, 5).map((item) => {
+          {availableNav.slice(0, 5).map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (

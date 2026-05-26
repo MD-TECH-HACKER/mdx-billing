@@ -1,14 +1,17 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
-import { Store, Upload, ArrowRight, IndianRupee } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router";
+import { Store, Upload, ArrowRight, IndianRupee, ArrowLeft } from "lucide-react";
 import useUser from "@/utils/useUser";
 import useUpload from "@/utils/useUpload";
 import { AppLoader } from "@/components/ui";
+import { setActiveShopId, shopHeaders } from "@/utils/shopContext";
 
 export default function SetupShopPage() {
   const { data: user, loading: userLoading } = useUser();
   const [upload, { loading: uploading }] = useUpload();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isNewShop = searchParams.get("new") === "true";
   const [displayName, setDisplayName] = useState("");
   const [shopName, setShopName] = useState("");
   const [shopDescription, setShopDescription] = useState("");
@@ -17,7 +20,7 @@ export default function SetupShopPage() {
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [shopChecking, setShopChecking] = useState(true);
+  const [shopChecking, setShopChecking] = useState(!isNewShop);
 
   useEffect(() => {
     if (!userLoading && !user) {
@@ -27,16 +30,20 @@ export default function SetupShopPage() {
 
   useEffect(() => {
     if (!user) return;
-    fetch("/api/shop")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.shop) {
-          navigate("/dashboard", { replace: true });
-          return;
-        }
-        setShopChecking(false);
-      })
-      .catch(() => setShopChecking(false));
+    if (!isNewShop) {
+      // Only check existing shops if not explicitly creating a new one
+      fetch("/api/shop/active", { headers: shopHeaders() })
+        .then((r) => r.json())
+        .then((d) => {
+          const shops = d.shops || [];
+          if (shops.length > 0) {
+            navigate("/select-shop", { replace: true });
+            return;
+          }
+          setShopChecking(false);
+        })
+        .catch(() => setShopChecking(false));
+    }
     // also fetch profile to prefill display name
     fetch("/api/profile")
       .then((r) => r.json())
@@ -45,7 +52,7 @@ export default function SetupShopPage() {
           setDisplayName(d.profile.displayName || d.profile.name || "");
       })
       .catch(() => {});
-  }, [user, navigate]);
+  }, [user, navigate, isNewShop]);
 
   const handleLogo = async (e) => {
     const file = e.target.files?.[0];
@@ -99,6 +106,11 @@ export default function SetupShopPage() {
       }
       const results = await Promise.all(promises);
       if (!results[0].ok) throw new Error("Failed to save shop");
+      const shopData = await results[0].json();
+      // Set the newly created shop as active
+      if (shopData.shop?.shop_id) {
+        setActiveShopId(shopData.shop.shop_id);
+      }
       navigate("/dashboard", { replace: true });
     } catch (err) {
       console.error(err);
@@ -128,10 +140,10 @@ export default function SetupShopPage() {
             <Store className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-white text-2xl font-bold font-poppins">
-            Setup your shop
+            {isNewShop ? "Create a new shop" : "Setup your shop"}
           </h1>
           <p className="text-white/60 text-sm mt-1">
-            Just a few details to get you started
+            {isNewShop ? "Add another shop to your account" : "Just a few details to get you started"}
           </p>
           <div className="mt-3 inline-flex items-center gap-1.5 text-xs text-white/60 bg-white/10 border border-white/15 px-2.5 py-1 rounded-full">
             <IndianRupee className="w-3 h-3" />

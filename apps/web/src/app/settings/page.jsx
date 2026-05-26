@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import {
   User,
   Store,
@@ -8,12 +9,11 @@ import {
   Upload,
   LogOut,
   Download,
-  Cloud,
-  CheckCircle2,
-  RefreshCw,
-  XCircle,
   Save,
   IndianRupee,
+  ArrowRightLeft,
+  Plus,
+  Check as CheckIcon,
 } from "lucide-react";
 import DashboardShell from "@/components/DashboardShell";
 import useUser from "@/utils/useUser";
@@ -27,13 +27,13 @@ import {
   Textarea,
   Button,
   Select,
-  Toggle,
   Tabs,
   ColorSwatch,
   Skeleton,
 } from "@/components/ui";
 import { ACCENTS, applyTheme } from "@/utils/theme";
 import { CURRENCIES, getCurrencyInfo } from "@/utils/currency";
+import { shopHeaders } from "@/utils/shopContext";
 
 function Section({ icon: Icon, title, subtitle, children }) {
   return (
@@ -66,11 +66,11 @@ export default function SettingsPage() {
     update: updateProfile,
     saving: savingProfile,
   } = useProfile({ enabled: !!user });
-  const { shop, update: updateShop } = useShop({ enabled: !!user });
+  const { shop, update: updateShop, allShops, switchShop, activeShopId } = useShop({ enabled: !!user });
   const [upload, { loading: uploading }] = useUpload();
+  const navigate = useNavigate();
   const [form, setForm] = useState(null);
   const [displayName, setDisplayName] = useState("");
-  const [driveSyncing, setDriveSyncing] = useState(false);
   const importInputRef = useRef(null);
 
   // Initialize form from shop
@@ -145,9 +145,9 @@ export default function SettingsPage() {
   const exportData = async () => {
     try {
       const [sales, products, shopRes] = await Promise.all([
-        fetch("/api/sales").then((r) => r.json()),
-        fetch("/api/products").then((r) => r.json()),
-        fetch("/api/shop").then((r) => r.json()),
+        fetch("/api/sales", { headers: shopHeaders() }).then((r) => r.json()),
+        fetch("/api/products", { headers: shopHeaders() }).then((r) => r.json()),
+        fetch("/api/shop", { headers: shopHeaders() }).then((r) => r.json()),
       ]);
       const blob = new Blob(
         [
@@ -198,47 +198,9 @@ export default function SettingsPage() {
     }
   };
 
-  const toggleDrive = (next) => {
-    if (next) {
-      // Stub connect — pretend we connected as the user's email
-      saveField({ driveConnected: true, driveEmail: user?.email || null });
-      showToast("Drive sync stub enabled — full OAuth coming soon", "info");
-    } else {
-      saveField({
-        driveConnected: false,
-        driveEmail: null,
-        driveLastSynced: null,
-      });
-      showToast("Drive disconnected");
-    }
-  };
-
-  const syncNow = async () => {
-    if (!shop?.drive_connected) return;
-    setDriveSyncing(true);
-    try {
-      // Stub sync: trigger an export + mark last_synced
-      await exportData();
-      await new Promise((resolve, reject) => {
-        updateShop(
-          { driveLastSynced: "now" },
-          {
-            onSuccess: () => resolve(),
-            onError: reject,
-          },
-        );
-      });
-      showToast("Synced (local backup downloaded)");
-    } catch {
-      showToast("Sync failed", "error");
-    } finally {
-      setDriveSyncing(false);
-    }
-  };
-
   if (!form) {
     return (
-      <DashboardShell currentPath="/settings">
+      <DashboardShell currentPath="/settings" allowedRoles={["owner"]}>
         <div className="space-y-4 max-w-3xl">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-40" />
@@ -261,7 +223,7 @@ export default function SettingsPage() {
   const currentCur = getCurrencyInfo(form.currency);
 
   return (
-    <DashboardShell currentPath="/settings">
+    <DashboardShell currentPath="/settings" allowedRoles={["owner"]}>
       <div className="mb-5">
         <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">
           Settings
@@ -332,6 +294,92 @@ export default function SettingsPage() {
             </div>
           </div>
         </Section>
+
+        {/* Switch Shop */}
+        {allShops.length > 0 && (
+          <Section
+            icon={ArrowRightLeft}
+            title="Switch Shop"
+            subtitle={`You have ${allShops.length} shop${allShops.length > 1 ? "s" : ""}`}
+          >
+            <div className="space-y-2 mb-3">
+              {allShops.map((s) => {
+                const isActive = String(s.shop_id) === String(shop?.shop_id);
+                return (
+                  <button
+                    key={s.shop_id}
+                    onClick={() => {
+                      if (!isActive) {
+                        switchShop(s.shop_id);
+                        showToast(`Switched to ${s.shop_name}`);
+                      }
+                    }}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left ${
+                      isActive
+                        ? "t-accent-soft"
+                        : "t-elev hover:bg-[var(--bg-input-focus)]"
+                    }`}
+                    style={
+                      isActive
+                        ? {
+                            background: "rgba(var(--accent-rgb), 0.12)",
+                            border: "1.5px solid rgba(var(--accent-rgb), 0.35)",
+                          }
+                        : { border: "1.5px solid transparent" }
+                    }
+                  >
+                    {s.shop_logo ? (
+                      <img
+                        src={s.shop_logo}
+                        alt={s.shop_name}
+                        className="w-11 h-11 rounded-xl object-cover border t-border flex-shrink-0"
+                      />
+                    ) : (
+                      <div
+                        className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                        style={{
+                          background:
+                            "linear-gradient(135deg, var(--accent), var(--accent-dark))",
+                        }}
+                      >
+                        {(s.shop_name || "S")[0].toUpperCase()}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="t-text font-medium text-sm truncate">
+                        {s.shop_name}
+                      </div>
+                      {s.shop_description && (
+                        <div className="t-dim text-xs truncate">
+                          {s.shop_description}
+                        </div>
+                      )}
+                    </div>
+                    {isActive && (
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{
+                          background: "var(--accent)",
+                          color: "white",
+                        }}
+                      >
+                        <CheckIcon className="w-4 h-4" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => navigate("/setup-shop?new=true")}
+            >
+              <Plus className="w-4 h-4" />
+              Create new shop
+            </Button>
+          </Section>
+        )}
 
         {/* Shop */}
         <Section icon={Store} title="Shop">
@@ -518,72 +566,15 @@ export default function SettingsPage() {
           </div>
         </Section>
 
-        {/* Google Drive (stub) */}
-        <Section
-          icon={Cloud}
-          title="Google Drive Sync"
-          subtitle="Backup your shop data to Drive (full OAuth coming soon)"
-        >
-          <div className="flex items-center justify-between rounded-xl t-elev p-3 mb-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center"
-                style={{
-                  background: shop?.drive_connected
-                    ? "rgba(16,185,129,0.15)"
-                    : "var(--bg-input)",
-                  color: shop?.drive_connected
-                    ? "var(--success)"
-                    : "var(--text-dim)",
-                }}
-              >
-                {shop?.drive_connected ? (
-                  <CheckCircle2 className="w-5 h-5" />
-                ) : (
-                  <XCircle className="w-5 h-5" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="t-text font-medium text-sm">
-                  {shop?.drive_connected ? "Connected" : "Not connected"}
-                </div>
-                <div className="t-dim text-xs truncate">
-                  {shop?.drive_connected
-                    ? shop.drive_email || "Google account"
-                    : "Connect to backup data to Drive"}
-                </div>
-              </div>
-            </div>
-            <Toggle checked={!!shop?.drive_connected} onChange={toggleDrive} />
+        <Section icon={Shield} title="Access & Audit" subtitle="Owner-only security controls">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Button variant="secondary" className="w-full" onClick={() => navigate("/team")}>
+              Manage staff roles
+            </Button>
+            <Button variant="secondary" className="w-full" onClick={() => navigate("/audit")}>
+              View audit log
+            </Button>
           </div>
-          {shop?.drive_connected ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="t-dim">Last synced</span>
-                <span className="t-text">
-                  {shop.drive_last_synced
-                    ? new Date(shop.drive_last_synced).toLocaleString("en-IN")
-                    : "Never"}
-                </span>
-              </div>
-              <Button
-                variant="primary"
-                className="w-full"
-                onClick={syncNow}
-                disabled={driveSyncing}
-              >
-                <RefreshCw
-                  className={`w-4 h-4 ${driveSyncing ? "animate-spin" : ""}`}
-                />
-                {driveSyncing ? "Syncing..." : "Sync now"}
-              </Button>
-              <p className="t-dim text-[11px] leading-relaxed">
-                ⓘ This currently downloads a local JSON backup. Full Drive
-                upload requires Google OAuth approval and will be enabled in a
-                future update — your data structure is ready.
-              </p>
-            </div>
-          ) : null}
         </Section>
 
         {/* Security / Data */}

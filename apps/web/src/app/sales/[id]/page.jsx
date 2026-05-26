@@ -9,14 +9,13 @@ import {
   Loader2,
   Package,
   Check,
-  Sun,
-  FileText,
 } from "lucide-react";
 import useUser from "@/utils/useUser";
 import ToastHost, { showToast } from "@/components/Toast";
 import { formatMoney } from "@/utils/currency";
 import { Tabs } from "@/components/ui";
 import { getProductUnitLabel } from "@/utils/productUnits";
+import { shopHeaders } from "@/utils/shopContext";
 
 export default function ReceiptPage(props) {
   const id = props?.params?.id;
@@ -43,7 +42,7 @@ export default function ReceiptPage(props) {
   const query = useQuery({
     queryKey: ["sale", id],
     queryFn: async () => {
-      const res = await fetch(`/api/sales/${id}`);
+      const res = await fetch(`/api/sales/${id}`, { headers: shopHeaders() });
       if (!res.ok) throw new Error("Not found");
       return res.json();
     },
@@ -105,6 +104,12 @@ export default function ReceiptPage(props) {
   }
 
   const items = Array.isArray(sale.items) ? sale.items : [];
+  const discountAmount = Number(sale.discount_amount) || 0;
+  const taxAmount = Number(sale.tax_amount) || 0;
+  const grandTotal = Number(sale.total_amount) || 0;
+  const paidAmount = Number(sale.paid_amount) || 0;
+  const originalSubtotal = grandTotal - taxAmount + discountAmount;
+  const balanceDue = Math.max(0, grandTotal - paidAmount);
   const bw = printMode === "bw";
   const thermal = paperSize === "thermal";
 
@@ -317,10 +322,10 @@ export default function ReceiptPage(props) {
                 className="grid grid-cols-12 text-[10px] uppercase tracking-wide mb-2 px-1"
                 style={{ color: textMuted }}
               >
-                <div className="col-span-6">Item</div>
-                <div className="col-span-2 text-center">Qty</div>
-                <div className="col-span-2 text-right">Unit</div>
-                <div className="col-span-2 text-right">Subtotal</div>
+                <div className="col-span-5 md:col-span-6">Item</div>
+                <div className="col-span-1 md:col-span-2 text-center">Qty</div>
+                <div className="col-span-3 md:col-span-2 text-right">Unit</div>
+                <div className="col-span-3 md:col-span-2 text-right">Subtotal</div>
               </div>
             ) : null}
             <div className="space-y-1.5">
@@ -357,7 +362,7 @@ export default function ReceiptPage(props) {
                     </>
                   ) : (
                     <>
-                      <div className="col-span-6 flex items-center gap-2 min-w-0">
+                      <div className="col-span-5 md:col-span-6 flex items-center gap-2 min-w-0">
                         {it.imageUrl && !bw ? (
                           <div className="w-9 h-9 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 bg-gray-100">
                             <img
@@ -397,19 +402,19 @@ export default function ReceiptPage(props) {
                         </div>
                       </div>
                       <div
-                        className="col-span-2 text-sm text-center"
+                        className="col-span-1 md:col-span-2 text-sm text-center"
                         style={{ color: textPrimary }}
                       >
-                        ×{it.quantity} {unitLabel}
+                        ×{it.quantity} <span className="hidden md:inline">{unitLabel}</span>
                       </div>
                       <div
-                        className="col-span-2 text-sm text-right"
+                        className="col-span-3 md:col-span-2 text-sm text-right truncate"
                         style={{ color: textPrimary }}
                       >
                         {fmt(it.unitPrice)}
                       </div>
                       <div
-                        className="col-span-2 font-semibold text-sm text-right"
+                        className="col-span-3 md:col-span-2 font-semibold text-sm text-right truncate"
                         style={{ color: textPrimary }}
                       >
                         {fmt(it.subtotal)}
@@ -427,7 +432,7 @@ export default function ReceiptPage(props) {
             className="mt-4 pt-3 space-y-1 text-sm"
             style={{ borderTop: `1px dashed ${borderColor}` }}
           >
-            {Number(sale.tax_amount) > 0 ? (
+            {taxAmount > 0 || discountAmount > 0 ? (
               <>
                 <div
                   className="flex justify-between"
@@ -435,16 +440,21 @@ export default function ReceiptPage(props) {
                 >
                   <span>Subtotal</span>
                   <span>
-                    {fmt(Number(sale.total_amount) - Number(sale.tax_amount))}
+                    {fmt(originalSubtotal)}
                   </span>
                 </div>
-                <div
-                  className="flex justify-between"
-                  style={{ color: textMuted }}
-                >
-                  <span>Tax</span>
-                  <span>{fmt(sale.tax_amount)}</span>
-                </div>
+                {discountAmount > 0 ? (
+                  <div className="flex justify-between" style={{ color: textMuted }}>
+                    <span>Discount</span>
+                    <span>- {fmt(discountAmount)}</span>
+                  </div>
+                ) : null}
+                {taxAmount > 0 ? (
+                  <div className="flex justify-between" style={{ color: textMuted }}>
+                    <span>Tax</span>
+                    <span>{fmt(taxAmount)}</span>
+                  </div>
+                ) : null}
               </>
             ) : null}
             <div
@@ -458,6 +468,23 @@ export default function ReceiptPage(props) {
               <span>Grand Total</span>
               <span>{fmt(sale.total_amount)}</span>
             </div>
+            {sale.payment_status !== "paid" ? (
+              <>
+                <div className="flex justify-between pt-1" style={{ color: textMuted }}>
+                  <span>Paid</span>
+                  <span>{fmt(paidAmount)}</span>
+                </div>
+                <div className="flex justify-between font-semibold" style={{ color: textPrimary }}>
+                  <span>Balance due</span>
+                  <span>{fmt(balanceDue)}</span>
+                </div>
+                {sale.due_date ? (
+                  <div className="text-right text-xs" style={{ color: textMuted }}>
+                    Due by {new Date(sale.due_date).toLocaleDateString("en-IN")}
+                  </div>
+                ) : null}
+              </>
+            ) : null}
           </div>
 
           {sale.notes ? (

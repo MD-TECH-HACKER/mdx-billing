@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router";
 import {
   Trash2,
@@ -25,6 +25,7 @@ import {
   QtyStepper,
 } from "@/components/ui";
 import { getProductUnitLabel } from "@/utils/productUnits";
+import { shopHeaders } from "@/utils/shopContext";
 
 const PAYMENT_METHODS = [
   { value: "cash", label: "💵 Cash" },
@@ -48,23 +49,40 @@ export default function BillingPage() {
   const {
     cart,
     totalAmount,
-    totalCost,
-    totalProfit,
     count: totalQuantity,
   } = useCart();
   const [buyerName, setBuyerName] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
+  const [customerId, setCustomerId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [paymentStatus, setPaymentStatus] = useState("paid");
+  const [discountAmount, setDiscountAmount] = useState("");
+  const [paidAmount, setPaidAmount] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const currency = shop?.currency || "INR";
   const taxPercent = Number(shop?.tax_percent) || 0;
-  const taxAmount = totalAmount * (taxPercent / 100);
-  const grandTotal = totalAmount + taxAmount;
-  const margin = totalAmount > 0 ? (totalProfit / totalAmount) * 100 : 0;
+  const discount = Math.min(totalAmount, Math.max(0, Number(discountAmount) || 0));
+  const taxableAmount = totalAmount - discount;
+  const taxAmount = taxableAmount * (taxPercent / 100);
+  const grandTotal = taxableAmount + taxAmount;
   const fmt = (n) => formatMoney(n, currency);
+  const customersQuery = useQuery({
+    queryKey: ["customers", "billing-select"],
+    queryFn: async () => {
+      const response = await fetch("/api/customers", { headers: shopHeaders() });
+      if (!response.ok) return { customers: [] };
+      return response.json();
+    },
+    enabled: !!user,
+  });
+  const customers = customersQuery.data?.customers || [];
+  const customerOptions = [
+    { value: "", label: "Walk-in customer" },
+    ...customers.map((customer) => ({ value: String(customer.customer_id), label: customer.name })),
+  ];
 
   const checkout = async () => {
     if (cart.length === 0) return;
@@ -72,12 +90,16 @@ export default function BillingPage() {
     try {
       const res = await fetch("/api/sales", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: shopHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           buyerName,
           buyerPhone,
+          customerId: customerId || null,
           paymentMethod,
           paymentStatus,
+          discountAmount: discount,
+          paidAmount: Number(paidAmount) || 0,
+          dueDate: dueDate || null,
           notes,
           items: cart.map((c) => ({
             productId: c.product_id,
@@ -136,6 +158,19 @@ export default function BillingPage() {
                 Customer info
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Select
+                  value={customerId}
+                  options={customerOptions}
+                  placeholder="Saved customer"
+                  onChange={(value) => {
+                    setCustomerId(value);
+                    const customer = customers.find((entry) => String(entry.customer_id) === value);
+                    if (customer) {
+                      setBuyerName(customer.name || "");
+                      setBuyerPhone(customer.phone || "");
+                    }
+                  }}
+                />
                 <Input
                   value={buyerName}
                   onChange={(e) => setBuyerName(e.target.value)}
@@ -158,6 +193,31 @@ export default function BillingPage() {
                   options={PAYMENT_STATUSES}
                   placeholder="Payment status"
                 />
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={discountAmount}
+                  onChange={(e) => setDiscountAmount(e.target.value)}
+                  placeholder="Discount amount"
+                />
+                {paymentStatus !== "paid" ? (
+                  <>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={paidAmount}
+                      onChange={(e) => setPaidAmount(e.target.value)}
+                      placeholder="Amount received"
+                    />
+                    <Input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                    />
+                  </>
+                ) : null}
               </div>
               <div className="mt-3">
                 <Textarea
@@ -176,9 +236,7 @@ export default function BillingPage() {
               <div className="space-y-2">
                 {cart.map((item) => {
                   const unit = Number(item.selling_price);
-                  const cost = Number(item.cost_price);
                   const subtotal = unit * item.quantity;
-                  const profit = (unit - cost) * item.quantity;
                   const unitLabel = getProductUnitLabel(item);
                   return (
                     <div
@@ -221,12 +279,6 @@ export default function BillingPage() {
                           <div className="t-text font-bold text-sm">
                             {fmt(subtotal)}
                           </div>
-                          <div
-                            className="text-[10px] font-medium"
-                            style={{ color: "var(--success)" }}
-                          >
-                            +{fmt(profit)}
-                          </div>
                         </div>
                         <button
                           onClick={() => removeFromCart(item.product_id)}
@@ -250,26 +302,10 @@ export default function BillingPage() {
                 <Row label="Total products" value={cart.length} />
                 <Row label="Total quantity" value={totalQuantity} />
                 <Row label="Subtotal" value={fmt(totalAmount)} />
-                <Row label="Total cost" value={fmt(totalCost)} subtle />
+                {discount > 0 ? <Row label="Discount" value={`- ${fmt(discount)}`} /> : null}
                 {taxPercent > 0 ? (
                   <Row label={`Tax (${taxPercent}%)`} value={fmt(taxAmount)} />
                 ) : null}
-                <div className="t-divider my-2 pt-2 space-y-1">
-                  <div
-                    className="flex justify-between text-xs"
-                    style={{ color: "var(--success)" }}
-                  >
-                    <span>Estimated profit</span>
-                    <span>{fmt(totalProfit)}</span>
-                  </div>
-                  <div
-                    className="flex justify-between text-xs"
-                    style={{ color: "var(--success)" }}
-                  >
-                    <span>Margin</span>
-                    <span>{margin.toFixed(1)}%</span>
-                  </div>
-                </div>
                 <div className="flex justify-between t-text text-lg font-bold pt-2 t-divider">
                   <span>Total</span>
                   <span>{fmt(grandTotal)}</span>

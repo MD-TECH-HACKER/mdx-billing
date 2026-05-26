@@ -1,18 +1,37 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { applyTheme } from "@/utils/theme";
+import { getActiveShopId, setActiveShopId, shopHeaders } from "@/utils/shopContext";
 
 async function fetchShop() {
-  const res = await fetch("/api/shop");
+  const res = await fetch("/api/shop", {
+    headers: shopHeaders(),
+  });
   if (!res.ok) throw new Error("Failed to load shop");
+  return res.json();
+}
+
+async function fetchAllShops() {
+  const res = await fetch("/api/shop/active", {
+    headers: shopHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to load shops");
   return res.json();
 }
 
 export default function useShop({ enabled = true } = {}) {
   const qc = useQueryClient();
+
   const query = useQuery({
     queryKey: ["shop"],
     queryFn: fetchShop,
+    enabled,
+    staleTime: 1000 * 60 * 2,
+  });
+
+  const allShopsQuery = useQuery({
+    queryKey: ["allShops"],
+    queryFn: fetchAllShops,
     enabled,
     staleTime: 1000 * 60 * 2,
   });
@@ -29,7 +48,7 @@ export default function useShop({ enabled = true } = {}) {
     mutationFn: async (patch) => {
       const res = await fetch("/api/shop", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: shopHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(patch),
       });
       if (!res.ok) {
@@ -80,13 +99,36 @@ export default function useShop({ enabled = true } = {}) {
     },
   });
 
+  /**
+   * Switch the active shop. Updates localStorage and refetches all shop-scoped data.
+   */
+  const switchShop = useCallback(
+    (shopId) => {
+      setActiveShopId(shopId);
+      // Invalidate all shop-scoped queries so they refetch with new X-Shop-Id
+      qc.invalidateQueries({ queryKey: ["shop"] });
+      qc.invalidateQueries({ queryKey: ["allShops"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
+    [qc],
+  );
+
   return {
     shop: query.data?.shop || null,
+    role: query.data?.role || null,
     loading: query.isLoading,
     error: query.error,
     refetch: query.refetch,
     update: update.mutate,
     updateAsync: update.mutateAsync,
     saving: update.isPending,
+    // Multi-shop
+    allShops: allShopsQuery.data?.shops || [],
+    allShopsLoading: allShopsQuery.isLoading,
+    shopCount: allShopsQuery.data?.count || 0,
+    switchShop,
+    activeShopId: getActiveShopId(),
   };
 }

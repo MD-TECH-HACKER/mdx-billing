@@ -21,7 +21,13 @@ import { LoadFonts } from 'virtual:load-fonts.jsx';
 import { SessionProvider } from '@auth/create/react';
 import { Toaster } from 'sonner';
 
-export const links = () => [];
+export const links = () => [
+  { rel: "icon", type: "image/x-icon", href: "/favicon.ico?v=3" },
+  { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
+  { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32x32.png" },
+  { rel: "icon", type: "image/png", sizes: "16x16", href: "/favicon-16x16.png" },
+  { rel: "manifest", href: "/site.webmanifest" },
+];
 
 const LoadFontsSSR = import.meta.env.SSR ? LoadFonts : null;
 if (import.meta.hot) {
@@ -324,7 +330,6 @@ export function Layout({ children }: { children: ReactNode }) {
         <title>MDX Billing — Premium Shop App</title>
         <Meta />
         <Links />
-        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2" />
         {LoadFontsSSR ? <LoadFontsSSR /> : null}
       </head>
       <body>

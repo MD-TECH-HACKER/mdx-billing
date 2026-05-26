@@ -17,9 +17,10 @@ export default defineConfig({
   // Keep them available via import.meta.env.NEXT_PUBLIC_*
   envPrefix: 'NEXT_PUBLIC_',
   optimizeDeps: {
-    include: ['fast-glob', 'lucide-react', '@hono/auth-js/react'],
+    include: ['fast-glob', 'lucide-react'],
     exclude: [
       '@hono/auth-js',
+      '@hono/auth-js/react',
       '@auth/core',
       'hono/context-storage',
       '@auth/core/errors',

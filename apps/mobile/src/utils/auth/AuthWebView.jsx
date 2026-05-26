@@ -15,6 +15,8 @@ export const AuthWebView = ({ mode, proxyURL, baseURL }) => {
   const { auth, setAuth, isReady } = useAuthStore();
   const isAuthenticated = isReady ? !!auth : null;
   const iframeRef = useRef(null);
+  const parentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  const webCallbackUrl = `/api/auth/expo-web-success?parentOrigin=${encodeURIComponent(parentOrigin)}`;
   useEffect(() => {
     if (Platform.OS === 'web') {
       return;
@@ -65,7 +67,7 @@ export const AuthWebView = ({ mode, proxyURL, baseURL }) => {
       <iframe
         ref={iframeRef}
         title="Authentication"
-        src={`${proxyURL}/account/${mode}?callbackUrl=/api/auth/expo-web-success`}
+        src={`${proxyURL}/account/${mode}?callbackUrl=${encodeURIComponent(webCallbackUrl)}`}
         style={{ width: '100%', height: '100%', border: 'none' }}
         onError={handleIframeError}
       />

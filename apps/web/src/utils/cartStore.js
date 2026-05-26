@@ -1,8 +1,13 @@
 import { sanitizeProductUnit } from "@/utils/productUnits";
+import { getActiveShopId } from "@/utils/shopContext";
 
-// Cart store backed by localStorage with stock-safe operations.
-const KEY = "mdx_cart_v2";
+// Cart contents are shop-specific and never cache cost or margin data.
+const KEY_PREFIX = "mdx_cart_v3";
 const EVENT = "cart-changed";
+
+function storageKey() {
+  return `${KEY_PREFIX}:${getActiveShopId() || "unselected"}`;
+}
 
 function emit() {
   if (typeof window !== "undefined") {
@@ -13,7 +18,7 @@ function emit() {
 export function getCart() {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(storageKey());
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -23,7 +28,7 @@ export function getCart() {
 export function setCart(items) {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(KEY, JSON.stringify(items));
+    localStorage.setItem(storageKey(), JSON.stringify(items));
   } catch {}
   emit();
 }
@@ -51,7 +56,6 @@ export function addToCart(product, qty = 1) {
     existing.quantity = newQty;
     existing.stock = stock;
     existing.selling_price = Number(product.selling_price);
-    existing.cost_price = Number(product.cost_price);
     existing.primary_unit = primaryUnit;
     existing.secondary_unit = secondaryUnit;
     setCart(cart);
@@ -65,7 +69,6 @@ export function addToCart(product, qty = 1) {
     description: product.description,
     image_url: product.image_url,
     selling_price: Number(product.selling_price),
-    cost_price: Number(product.cost_price),
     stock,
     quantity: finalQty,
     primary_unit: primaryUnit,

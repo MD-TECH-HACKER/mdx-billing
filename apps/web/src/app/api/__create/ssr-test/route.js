@@ -1,4 +1,3 @@
-import { getToken } from '@auth/core/jwt';
 import React from 'react';
 import path from 'node:path';
 import { renderToString } from 'react-dom/server';
@@ -30,7 +29,11 @@ const getHTMLOrError = (component) => {
 		return { html: null, error: serializeClean(error) };
 	}
 };
-export async function GET(request) {
+export async function GET() {
+	if (process.env.NEXT_PUBLIC_CREATE_ENV !== 'DEVELOPMENT') {
+		return Response.json({ error: 'not found' }, { status: 404 });
+	}
+
 	const results = await Promise.allSettled(
 		routes.map(async (route) => {
 			let component = null;
