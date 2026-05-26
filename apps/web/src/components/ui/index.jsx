@@ -230,23 +230,34 @@ export function AppLoader({
 }) {
   return (
     <div
-      className={`${fullScreen ? "min-h-screen" : "min-h-[240px]"} mdx-route-loader flex items-center justify-center p-6 rounded-3xl`}
+      className={`${fullScreen ? "min-h-screen" : "min-h-[240px]"} flex items-center justify-center p-6 rounded-3xl`}
+      style={{ background: "#f6f7fb" }}
     >
-      <div className="t-card t-card-strong px-6 py-5 text-center max-w-xs w-full">
+      <div
+        className="px-6 py-5 text-center max-w-xs w-full"
+        style={{
+          background: "#ffffff",
+          borderRadius: "1.25rem",
+          border: "1px solid #e5e7eb",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.04)",
+        }}
+      >
         <div
-          className="mx-auto mb-3 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
+          className="mx-auto mb-3 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden"
           style={{
-            background:
-              "linear-gradient(135deg, var(--accent), var(--accent-dark))",
+            background: "linear-gradient(135deg, #F97316, #EA580C)",
           }}
         >
-          <span className="text-white font-bold">M</span>
+          <img src="/favicon.ico" alt="MDX" className="w-7 h-7 object-contain" style={{ filter: "brightness(0) invert(1)" }} />
         </div>
-        <div className="t-text font-semibold">{label}</div>
-        <div className="mt-4 h-1.5 rounded-full overflow-hidden t-elev">
+        <div className="font-semibold" style={{ color: "#111827" }}>{label}</div>
+        <div
+          className="mt-4 h-1.5 rounded-full overflow-hidden"
+          style={{ background: "#f3f4f6" }}
+        >
           <div
             className="h-full w-1/2 rounded-full animate-pulse"
-            style={{ background: "var(--accent)" }}
+            style={{ background: "#F97316" }}
           />
         </div>
       </div>

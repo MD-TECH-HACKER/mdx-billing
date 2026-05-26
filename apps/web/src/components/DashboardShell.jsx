@@ -178,13 +178,13 @@ export default function DashboardShell({
             <div className="shrink-0">
               <Link to={homePath} className={`flex items-center mb-5 ${collapsed ? "justify-center px-0" : "gap-3 px-2"}`}>
                 <div
-                  className="w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center shadow-lg"
+                  className="w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden"
                   style={{
                     background:
                       "linear-gradient(135deg, var(--accent), var(--accent-dark))",
                   }}
                 >
-                  <Store className="w-5 h-5 text-white" />
+                  <img src="/favicon.ico" alt="MDX" className="w-6 h-6 object-contain" style={{ filter: "brightness(0) invert(1)" }} />
                 </div>
                 {!collapsed && (
                   <div className="min-w-0">
@@ -199,8 +199,8 @@ export default function DashboardShell({
               </Link>
             </div>
 
-            {/* Nav — scrollable middle */}
-            <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden min-h-0" style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-strong) transparent' }}>
+            {/* Nav — scrollable middle, scrollbar hidden */}
+            <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden min-h-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}>
               {availableNav.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
@@ -283,13 +283,13 @@ export default function DashboardShell({
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
                     <div
-                      className="w-10 h-10 rounded-2xl flex items-center justify-center"
+                      className="w-10 h-10 rounded-2xl flex items-center justify-center overflow-hidden"
                       style={{
                         background:
                           "linear-gradient(135deg, var(--accent), var(--accent-dark))",
                       }}
                     >
-                      <Store className="w-5 h-5 text-white" />
+                      <img src="/favicon.ico" alt="MDX" className="w-6 h-6 object-contain" style={{ filter: "brightness(0) invert(1)" }} />
                     </div>
                     <span className="t-text font-semibold">MDX Billing</span>
                   </div>
