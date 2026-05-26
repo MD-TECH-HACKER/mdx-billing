@@ -171,58 +171,13 @@ export default function WelcomePage() {
           {/* Right: dashboard mockup */}
           <div className="relative">
             <div className="absolute -inset-6 rounded-3xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 blur-2xl" />
-            <div className="relative rounded-3xl bg-white/10 backdrop-blur-2xl border border-white/20 p-4 shadow-2xl">
-              <div className="flex items-center gap-1.5 mb-3 px-1">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-400/70" />
-                <div className="w-2.5 h-2.5 rounded-full bg-yellow-400/70" />
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/70" />
-              </div>
-              <div className="rounded-2xl bg-gradient-to-br from-[#1a1640] to-[#2d2660] p-4">
-                <div className="flex items-center justify-between text-white text-xs mb-3">
-                  <div className="font-semibold">Dashboard</div>
-                  <div className="text-white/50">Today</div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  <div className="rounded-xl bg-white/10 border border-white/10 p-3">
-                    <div className="text-white/50 text-[10px]">Revenue</div>
-                    <div className="text-white text-base font-bold">
-                      ₹ 24,890
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-white/10 border border-white/10 p-3">
-                    <div className="text-white/50 text-[10px]">Profit</div>
-                    <div className="text-emerald-300 text-base font-bold">
-                      ₹ 8,420
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-xl bg-white/10 border border-white/10 p-3 mb-2">
-                  <div className="flex items-end gap-1 h-16">
-                    {[40, 55, 35, 70, 50, 80, 65, 90, 75, 95].map((h, i) => (
-                      <div
-                        key={i}
-                        className="flex-1 rounded-t bg-gradient-to-t from-violet-500 to-fuchsia-400"
-                        style={{ height: `${h}%` }}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  {[
-                    { name: "Cotton kurta", q: 3, p: "₹ 1,499" },
-                    { name: "Premium tea", q: 5, p: "₹ 599" },
-                  ].map((r) => (
-                    <div
-                      key={r.name}
-                      className="flex items-center justify-between rounded-lg bg-white/5 px-2.5 py-1.5 text-xs"
-                    >
-                      <div className="text-white">{r.name}</div>
-                      <div className="text-white/60">×{r.q}</div>
-                      <div className="text-white font-semibold">{r.p}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <div className="relative rounded-3xl bg-white/10 backdrop-blur-2xl border border-white/20 p-2 shadow-2xl overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-tr from-violet-500/10 to-fuchsia-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <img 
+                src="/preview.png" 
+                alt="MDX Billing Dashboard Preview" 
+                className="w-full h-auto rounded-2xl relative z-10 shadow-inner transform transition-transform duration-700 group-hover:scale-[1.02]"
+              />
             </div>
           </div>
         </div>

@@ -328,6 +328,16 @@ export function Layout({ children }: { children: ReactNode }) {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>MDX Billing — Premium Shop App</title>
+        <meta name="description" content="Manage products, billing, sales, customers and analytics — all in one place. Fast, secure and built for your business." />
+        <meta property="og:title" content="MDX Billing — Premium Shop App" />
+        <meta property="og:description" content="Manage products, billing, sales, customers and analytics — all in one place. Fast, secure and built for your business." />
+        <meta property="og:image" content="https://mdx-billing.app/preview.png" />
+        <meta property="og:image:width" content="1600" />
+        <meta property="og:image:height" content="900" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="MDX Billing — Premium Shop App" />
+        <meta name="twitter:description" content="Manage products, billing, sales, customers and analytics — all in one place. Fast, secure and built for your business." />
+        <meta name="twitter:image" content="https://mdx-billing.app/preview.png" />
         <Meta />
         <Links />
         {LoadFontsSSR ? <LoadFontsSSR /> : null}

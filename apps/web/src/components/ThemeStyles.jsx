@@ -4,10 +4,10 @@ export default function ThemeStyles() {
   return (
     <style jsx global>{`
       :root {
-        --accent: #8b5cf6;
-        --accent-rgb: 139, 92, 246;
-        --accent-light: #b794f6;
-        --accent-dark: #6d28d9;
+        --accent: #F97316;
+        --accent-rgb: 249, 115, 22;
+        --accent-light: #FB923C;
+        --accent-dark: #EA580C;
       }
 
       /* ============ GLASS THEME (default — premium prism) ============ */

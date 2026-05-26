@@ -173,30 +173,34 @@ export default function DashboardShell({
       <div className="flex min-h-screen">
         {/* Desktop sidebar */}
         <aside className={`hidden lg:flex flex-col fixed h-screen p-4 z-30 no-print transition-all duration-300 ${collapsed ? "w-[96px]" : "w-64"}`}>
-          <div className={`flex-1 t-card flex flex-col ${collapsed ? "px-2 py-4" : "p-4"}`}>
-            <Link to={homePath} className={`flex items-center mb-7 ${collapsed ? "justify-center px-0" : "gap-3 px-2"}`}>
-              <div
-                className="w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center shadow-lg"
-                style={{
-                  background:
-                    "linear-gradient(135deg, var(--accent), var(--accent-dark))",
-                }}
-              >
-                <Store className="w-5 h-5 text-white" />
-              </div>
-              {!collapsed && (
-                <div className="min-w-0">
-                  <div className="t-text font-semibold text-base leading-tight truncate">
-                    MDX Billing
-                  </div>
-                  <div className="t-dim text-[10px] uppercase tracking-wider truncate">
-                    Premium
-                  </div>
+          <div className={`flex-1 t-card flex flex-col overflow-hidden ${collapsed ? "px-2 py-4" : "p-4"}`}>
+            {/* Logo — fixed top */}
+            <div className="shrink-0">
+              <Link to={homePath} className={`flex items-center mb-5 ${collapsed ? "justify-center px-0" : "gap-3 px-2"}`}>
+                <div
+                  className="w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center shadow-lg"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, var(--accent), var(--accent-dark))",
+                  }}
+                >
+                  <Store className="w-5 h-5 text-white" />
                 </div>
-              )}
-            </Link>
+                {!collapsed && (
+                  <div className="min-w-0">
+                    <div className="t-text font-semibold text-base leading-tight truncate">
+                      MDX Billing
+                    </div>
+                    <div className="t-dim text-[10px] uppercase tracking-wider truncate">
+                      Premium
+                    </div>
+                  </div>
+                )}
+              </Link>
+            </div>
 
-            <nav className="flex-1 space-y-1">
+            {/* Nav — scrollable middle */}
+            <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden min-h-0" style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-strong) transparent' }}>
               {availableNav.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
@@ -241,7 +245,8 @@ export default function DashboardShell({
               })}
             </nav>
 
-            <div className="mt-2 space-y-1">
+            {/* Bottom actions — always visible, never hidden */}
+            <div className="shrink-0 mt-2 pt-2 space-y-1" style={{ borderTop: '1px solid var(--border)' }}>
               <a
                 href="/account/logout"
                 title={collapsed ? "Logout" : undefined}
@@ -335,7 +340,7 @@ export default function DashboardShell({
         ) : null}
 
         {/* Main */}
-        <main className={`flex-1 min-h-screen pb-28 lg:pb-8 transition-all duration-300 ${collapsed ? "lg:ml-20" : "lg:ml-64"}`}>
+        <main className={`flex-1 min-h-screen pb-28 lg:pb-8 transition-all duration-300 ${collapsed ? "lg:ml-24" : "lg:ml-64"}`}>
           {/* Top bar */}
           <header className="sticky top-0 z-20 py-3 md:py-4 no-print">
             <div className="mx-3 md:mx-6 t-card px-3 md:px-5 py-2.5 flex items-center gap-3">

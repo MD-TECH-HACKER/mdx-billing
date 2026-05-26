@@ -52,7 +52,10 @@
       ],
       [
         "expo-video",
-        { "supportsBackgroundPlayback": true, "supportsPictureInPicture": true }
+        {
+          "supportsBackgroundPlayback": true,
+          "supportsPictureInPicture": true
+        }
       ],
       "expo-font",
       "expo-secure-store",
@@ -67,8 +70,13 @@
     },
     "extra": {
       "router": {
-        "origin": false
+        "origin": false,
+        "sitemap": false
+      },
+      "eas": {
+        "projectId": "31f17745-3dee-42ef-857b-9ee467d2740e"
       }
-    }
+    },
+    "owner": "md_tech_hacker"
   }
 }
