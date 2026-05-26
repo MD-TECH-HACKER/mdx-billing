@@ -242,14 +242,7 @@ export function AppLoader({
           boxShadow: "0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.04)",
         }}
       >
-        <div
-          className="mx-auto mb-3 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden"
-          style={{
-            background: "linear-gradient(135deg, #F97316, #EA580C)",
-          }}
-        >
-          <img src="/favicon.ico" alt="MDX" className="w-7 h-7 object-contain" style={{ filter: "brightness(0) invert(1)" }} />
-        </div>
+        <img src="/logo.png" alt="MDX" className="mx-auto mb-3 w-12 h-12 rounded-full shadow-lg object-cover" />
         <div className="font-semibold" style={{ color: "#111827" }}>{label}</div>
         <div
           className="mt-4 h-1.5 rounded-full overflow-hidden"

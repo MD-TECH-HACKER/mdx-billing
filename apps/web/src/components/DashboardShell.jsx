@@ -177,15 +177,7 @@ export default function DashboardShell({
             {/* Logo — fixed top */}
             <div className="shrink-0">
               <Link to={homePath} className={`flex items-center mb-5 ${collapsed ? "justify-center px-0" : "gap-3 px-2"}`}>
-                <div
-                  className="w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, var(--accent), var(--accent-dark))",
-                  }}
-                >
-                  <img src="/favicon.ico" alt="MDX" className="w-6 h-6 object-contain" style={{ filter: "brightness(0) invert(1)" }} />
-                </div>
+                <img src="/logo.png" alt="MDX" className="w-10 h-10 shrink-0 rounded-full shadow-lg object-cover" />
                 {!collapsed && (
                   <div className="min-w-0">
                     <div className="t-text font-semibold text-base leading-tight truncate">
@@ -282,15 +274,7 @@ export default function DashboardShell({
               <div className="h-full t-card t-card-strong p-4 flex flex-col">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
-                    <div
-                      className="w-10 h-10 rounded-2xl flex items-center justify-center overflow-hidden"
-                      style={{
-                        background:
-                          "linear-gradient(135deg, var(--accent), var(--accent-dark))",
-                      }}
-                    >
-                      <img src="/favicon.ico" alt="MDX" className="w-6 h-6 object-contain" style={{ filter: "brightness(0) invert(1)" }} />
-                    </div>
+                    <img src="/logo.png" alt="MDX" className="w-10 h-10 rounded-full object-cover" />
                     <span className="t-text font-semibold">MDX Billing</span>
                   </div>
                   <button

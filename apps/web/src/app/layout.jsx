@@ -17,11 +17,11 @@ const themeBootScript = `
   try {
     var t = localStorage.getItem('mdx_theme');
     var a = localStorage.getItem('mdx_accent');
-    var migrated = localStorage.getItem('mdx_theme_v2');
-    if (!migrated) {
-      if (!t || t === 'glass') { t = 'light'; localStorage.setItem('mdx_theme', 'light'); }
-      if (!a || a === '#8b5cf6') { a = '#F97316'; localStorage.setItem('mdx_accent', '#F97316'); }
-      localStorage.setItem('mdx_theme_v2', '1');
+    var v = localStorage.getItem('mdx_theme_v3');
+    if (!v) {
+      t = 'light'; localStorage.setItem('mdx_theme', 'light');
+      a = '#F97316'; localStorage.setItem('mdx_accent', '#F97316');
+      localStorage.setItem('mdx_theme_v3', '1');
     }
     t = t || 'light';
     a = a || '#F97316';
