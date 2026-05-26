@@ -1,8 +1,8 @@
-import * as React from 'react';
+import { useState, useCallback } from 'react';
 
 function useUpload() {
-  const [loading, setLoading] = React.useState(false);
-  const upload = React.useCallback(async (input) => {
+  const [loading, setLoading] = useState(false);
+  const upload = useCallback(async (input) => {
     try {
       setLoading(true);
       let base64 = "";

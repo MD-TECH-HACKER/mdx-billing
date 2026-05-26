@@ -62,8 +62,8 @@ function MDXErrorPage({ error }: { error: unknown }) {
         alignItems: 'center',
         justifyContent: 'center',
         fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
-        background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)',
-        color: 'white',
+        background: '#f6f7fb',
+        color: '#111827',
         padding: '24px',
         position: 'relative',
         overflow: 'hidden',
@@ -78,7 +78,7 @@ function MDXErrorPage({ error }: { error: unknown }) {
           width: '400px',
           height: '400px',
           borderRadius: '50%',
-          background: 'rgba(239, 68, 68, 0.15)',
+          background: 'rgba(249, 115, 22, 0.1)',
           filter: 'blur(100px)',
           pointerEvents: 'none',
         }}
@@ -91,7 +91,7 @@ function MDXErrorPage({ error }: { error: unknown }) {
           width: '400px',
           height: '400px',
           borderRadius: '50%',
-          background: 'rgba(139, 92, 246, 0.15)',
+          background: 'rgba(249, 115, 22, 0.08)',
           filter: 'blur(100px)',
           pointerEvents: 'none',
         }}
@@ -140,9 +140,7 @@ function MDXErrorPage({ error }: { error: unknown }) {
             fontSize: '28px',
             fontWeight: 700,
             marginBottom: '8px',
-            background: 'linear-gradient(to right, #fff, #e2e8f0)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
+            color: '#111827',
           }}
         >
           Something went wrong
@@ -150,7 +148,7 @@ function MDXErrorPage({ error }: { error: unknown }) {
 
         <p
           style={{
-            color: 'rgba(255,255,255,0.6)',
+            color: '#6B7280',
             fontSize: '15px',
             marginBottom: '32px',
             lineHeight: 1.6,
@@ -172,7 +170,7 @@ function MDXErrorPage({ error }: { error: unknown }) {
           <button
             onClick={() => (window.location.href = '/')}
             style={{
-              background: 'linear-gradient(135deg, #8b5cf6, #a855f7)',
+              background: 'linear-gradient(135deg, #F97316, #EA580C)',
               color: 'white',
               border: 'none',
               borderRadius: '14px',
@@ -180,16 +178,16 @@ function MDXErrorPage({ error }: { error: unknown }) {
               fontSize: '14px',
               fontWeight: 600,
               cursor: 'pointer',
-              boxShadow: '0 4px 16px rgba(139, 92, 246, 0.3)',
+              boxShadow: '0 4px 16px rgba(249, 115, 22, 0.3)',
               transition: 'transform 0.15s, box-shadow 0.15s',
             }}
             onMouseOver={(e) => {
               e.currentTarget.style.transform = 'translateY(-1px)';
-              e.currentTarget.style.boxShadow = '0 6px 24px rgba(139, 92, 246, 0.4)';
+              e.currentTarget.style.boxShadow = '0 6px 24px rgba(249, 115, 22, 0.4)';
             }}
             onMouseOut={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 16px rgba(139, 92, 246, 0.3)';
+              e.currentTarget.style.boxShadow = '0 4px 16px rgba(249, 115, 22, 0.3)';
             }}
           >
             Go Home
@@ -198,22 +196,21 @@ function MDXErrorPage({ error }: { error: unknown }) {
           <button
             onClick={() => window.location.reload()}
             style={{
-              background: 'rgba(255,255,255,0.1)',
-              color: 'white',
-              border: '1px solid rgba(255,255,255,0.2)',
+              background: '#ffffff',
+              color: '#374151',
+              border: '1px solid #e5e7eb',
               borderRadius: '14px',
               padding: '12px 28px',
               fontSize: '14px',
               fontWeight: 600,
               cursor: 'pointer',
-              backdropFilter: 'blur(12px)',
               transition: 'background 0.15s',
             }}
             onMouseOver={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.18)';
+              e.currentTarget.style.background = '#f3f4f6';
             }}
             onMouseOut={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+              e.currentTarget.style.background = '#ffffff';
             }}
           >
             Retry
@@ -226,7 +223,7 @@ function MDXErrorPage({ error }: { error: unknown }) {
           style={{
             background: 'none',
             border: 'none',
-            color: 'rgba(255,255,255,0.4)',
+            color: '#9CA3AF',
             fontSize: '12px',
             cursor: 'pointer',
             padding: '4px 8px',
@@ -239,8 +236,8 @@ function MDXErrorPage({ error }: { error: unknown }) {
           <div
             style={{
               marginTop: '16px',
-              background: 'rgba(0,0,0,0.3)',
-              border: '1px solid rgba(255,255,255,0.1)',
+              background: '#ffffff',
+              border: '1px solid #e5e7eb',
               borderRadius: '16px',
               padding: '16px',
               textAlign: 'left',
@@ -250,7 +247,7 @@ function MDXErrorPage({ error }: { error: unknown }) {
           >
             <pre
               style={{
-                color: 'rgba(255,255,255,0.55)',
+                color: '#6B7280',
                 fontSize: '11px',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-all',
@@ -265,12 +262,12 @@ function MDXErrorPage({ error }: { error: unknown }) {
 
         <p
           style={{
-            color: 'rgba(255,255,255,0.25)',
+            color: '#D1D5DB',
             fontSize: '11px',
             marginTop: '32px',
           }}
         >
-          MDX Billing · localhost:6666
+          MDX Billing · Premium Shop Management
         </p>
       </div>
     </div>
