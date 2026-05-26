@@ -86,36 +86,36 @@ import { shopHeaders } from "@/utils/shopContext";
 const ACCENT = "#F97316";
 const ACCENT_DARK = "#EA580C";
 const ACCENT_LIGHT = "#FDBA74";
-const ACCENT_BG = "var(--bg-surface)7ED";
+const ACCENT_BG = "rgba(249, 115, 22, 0.1)";
 const ACCENT_SOFT = "rgba(249, 115, 22, 0.08)";
 const ACCENT_BORDER = "rgba(249, 115, 22, 0.2)";
 
 const SUCCESS = "#059669";
-const SUCCESS_BG = "#ECFDF5";
+const SUCCESS_BG = "rgba(5, 150, 105, 0.1)";
 const SUCCESS_LIGHT = "#10B981";
 const SUCCESS_BORDER = "rgba(5, 150, 105, 0.2)";
 
 const DANGER = "#DC2626";
-const DANGER_BG = "#FEF2F2";
+const DANGER_BG = "rgba(220, 38, 38, 0.1)";
 const DANGER_LIGHT = "#F87171";
 const DANGER_BORDER = "rgba(220, 38, 38, 0.2)";
 
 const WARNING = "#D97706";
-const WARNING_BG = "var(--bg-surface)BEB";
+const WARNING_BG = "rgba(217, 119, 6, 0.1)";
 const WARNING_LIGHT = "#FBBF24";
 const WARNING_BORDER = "rgba(217, 119, 6, 0.2)";
 
 const INFO = "#2563EB";
-const INFO_BG = "#EFF6FF";
+const INFO_BG = "rgba(37, 99, 235, 0.1)";
 
 const PURPLE = "#8B5CF6";
-const PURPLE_BG = "#F5F3FF";
+const PURPLE_BG = "rgba(139, 92, 246, 0.1)";
 
 const CYAN = "#06B6D4";
-const CYAN_BG = "#ECFEFF";
+const CYAN_BG = "rgba(6, 182, 212, 0.1)";
 
 const PINK = "#EC4899";
-const PINK_BG = "#FDF2F8";
+const PINK_BG = "rgba(236, 72, 153, 0.1)";
 
 const CHART_COLORS = [
   ACCENT, "#3B82F6", "#10B981", "#F59E0B", "#EC4899", "#8B5CF6", "#06B6D4", "#F43F5E",
@@ -547,7 +547,7 @@ function ProductAnalyticsRow({ product, maxRevenue, currency = "INR", index = 0 
         gap: "12px",
         alignItems: "center",
         padding: "12px 16px",
-        borderBottom: "1px solid #F5F5F5",
+        borderBottom: "1px solid var(--border)",
         transition: "background 0.2s ease",
         cursor: "default",
       }}
@@ -848,7 +848,7 @@ function ExpenseRow({ category, total, maxTotal, currency, color, index = 0 }) {
         alignItems: "center",
         gap: "12px",
         padding: "10px 0",
-        borderBottom: "1px solid #F5F5F5",
+        borderBottom: "1px solid var(--border)",
       }}
     >
       <div
@@ -2065,7 +2065,7 @@ export default function AnalyticsPage() {
                   const perUnit = Number(p.sellingPrice || 0) - Number(p.costPrice || 0);
                   const mc = (p.margin || 0) >= 50 ? SUCCESS : (p.margin || 0) >= 20 ? ACCENT : DANGER;
                   return (
-                    <tr key={p.productId} style={{ borderBottom: "1px solid #F5F5F5", transition: "background 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elev)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                    <tr key={p.productId} style={{ borderBottom: "1px solid var(--border)", transition: "background 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elev)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
                       <td style={{ padding: "10px 12px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                           <div style={{ width: "32px", height: "32px", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--border)", background: "var(--bg-elev)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>

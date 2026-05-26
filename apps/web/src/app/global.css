@@ -10,20 +10,23 @@
     -ms-overflow-style: none;
   }
   html {
-    background-color: #f6f7fb;
+    background: var(--bg-page, #0f0c29);
   }
 
-  /* Hide React SSR streaming markers ($) exposed by Cloudflare HTML minifier */
-  /* Default body bg before theme JS loads — prevents dark flash */
   body {
     font-size: 0;
     line-height: 0;
-    background: #f6f7fb;
-    background-color: #f6f7fb;
+    background: var(--bg-page, #0f0c29);
+    background-attachment: fixed;
   }
   body > * {
     font-size: 1rem;
     line-height: 1.5;
+  }
+
+  #root {
+    background: transparent;
+    min-height: 100vh;
   }
 
   html::-webkit-scrollbar,
@@ -40,5 +43,5 @@
 }
 
 .mdx-route-loader {
-  background: #f6f7fb;
+  background: var(--bg-page, #0f0c29);
 }

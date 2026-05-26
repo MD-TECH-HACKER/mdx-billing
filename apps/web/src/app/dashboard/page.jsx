@@ -84,26 +84,26 @@ import { shopHeaders } from "@/utils/shopContext";
 const ACCENT = "#F97316";
 const ACCENT_DARK = "#EA580C";
 const ACCENT_LIGHT = "#FDBA74";
-const ACCENT_BG = "#FFF7ED";
+const ACCENT_BG = "rgba(249, 115, 22, 0.1)";
 const ACCENT_SOFT = "rgba(249, 115, 22, 0.08)";
 const ACCENT_BORDER = "rgba(249, 115, 22, 0.2)";
 
 const SUCCESS = "#059669";
-const SUCCESS_BG = "#ECFDF5";
+const SUCCESS_BG = "rgba(5, 150, 105, 0.1)";
 const SUCCESS_LIGHT = "#10B981";
 const SUCCESS_BORDER = "rgba(5, 150, 105, 0.2)";
 
 const DANGER = "#DC2626";
-const DANGER_BG = "#FEF2F2";
+const DANGER_BG = "rgba(220, 38, 38, 0.1)";
 const DANGER_LIGHT = "#F87171";
 const DANGER_BORDER = "rgba(220, 38, 38, 0.2)";
 
 const WARNING = "#D97706";
-const WARNING_BG = "#FFFBEB";
+const WARNING_BG = "rgba(217, 119, 6, 0.1)";
 const WARNING_LIGHT = "#FBBF24";
 const WARNING_BORDER = "rgba(217, 119, 6, 0.2)";
 
-const INFO_BG = "#EFF6FF";
+const INFO_BG = "rgba(37, 99, 235, 0.1)";
 const INFO = "#2563EB";
 
 const CHART_COLORS = [
@@ -249,7 +249,7 @@ function StatCard({
       onClick={onClick}
       style={{
         background: "var(--bg-surface)",
-        border: "1px solid #f0f0f0",
+        border: "1px solid var(--border)",
         borderRadius: "16px",
         padding: "20px 24px",
         boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02)",
@@ -438,7 +438,7 @@ function ChartCard({
         className={className}
         style={{
           background: "var(--bg-surface)",
-          border: "1px solid #f0f0f0",
+          border: "1px solid var(--border)",
           borderRadius: "16px",
           padding: "24px",
           boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02)",
@@ -459,7 +459,7 @@ function ChartCard({
       className={className}
       style={{
         background: "var(--bg-surface)",
-        border: "1px solid #f0f0f0",
+        border: "1px solid var(--border)",
         borderRadius: "16px",
         padding: noPadding ? "0" : "24px",
         boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02)",
@@ -579,7 +579,7 @@ function PeriodSelector({ value, onChange }) {
           gap: "6px",
           padding: "6px 14px",
           borderRadius: "10px",
-          border: "1px solid #E5E7EB",
+          border: "1px solid var(--border)",
           background: "var(--bg-elev)",
           fontSize: "12.5px",
           fontWeight: 500,
@@ -615,7 +615,7 @@ function PeriodSelector({ value, onChange }) {
             top: "calc(100% + 6px)",
             right: 0,
             background: "var(--bg-surface)",
-            border: "1px solid #E5E7EB",
+            border: "1px solid var(--border)",
             borderRadius: "12px",
             boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
             zIndex: 50,
@@ -699,7 +699,7 @@ function ProductHighlight({
         style={{
           padding: "16px",
           borderRadius: "14px",
-          border: "1px solid #f0f0f0",
+          border: "1px solid var(--border)",
           background: "var(--bg-elev)",
         }}
       >
@@ -721,7 +721,7 @@ function ProductHighlight({
       style={{
         padding: "18px",
         borderRadius: "14px",
-        border: "1px solid #f0f0f0",
+        border: "1px solid var(--border)",
         background: "var(--bg-elev)",
         transition: "all 0.3s ease",
         cursor: "default",
@@ -764,7 +764,7 @@ function ProductHighlight({
             height: "56px",
             borderRadius: "12px",
             overflow: "hidden",
-            border: "1px solid #E5E7EB",
+            border: "1px solid var(--border)",
             background: "var(--bg-surface)",
             display: "flex",
             alignItems: "center",
@@ -845,7 +845,7 @@ function InvoiceRow({ sale, currency, index }) {
     <tr
       className="group"
       style={{
-        borderBottom: "1px solid #F3F4F6",
+        borderBottom: "1px solid var(--border)",
         transition: "background 0.15s ease",
       }}
       onMouseEnter={(e) => {
@@ -1006,7 +1006,7 @@ function LowStockItem({ product, currency }) {
   const stockBg = isCritical
     ? DANGER_BG
     : isVeryLow
-      ? "#FEF2F2"
+      ? DANGER_BG
       : WARNING_BG;
 
   return (
@@ -1035,7 +1035,7 @@ function LowStockItem({ product, currency }) {
           height: "40px",
           borderRadius: "10px",
           overflow: "hidden",
-          border: "1px solid #E5E7EB",
+          border: "1px solid var(--border)",
           background: "var(--bg-surface)",
           display: "flex",
           alignItems: "center",
@@ -1112,7 +1112,7 @@ function QuickAction({ icon: Icon, label, href, color = ACCENT }) {
         gap: "8px",
         padding: "16px 12px",
         borderRadius: "14px",
-        border: "1px solid #f0f0f0",
+        border: "1px solid var(--border)",
         background: "var(--bg-surface)",
         textDecoration: "none",
         transition: "all 0.25s ease",
@@ -1170,7 +1170,7 @@ function CustomTooltip({ active, payload, label, currency = "INR" }) {
     <div
       style={{
         background: "var(--bg-surface)",
-        border: "1px solid #E5E7EB",
+        border: "1px solid var(--border)",
         borderRadius: "12px",
         padding: "12px 16px",
         boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
@@ -1231,7 +1231,7 @@ function CategoryItem({ name, count, total, color, index }) {
         alignItems: "center",
         gap: "10px",
         padding: "10px 0",
-        borderBottom: "1px solid #F3F4F6",
+        borderBottom: "1px solid var(--border)",
       }}
     >
       <div
@@ -1587,11 +1587,11 @@ export default function DashboardPage() {
         .dash-table-scroll::-webkit-scrollbar { height: 4px; }
         .dash-table-scroll::-webkit-scrollbar-track { background: transparent; }
         .dash-table-scroll::-webkit-scrollbar-thumb {
-          background: #E5E7EB;
+          background: var(--border);
           border-radius: 2px;
         }
         .dash-table-scroll::-webkit-scrollbar-thumb:hover {
-          background: #D1D5DB;
+          background: var(--border-strong);
         }
 
         /* Table responsive */
@@ -1697,7 +1697,7 @@ export default function DashboardPage() {
               fontSize: "13px",
               fontWeight: 500,
               textDecoration: "none",
-              border: "1px solid #E5E7EB",
+              border: "1px solid var(--border)",
               transition: "all 0.25s ease",
             }}
             onMouseEnter={(e) => {
@@ -1803,6 +1803,9 @@ export default function DashboardPage() {
           @media (max-width: 1200px) {
             .dash-chart-grid { grid-template-columns: 1fr !important; }
           }
+          .dash-chart-area { height: 320px; }
+          @media (max-width: 1024px) { .dash-chart-area { height: 260px; } }
+          @media (max-width: 640px) { .dash-chart-area { height: 220px; } }
         `}</style>
 
         {/* ── Sales Overview Line Chart ── */}
@@ -1815,7 +1818,7 @@ export default function DashboardPage() {
           loading={loading}
           minHeight="auto"
         >
-          <div style={{ width: "100%", height: "280px" }}>
+          <div className="dash-chart-area" style={{ width: "100%" }}>
             {weeklyChartData.every((d) => d.revenue === 0) ? (
               <div
                 style={{
@@ -2099,7 +2102,7 @@ export default function DashboardPage() {
                 }}
               >
                 <thead>
-                  <tr style={{ borderBottom: "1px solid #E5E7EB" }}>
+                  <tr style={{ borderBottom: "1px solid var(--border)" }}>
                     {["Invoice ID", "Customer", "Amount", "Status", "Date", ""].map(
                       (h, i) => (
                         <th
@@ -2429,7 +2432,7 @@ export default function DashboardPage() {
         <div
           style={{
             background: "var(--bg-surface)",
-            border: "1px solid #f0f0f0",
+            border: "1px solid var(--border)",
             borderRadius: "16px",
             padding: "24px",
             boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
@@ -2533,7 +2536,7 @@ export default function DashboardPage() {
         <div
           style={{
             background: "var(--bg-surface)",
-            border: "1px solid #f0f0f0",
+            border: "1px solid var(--border)",
             borderRadius: "16px",
             padding: "24px",
             boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
@@ -2637,7 +2640,7 @@ export default function DashboardPage() {
         <div
           style={{
             background: "var(--bg-surface)",
-            border: "1px solid #f0f0f0",
+            border: "1px solid var(--border)",
             borderRadius: "16px",
             padding: "24px",
             boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
@@ -2718,7 +2721,7 @@ export default function DashboardPage() {
         <div
           style={{
             background: "var(--bg-surface)",
-            border: "1px solid #f0f0f0",
+            border: "1px solid var(--border)",
             borderRadius: "14px",
             padding: "18px 20px",
             display: "flex",
@@ -2761,7 +2764,7 @@ export default function DashboardPage() {
         <div
           style={{
             background: "var(--bg-surface)",
-            border: "1px solid #f0f0f0",
+            border: "1px solid var(--border)",
             borderRadius: "14px",
             padding: "18px 20px",
             display: "flex",
@@ -2853,7 +2856,7 @@ export default function DashboardPage() {
         <div
           style={{
             background: "var(--bg-surface)",
-            border: "1px solid #f0f0f0",
+            border: "1px solid var(--border)",
             borderRadius: "14px",
             padding: "18px 20px",
             display: "flex",
@@ -2866,7 +2869,7 @@ export default function DashboardPage() {
               width: "40px",
               height: "40px",
               borderRadius: "10px",
-              background: "#EFF6FF",
+              background: INFO_BG,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",

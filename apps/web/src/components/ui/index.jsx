@@ -231,26 +231,26 @@ export function AppLoader({
   return (
     <div
       className={`${fullScreen ? "min-h-screen" : "min-h-[240px]"} flex items-center justify-center p-6 rounded-3xl`}
-      style={{ background: "#f6f7fb" }}
+      style={{ background: "var(--bg-page, #f6f7fb)" }}
     >
       <div
         className="px-6 py-5 text-center max-w-xs w-full"
         style={{
-          background: "#ffffff",
+          background: "var(--bg-surface, #ffffff)",
           borderRadius: "1.25rem",
-          border: "1px solid #e5e7eb",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.04)",
+          border: "1px solid var(--border, #e5e7eb)",
+          boxShadow: "var(--shadow, 0 1px 3px rgba(0,0,0,0.05))",
         }}
       >
         <img src="/logo.png" alt="MDX" className="mx-auto mb-3 w-12 h-12 rounded-full shadow-lg object-cover" />
-        <div className="font-semibold" style={{ color: "#111827" }}>{label}</div>
+        <div className="font-semibold" style={{ color: "var(--text, #111827)" }}>{label}</div>
         <div
           className="mt-4 h-1.5 rounded-full overflow-hidden"
-          style={{ background: "#f3f4f6" }}
+          style={{ background: "var(--bg-elev, #f3f4f6)" }}
         >
           <div
             className="h-full w-1/2 rounded-full animate-pulse"
-            style={{ background: "#F97316" }}
+            style={{ background: "var(--accent, #F97316)" }}
           />
         </div>
       </div>
