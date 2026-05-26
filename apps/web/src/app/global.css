@@ -9,11 +9,17 @@
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
+  html {
+    background-color: #f6f7fb;
+  }
 
   /* Hide React SSR streaming markers ($) exposed by Cloudflare HTML minifier */
+  /* Default body bg before theme JS loads — prevents dark flash */
   body {
     font-size: 0;
     line-height: 0;
+    background: #f6f7fb;
+    background-color: #f6f7fb;
   }
   body > * {
     font-size: 1rem;
