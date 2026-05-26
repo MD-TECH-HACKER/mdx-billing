@@ -171,19 +171,18 @@ export default function DashboardShell({
       <ToastHost />
 
       <div className="flex min-h-screen">
-        {/* Desktop sidebar */}
-        <aside className={`hidden lg:flex flex-col fixed h-screen p-4 z-30 no-print transition-all duration-300 ${collapsed ? "w-[96px]" : "w-64"}`}>
-          <div className={`flex-1 t-card flex flex-col overflow-hidden ${collapsed ? "px-2 py-4" : "p-4"}`}>
+        <aside className={`hidden lg:flex flex-col fixed h-screen z-30 no-print transition-all duration-300 ${collapsed ? "w-[96px]" : "w-64"}`}>
+          <div className={`flex-1 t-card flex flex-col overflow-hidden m-4 ${collapsed ? "px-2 py-4" : "p-3"}`}>
             {/* Logo — fixed top */}
             <div className="shrink-0">
-              <Link to={homePath} className={`flex items-center mb-5 ${collapsed ? "justify-center px-0" : "gap-3 px-2"}`}>
-                <img src="/logo.png" alt="MDX" className="w-10 h-10 shrink-0 rounded-full shadow-lg object-cover" />
+              <Link to={homePath} className={`flex items-center mb-4 ${collapsed ? "justify-center px-0" : "gap-3 px-2"}`}>
+                <img src="/logo.png" alt="MDX" className="w-9 h-9 shrink-0 rounded-full shadow-lg object-cover" />
                 {!collapsed && (
                   <div className="min-w-0">
-                    <div className="t-text font-semibold text-base leading-tight truncate">
+                    <div className="t-text font-semibold text-[15px] leading-tight truncate">
                       MDX Billing
                     </div>
-                    <div className="t-dim text-[10px] uppercase tracking-wider truncate">
+                    <div className="t-dim text-[9px] uppercase tracking-wider truncate mt-0.5">
                       Premium
                     </div>
                   </div>
@@ -192,7 +191,7 @@ export default function DashboardShell({
             </div>
 
             {/* Nav — scrollable middle, scrollbar hidden */}
-            <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden min-h-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}>
+            <nav className="flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden min-h-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}>
               {availableNav.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
@@ -202,8 +201,8 @@ export default function DashboardShell({
                     to={item.href}
                     onMouseEnter={() => prefetchRoute(qc, item.href)}
                     title={collapsed ? item.label : undefined}
-                    className={`relative flex items-center rounded-xl transition-all text-sm font-medium ${
-                      collapsed ? "justify-center w-12 h-12 mx-auto" : "gap-3 px-3 py-2.5"
+                    className={`relative flex items-center rounded-[10px] transition-all text-[13px] font-semibold ${
+                      collapsed ? "justify-center w-10 h-10 mx-auto" : "gap-3 px-3 py-2"
                     } ${
                       active
                         ? "t-accent-soft"
@@ -216,14 +215,14 @@ export default function DashboardShell({
                             background: "rgba(var(--accent-rgb), 0.14)",
                             border: "1px solid rgba(var(--accent-rgb), 0.25)",
                           }
-                        : {}
+                        : { border: "1px solid transparent" }
                     }
                   >
-                    <Icon className="w-5 h-5 shrink-0" />
+                    <Icon className={`${collapsed ? "w-5 h-5" : "w-4 h-4"} shrink-0`} />
                     {!collapsed && <span>{item.label}</span>}
                     {!collapsed && item.href === "/billing" && cartCount > 0 ? (
                       <span
-                        className="ml-auto text-white text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                        className="ml-auto text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold"
                         style={{ background: "var(--accent)" }}
                       >
                         {cartCount}
@@ -238,26 +237,26 @@ export default function DashboardShell({
             </nav>
 
             {/* Bottom actions — always visible, never hidden */}
-            <div className="shrink-0 mt-2 pt-2 space-y-1" style={{ borderTop: '1px solid var(--border)' }}>
+            <div className="shrink-0 mt-2 pt-2 space-y-0.5" style={{ borderTop: '1px solid var(--border)' }}>
               <a
                 href="/account/logout"
                 title={collapsed ? "Logout" : undefined}
-                className={`flex items-center rounded-xl t-muted hover:text-[var(--danger)] transition text-sm ${
-                  collapsed ? "justify-center w-12 h-12 mx-auto" : "gap-3 px-3 py-2.5"
+                className={`flex items-center rounded-[10px] t-muted hover:text-[var(--danger)] transition text-[13px] ${
+                  collapsed ? "justify-center w-10 h-10 mx-auto" : "gap-3 px-3 py-2"
                 }`}
               >
-                <LogOut className="w-5 h-5 shrink-0" />
-                {!collapsed && <span className="font-medium">Logout</span>}
+                <LogOut className={`${collapsed ? "w-5 h-5" : "w-4 h-4"} shrink-0`} />
+                {!collapsed && <span className="font-semibold">Logout</span>}
               </a>
               <button
                 onClick={toggleSidebar}
                 title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                className={`w-full flex items-center rounded-xl t-muted hover:bg-[var(--bg-elev)] hover:t-text transition text-sm ${
-                  collapsed ? "justify-center w-12 h-12 mx-auto" : "gap-3 px-3 py-2.5"
+                className={`w-full flex items-center rounded-[10px] t-muted hover:bg-[var(--bg-elev)] hover:t-text transition text-[13px] ${
+                  collapsed ? "justify-center w-10 h-10 mx-auto" : "gap-3 px-3 py-2"
                 }`}
               >
-                {collapsed ? <ChevronRight className="w-5 h-5 shrink-0" /> : <ChevronLeft className="w-5 h-5 shrink-0" />}
-                {!collapsed && <span className="font-medium">Collapse Sidebar</span>}
+                {collapsed ? <ChevronRight className="w-5 h-5 shrink-0" /> : <ChevronLeft className="w-4 h-4 shrink-0" />}
+                {!collapsed && <span className="font-semibold">Collapse Sidebar</span>}
               </button>
             </div>
           </div>
