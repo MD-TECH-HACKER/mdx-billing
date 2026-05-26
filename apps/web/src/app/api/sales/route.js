@@ -22,8 +22,8 @@ export async function GET(request) {
     const sort = url.searchParams.get("sort") || "newest";
     const columns = canAccess(context.role, "analytics.profit")
       ? "*"
-      : "sale_id, shop_id, customer_id, receipt_number, buyer_name, buyer_phone, items, total_amount, total_quantity, tax_amount, discount_amount, paid_amount, due_date, payment_status, payment_method, notes, created_at, updated_at";
-    let query = `SELECT ${columns} FROM sales WHERE shop_id = $1`;
+      : "sale_id, shop_id, customer_id, receipt_number, buyer_name, buyer_phone, items, total_amount, total_quantity, tax_amount, discount_amount, paid_amount, due_date, payment_status, payment_method, notes, sale_status, currency_snapshot, created_at, updated_at";
+    let query = `SELECT ${columns} FROM sales WHERE shop_id = $1 AND (sale_status IS NULL OR sale_status = 'completed')`;
     const values = [context.shopId];
 
     if (search) {
@@ -73,6 +73,24 @@ export async function POST(request) {
 
     if (items.length === 0) {
       return Response.json({ error: "No items" }, { status: 400 });
+    }
+
+    // Idempotency: check for duplicate checkout
+    const checkoutSessionId = (body.checkoutSessionId || "").toString().trim() || null;
+    if (checkoutSessionId) {
+      const existing = await sql`
+        SELECT sale_id FROM sales
+        WHERE checkout_session_id = ${checkoutSessionId} AND shop_id = ${context.shopId}
+        LIMIT 1
+      `;
+      if (existing[0]) {
+        // Return the already-created sale instead of creating a duplicate
+        const existingSale = await sql`SELECT * FROM sales WHERE sale_id = ${existing[0].sale_id} LIMIT 1`;
+        return Response.json(
+          { sale: sanitizeSaleForRole(existingSale[0], context.role) },
+          { status: 200 },
+        );
+      }
     }
 
     const productIds = items.map((item) => Number.parseInt(item.productId, 10));
@@ -142,17 +160,25 @@ export async function POST(request) {
 
       const unitPrice = Number(product.selling_price);
       const costPrice = Number(product.cost_price);
+      const profitPerUnit = unitPrice - costPrice;
       totalAmount += unitPrice * quantity;
       totalCost += costPrice * quantity;
       totalQuantity += quantity;
+
+      // Full product snapshot — immutable record of what was sold at what price
       lineItems.push({
         productId: product.product_id,
         title: product.title,
         description: product.description,
         imageUrl: product.image_url,
+        sku: product.sku || null,
+        category: product.category || null,
         quantity,
         unitPrice,
         costPrice,
+        profitPerUnit,
+        totalCost: costPrice * quantity,
+        totalProfit: profitPerUnit * quantity,
         primaryUnit: sanitizeProductUnit(product.primary_unit, {
           fallback: "piece",
         }),
@@ -175,6 +201,20 @@ export async function POST(request) {
         : Math.min(grandTotal, Math.max(0, Number(body.paidAmount) || 0));
     const dueDate = (body.dueDate || "").toString().slice(0, 10) || null;
     const receiptNumber = `${context.shop.receipt_prefix || "INV"}-${Date.now()}`;
+
+    // Shop snapshot — frozen shop details at time of sale for permanent receipt
+    const shopSnapshot = JSON.stringify({
+      shop_name: context.shop.shop_name,
+      shop_description: context.shop.shop_description || null,
+      shop_logo: context.shop.shop_logo || null,
+      address: context.shop.address || null,
+      phone: context.shop.phone || null,
+      thank_you_message: context.shop.thank_you_message || null,
+      receipt_prefix: context.shop.receipt_prefix || null,
+    });
+    const currencySnapshot = context.shop.currency || "INR";
+    const taxPercentSnapshot = Number(context.shop.tax_percent) || 0;
+
     const requestedStock = JSON.stringify(
       lineItems.map((lineItem) => ({
         productId: lineItem.productId,
@@ -207,7 +247,7 @@ export async function POST(request) {
       ),
       created_sale AS (
         INSERT INTO sales
-          (owner_id, shop_id, customer_id, receipt_number, buyer_name, buyer_phone, items, total_amount, total_cost, total_profit, total_quantity, tax_amount, discount_amount, paid_amount, due_date, payment_status, payment_method, notes)
+          (owner_id, shop_id, customer_id, receipt_number, buyer_name, buyer_phone, items, total_amount, total_cost, total_profit, total_quantity, tax_amount, discount_amount, paid_amount, due_date, payment_status, payment_method, notes, sale_status, currency_snapshot, tax_percent_snapshot, shop_snapshot, checkout_session_id)
         SELECT
           ${context.shopOwnerId},
           ${context.shopId},
@@ -226,7 +266,12 @@ export async function POST(request) {
           ${dueDate},
           ${paymentStatus},
           ${paymentMethod},
-          ${notes}
+          ${notes},
+          'completed',
+          ${currencySnapshot},
+          ${taxPercentSnapshot},
+          ${shopSnapshot}::jsonb,
+          ${checkoutSessionId}
         FROM verified
         WHERE verified.ok = 1
         RETURNING *
@@ -265,6 +310,13 @@ export async function POST(request) {
     if (error?.code === "22012" || /division by zero/i.test(String(error?.message))) {
       return Response.json(
         { error: "Stock changed before checkout. Refresh products and try again." },
+        { status: 409 },
+      );
+    }
+    // Handle duplicate checkout_session_id (unique constraint violation)
+    if (error?.code === "23505" && /checkout_session/i.test(String(error?.detail))) {
+      return Response.json(
+        { error: "This checkout was already processed. Please refresh." },
         { status: 409 },
       );
     }

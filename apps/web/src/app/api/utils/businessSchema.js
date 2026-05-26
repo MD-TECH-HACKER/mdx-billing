@@ -150,6 +150,18 @@ export async function ensureBusinessFeatureSchema() {
           ADD COLUMN IF NOT EXISTS due_date DATE
         `,
         sql`
+          ALTER TABLE sales
+          ADD COLUMN IF NOT EXISTS sale_status TEXT DEFAULT 'completed',
+          ADD COLUMN IF NOT EXISTS currency_snapshot TEXT,
+          ADD COLUMN IF NOT EXISTS tax_percent_snapshot NUMERIC,
+          ADD COLUMN IF NOT EXISTS shop_snapshot JSONB DEFAULT '{}'::jsonb,
+          ADD COLUMN IF NOT EXISTS checkout_session_id TEXT
+        `,
+        sql`
+          CREATE UNIQUE INDEX IF NOT EXISTS sales_checkout_session_idx
+          ON sales (checkout_session_id) WHERE checkout_session_id IS NOT NULL
+        `,
+        sql`
           CREATE INDEX IF NOT EXISTS customers_shop_name_idx
           ON customers (shop_id, name)
         `,

@@ -7,6 +7,7 @@ import {
 } from "@/app/api/utils/shopAccess";
 import { canAccess } from "@/app/api/utils/permissions";
 import { sanitizeProductUnit } from "@/utils/productUnits";
+import { ensureBusinessFeatureSchema } from "@/app/api/utils/businessSchema";
 
 function parseProductId(value) {
   const id = Number.parseInt(value, 10);
@@ -38,6 +39,7 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const context = await requireShopAccess(request, "product.write");
+    await ensureBusinessFeatureSchema();
     const id = parseProductId(params.id);
     if (!id) return Response.json({ error: "Invalid id" }, { status: 400 });
 
@@ -73,6 +75,18 @@ export async function PUT(request, { params }) {
       return Response.json({ error: "No fields" }, { status: 400 });
     }
 
+    // If stock is being changed, get the old stock first to record a movement
+    let oldStock = null;
+    if (fields.stock !== undefined) {
+      const oldProduct = await sql(
+        `SELECT stock FROM products WHERE product_id = $1 AND shop_id = $2 LIMIT 1`,
+        [id, context.shopId],
+      );
+      if (oldProduct[0]) {
+        oldStock = Number(oldProduct[0].stock);
+      }
+    }
+
     const values = keys.map((key) => fields[key]);
     values.push(id, context.shopId);
     const setClauses = keys.map((key, index) => `${key} = $${index + 1}`);
@@ -80,6 +94,23 @@ export async function PUT(request, { params }) {
     const result = await sql(query, values);
 
     if (!result[0]) return Response.json({ error: "Not found" }, { status: 404 });
+
+    // Record stock movement if stock changed
+    if (oldStock !== null && fields.stock !== undefined) {
+      const newStock = Number(result[0].stock);
+      const stockDiff = newStock - oldStock;
+      if (stockDiff !== 0) {
+        const movementType = stockDiff > 0 ? "stock_in" : "adjustment";
+        const reason = body.stockReason || (stockDiff > 0 ? "New stock added" : "Stock adjusted");
+        await sql`
+          INSERT INTO stock_movements
+            (shop_id, product_id, movement_type, quantity_change, reference_type, reference_id, notes, created_by)
+          VALUES
+            (${context.shopId}, ${id}, ${movementType}, ${stockDiff}, 'product_edit', ${String(id)}, ${`${reason} (${oldStock} → ${newStock})`}, ${context.userId})
+        `;
+      }
+    }
+
     await writeAuditEvent(context, "product.update", "product", id, {
       changedFields: keys,
     });

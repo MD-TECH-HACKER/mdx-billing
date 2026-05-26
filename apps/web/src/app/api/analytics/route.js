@@ -14,10 +14,10 @@ export async function GET(request) {
     const [products, sales, todaySales, monthSales, salesByDay, expenseSummary, expensesByCategory, purchasesMonth] =
       await sql.transaction([
         sql`SELECT product_id, title, image_url, selling_price, cost_price, stock, category FROM products WHERE shop_id = ${shopId}`,
-        sql`SELECT sale_id, receipt_number, items, total_amount, total_cost, total_profit, total_quantity, created_at FROM sales WHERE shop_id = ${shopId} ORDER BY created_at DESC`,
-        sql`SELECT COALESCE(SUM(total_amount),0) AS total, COALESCE(SUM(total_profit),0) AS profit, COUNT(*) AS count FROM sales WHERE shop_id = ${shopId} AND created_at >= CURRENT_DATE`,
-        sql`SELECT COALESCE(SUM(total_amount),0) AS total, COALESCE(SUM(total_profit),0) AS profit, COUNT(*) AS count FROM sales WHERE shop_id = ${shopId} AND created_at >= date_trunc('month', CURRENT_DATE)`,
-        sql`SELECT date_trunc('day', created_at) AS day, SUM(total_amount) AS revenue, SUM(total_profit) AS profit FROM sales WHERE shop_id = ${shopId} AND created_at >= CURRENT_DATE - INTERVAL '30 days' GROUP BY day ORDER BY day ASC`,
+        sql`SELECT sale_id, receipt_number, items, total_amount, total_cost, total_profit, total_quantity, created_at FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') ORDER BY created_at DESC`,
+        sql`SELECT COALESCE(SUM(total_amount),0) AS total, COALESCE(SUM(total_profit),0) AS profit, COUNT(*) AS count FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= CURRENT_DATE`,
+        sql`SELECT COALESCE(SUM(total_amount),0) AS total, COALESCE(SUM(total_profit),0) AS profit, COUNT(*) AS count FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= date_trunc('month', CURRENT_DATE)`,
+        sql`SELECT date_trunc('day', created_at) AS day, SUM(total_amount) AS revenue, SUM(total_profit) AS profit FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= CURRENT_DATE - INTERVAL '30 days' GROUP BY day ORDER BY day ASC`,
         sql`SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS count FROM expenses WHERE shop_id = ${shopId} AND expense_date >= date_trunc('month', CURRENT_DATE)::date`,
         sql`SELECT category, SUM(amount) AS total FROM expenses WHERE shop_id = ${shopId} AND expense_date >= date_trunc('month', CURRENT_DATE)::date GROUP BY category ORDER BY total DESC`,
         sql`SELECT COALESCE(SUM(total_amount),0) AS total, COUNT(*) AS count FROM purchases WHERE shop_id = ${shopId} AND purchase_date >= date_trunc('month', CURRENT_DATE)::date`,
@@ -35,6 +35,7 @@ export async function GET(request) {
     );
     const productStats = {};
 
+    // Build product stats ENTIRELY from sale item snapshots — never overwrite with current product data
     sales.forEach((sale) => {
       const items = Array.isArray(sale.items) ? sale.items : [];
       items.forEach((item) => {
@@ -57,33 +58,81 @@ export async function GET(request) {
       });
     });
 
+    // Calculate margin from SNAPSHOT data, not current product data
+    // Only use current product table for: image (display), stock, category
     products.forEach((product) => {
       if (productStats[product.product_id]) {
-        productStats[product.product_id].sellingPrice = Number(product.selling_price);
-        productStats[product.product_id].costPrice = Number(product.cost_price);
-        productStats[product.product_id].margin =
-          Number(product.selling_price) > 0
-            ? ((Number(product.selling_price) - Number(product.cost_price)) /
-                Number(product.selling_price)) *
-              100
-            : 0;
+        const stat = productStats[product.product_id];
+        // Keep the latest image from product table for display (not financial)
+        if (product.image_url) {
+          stat.image_url = product.image_url;
+        }
+        // Calculate margin from accumulated snapshot totals (immutable)
+        stat.sellingPrice = stat.revenue > 0 && stat.quantitySold > 0
+          ? stat.revenue / stat.quantitySold
+          : Number(product.selling_price);
+        stat.costPrice = stat.cost > 0 && stat.quantitySold > 0
+          ? stat.cost / stat.quantitySold
+          : Number(product.cost_price);
+        stat.margin = stat.revenue > 0
+          ? (stat.profit / stat.revenue) * 100
+          : 0;
+        // Attach current stock for display
+        stat.stock = product.stock;
+      }
+    });
+
+    // For products that were sold but since deleted, calculate margin from snapshot
+    Object.values(productStats).forEach((stat) => {
+      if (stat.margin === undefined) {
+        stat.sellingPrice = stat.revenue > 0 && stat.quantitySold > 0
+          ? stat.revenue / stat.quantitySold
+          : 0;
+        stat.costPrice = stat.cost > 0 && stat.quantitySold > 0
+          ? stat.cost / stat.quantitySold
+          : 0;
+        stat.margin = stat.revenue > 0
+          ? (stat.profit / stat.revenue) * 100
+          : 0;
       }
     });
 
     const productAnalytics = Object.values(productStats);
     const bestSelling =
       [...productAnalytics].sort((a, b) => b.quantitySold - a.quantitySold)[0] || null;
-    const productsByMargin = products
-      .map((product) => ({
-        ...product,
-        margin:
-          Number(product.selling_price) > 0
-            ? ((Number(product.selling_price) - Number(product.cost_price)) /
-                Number(product.selling_price)) *
-              100
+
+    // Use snapshot-derived margin for sold products, fall back to live data for unsold products
+    const allProductsWithMargin = [
+      // Sold products: margin from snapshots
+      ...productAnalytics.map((stat) => ({
+        product_id: stat.productId,
+        title: stat.title,
+        image_url: stat.imageUrl || stat.image_url,
+        selling_price: stat.sellingPrice,
+        cost_price: stat.costPrice,
+        margin: stat.margin,
+        stock: stat.stock,
+        totalProfit: stat.profit,
+        _fromSnapshot: true,
+      })),
+      // Unsold products: margin from current product data
+      ...products
+        .filter((p) => !productStats[p.product_id])
+        .map((p) => ({
+          product_id: p.product_id,
+          title: p.title,
+          image_url: p.image_url,
+          selling_price: Number(p.selling_price),
+          cost_price: Number(p.cost_price),
+          margin: Number(p.selling_price) > 0
+            ? ((Number(p.selling_price) - Number(p.cost_price)) / Number(p.selling_price)) * 100
             : 0,
-      }))
-      .sort((a, b) => b.margin - a.margin);
+          stock: p.stock,
+          totalProfit: 0,
+          _fromSnapshot: false,
+        })),
+    ].sort((a, b) => b.margin - a.margin);
+
     const lowStock = products.filter((product) => product.stock < 5);
     const categoryMap = {};
     products.forEach((product) => {
@@ -114,8 +163,8 @@ export async function GET(request) {
         lowStockCount: lowStock.length,
       },
       bestSelling,
-      highestMargin: productsByMargin[0] || null,
-      lowestMargin: productsByMargin[productsByMargin.length - 1] || null,
+      highestMargin: allProductsWithMargin[0] || null,
+      lowestMargin: allProductsWithMargin[allProductsWithMargin.length - 1] || null,
       lowStock,
       categoryBreakdown: Object.entries(categoryMap).map(([name, count]) => ({
         name,

@@ -88,6 +88,10 @@ export default function BillingPage() {
     if (cart.length === 0) return;
     setSubmitting(true);
     try {
+      // Generate unique session ID to prevent duplicate bills on double-click
+      const checkoutSessionId = typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const res = await fetch("/api/sales", {
         method: "POST",
         headers: shopHeaders({ "Content-Type": "application/json" }),
@@ -101,6 +105,7 @@ export default function BillingPage() {
           paidAmount: Number(paidAmount) || 0,
           dueDate: dueDate || null,
           notes,
+          checkoutSessionId,
           items: cart.map((c) => ({
             productId: c.product_id,
             quantity: c.quantity,
