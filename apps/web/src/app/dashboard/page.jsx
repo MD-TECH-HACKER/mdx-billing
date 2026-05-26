@@ -1812,7 +1812,7 @@ export default function DashboardPage() {
             <PeriodSelector value={chartPeriod} onChange={setChartPeriod} />
           }
           loading={loading}
-          minHeight="380px"
+          minHeight="auto"
         >
           <div style={{ width: "100%", height: "280px" }}>
             {weeklyChartData.every((d) => d.revenue === 0) ? (
@@ -1910,7 +1910,7 @@ export default function DashboardPage() {
             <ProductHighlight
               title=""
               productName={bestSelling?.title || "No products sold yet"}
-              productImage={bestSelling?.image_url}
+              productImage={bestSelling?.imageUrl || bestSelling?.image_url}
               stat1Label="Sold"
               stat1Value={
                 bestSelling
@@ -2250,7 +2250,7 @@ export default function DashboardPage() {
           title="Revenue vs Profit"
           subtitle="Comparing revenue and profit trends"
           loading={loading}
-          minHeight="340px"
+          minHeight="auto"
         >
           <div style={{ width: "100%", height: "240px" }}>
             {salesByDay.length === 0 ? (
@@ -2339,7 +2339,7 @@ export default function DashboardPage() {
           title="Margin Leaderboard"
           subtitle="Products ranked by profit margin"
           loading={loading}
-          minHeight="340px"
+          minHeight="auto"
         >
           {marginData.length === 0 ? (
             <div
