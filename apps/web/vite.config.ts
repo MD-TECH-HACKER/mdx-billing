@@ -2,7 +2,6 @@ import path from 'node:path';
 import { reactRouter } from '@react-router/dev/vite';
 import { reactRouterHonoServer } from 'react-router-hono-server/dev';
 import { defineConfig } from 'vite';
-import mkcert from 'vite-plugin-mkcert';
 import babel from 'vite-plugin-babel';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { addRenderIds } from './plugins/addRenderIds';
@@ -63,7 +62,6 @@ export default defineConfig({
     tsconfigPaths(),
     aliases(),
     layoutWrapperPlugin(),
-    mkcert({ hosts: ['localhost', 'mdx-billing.app'] }),
   ],
   resolve: {
     alias: {
@@ -83,8 +81,7 @@ export default defineConfig({
   server: {
     allowedHosts: true,
     host: '0.0.0.0',
-    port: Number(process.env.PORT || 443),
-    https: true,
+    port: Number(process.env.PORT || 8080),
     fs: {
       allow: ['..', '../../shared'],
     },

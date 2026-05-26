@@ -49,7 +49,7 @@ export async function PUT(request, { params }) {
     if (typeof body.description === "string")
       fields.description = body.description.trim().slice(0, 1000) || null;
     if (typeof body.imageUrl === "string")
-      fields.image_url = body.imageUrl.trim().slice(0, 500) || null;
+      fields.image_url = body.imageUrl.trim() || null;
     if (body.sellingPrice !== undefined)
       fields.selling_price = Math.max(0, Number(body.sellingPrice) || 0);
     if (body.costPrice !== undefined)

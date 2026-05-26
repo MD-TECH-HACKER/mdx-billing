@@ -20,7 +20,6 @@ import { LoadFonts } from 'virtual:load-fonts.jsx';
 // @ts-expect-error -- generated auth module, no type declarations available
 import { SessionProvider } from '@auth/create/react';
 import { Toaster } from 'sonner';
-import type { Route } from './+types/root';
 
 export const links = () => [];
 
@@ -325,7 +324,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <title>MDX Billing — Premium Shop App</title>
         <Meta />
         <Links />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2" />
         {LoadFontsSSR ? <LoadFontsSSR /> : null}
       </head>
       <body>

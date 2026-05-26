@@ -75,7 +75,7 @@ export async function POST(request) {
     const description =
       (body.description || "").toString().trim().slice(0, 1000) || null;
     const imageUrl =
-      (body.imageUrl || "").toString().trim().slice(0, 500) || null;
+      (body.imageUrl || "").toString().trim() || null;
     const sellingPrice = Math.max(0, Number(body.sellingPrice) || 0);
     const costPrice = Math.max(0, Number(body.costPrice) || 0);
     const stock = Math.max(0, parseInt(body.stock) || 0);

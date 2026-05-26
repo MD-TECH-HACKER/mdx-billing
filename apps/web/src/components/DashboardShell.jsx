@@ -14,6 +14,8 @@ import {
   Menu,
   X,
   Store,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
@@ -68,6 +70,21 @@ export default function DashboardShell({
   const qc = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
+
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sidebar_collapsed") === "true";
+    }
+    return false;
+  });
+
+  const toggleSidebar = () => {
+    setCollapsed(prev => {
+      const next = !prev;
+      if (typeof window !== "undefined") localStorage.setItem("sidebar_collapsed", String(next));
+      return next;
+    });
+  };
 
   // initial theme paint from localStorage (before shop loads)
   useEffect(() => {
@@ -127,11 +144,11 @@ export default function DashboardShell({
 
       <div className="flex min-h-screen">
         {/* Desktop sidebar */}
-        <aside className="hidden lg:flex flex-col w-64 fixed h-screen p-4 z-30 no-print">
-          <div className="flex-1 t-card p-4 flex flex-col">
-            <Link to="/dashboard" className="flex items-center gap-3 mb-7 px-2">
+        <aside className={`hidden lg:flex flex-col fixed h-screen p-4 z-30 no-print transition-all duration-300 ${collapsed ? "w-[96px]" : "w-64"}`}>
+          <div className={`flex-1 t-card flex flex-col ${collapsed ? "px-2 py-4" : "p-4"}`}>
+            <Link to="/dashboard" className={`flex items-center mb-7 ${collapsed ? "justify-center px-0" : "gap-3 px-2"}`}>
               <div
-                className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg"
+                className="w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center shadow-lg"
                 style={{
                   background:
                     "linear-gradient(135deg, var(--accent), var(--accent-dark))",
@@ -139,14 +156,16 @@ export default function DashboardShell({
               >
                 <Store className="w-5 h-5 text-white" />
               </div>
-              <div>
-                <div className="t-text font-semibold text-base leading-tight">
-                  MDX Billing
+              {!collapsed && (
+                <div className="min-w-0">
+                  <div className="t-text font-semibold text-base leading-tight truncate">
+                    MDX Billing
+                  </div>
+                  <div className="t-dim text-[10px] uppercase tracking-wider truncate">
+                    Premium
+                  </div>
                 </div>
-                <div className="t-dim text-[10px] uppercase tracking-wider">
-                  Premium
-                </div>
-              </div>
+              )}
             </Link>
 
             <nav className="flex-1 space-y-1">
@@ -158,7 +177,14 @@ export default function DashboardShell({
                     key={item.href}
                     to={item.href}
                     onMouseEnter={() => prefetchRoute(qc, item.href)}
-                    className={linkClass(active)}
+                    title={collapsed ? item.label : undefined}
+                    className={`relative flex items-center rounded-xl transition-all text-sm font-medium ${
+                      collapsed ? "justify-center w-12 h-12 mx-auto" : "gap-3 px-3 py-2.5"
+                    } ${
+                      active
+                        ? "t-accent-soft"
+                        : "t-muted hover:bg-[var(--bg-elev)] hover:t-text"
+                    }`}
                     style={
                       active
                         ? {
@@ -169,9 +195,9 @@ export default function DashboardShell({
                         : {}
                     }
                   >
-                    <Icon className="w-4 h-4" />
-                    <span>{item.label}</span>
-                    {item.href === "/billing" && cartCount > 0 ? (
+                    <Icon className="w-5 h-5 shrink-0" />
+                    {!collapsed && <span>{item.label}</span>}
+                    {!collapsed && item.href === "/billing" && cartCount > 0 ? (
                       <span
                         className="ml-auto text-white text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
                         style={{ background: "var(--accent)" }}
@@ -179,18 +205,36 @@ export default function DashboardShell({
                         {cartCount}
                       </span>
                     ) : null}
+                    {collapsed && item.href === "/billing" && cartCount > 0 ? (
+                      <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ background: "var(--accent)" }} />
+                    ) : null}
                   </Link>
                 );
               })}
             </nav>
 
-            <a
-              href="/account/logout"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl t-muted hover:text-[var(--danger)] transition text-sm mt-2"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="font-medium">Logout</span>
-            </a>
+            <div className="mt-2 space-y-1">
+              <a
+                href="/account/logout"
+                title={collapsed ? "Logout" : undefined}
+                className={`flex items-center rounded-xl t-muted hover:text-[var(--danger)] transition text-sm ${
+                  collapsed ? "justify-center w-12 h-12 mx-auto" : "gap-3 px-3 py-2.5"
+                }`}
+              >
+                <LogOut className="w-5 h-5 shrink-0" />
+                {!collapsed && <span className="font-medium">Logout</span>}
+              </a>
+              <button
+                onClick={toggleSidebar}
+                title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                className={`w-full flex items-center rounded-xl t-muted hover:bg-[var(--bg-elev)] hover:t-text transition text-sm ${
+                  collapsed ? "justify-center w-12 h-12 mx-auto" : "gap-3 px-3 py-2.5"
+                }`}
+              >
+                {collapsed ? <ChevronRight className="w-5 h-5 shrink-0" /> : <ChevronLeft className="w-5 h-5 shrink-0" />}
+                {!collapsed && <span className="font-medium">Collapse Sidebar</span>}
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -263,7 +307,7 @@ export default function DashboardShell({
         ) : null}
 
         {/* Main */}
-        <main className="flex-1 lg:ml-64 min-h-screen pb-28 lg:pb-8">
+        <main className={`flex-1 min-h-screen pb-28 lg:pb-8 transition-all duration-300 ${collapsed ? "lg:ml-20" : "lg:ml-64"}`}>
           {/* Top bar */}
           <header className="sticky top-0 z-20 py-3 md:py-4 no-print">
             <div className="mx-3 md:mx-6 t-card px-3 md:px-5 py-2.5 flex items-center gap-3">

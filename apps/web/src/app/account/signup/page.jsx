@@ -85,55 +85,7 @@ function SignUpPage() {
           </p>
         </div>
 
-        <form noValidate onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label className="block text-white/80 text-sm mb-1.5">Email</label>
-            <input
-              required
-              name="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white placeholder-white/40 outline-none focus:border-violet-400 focus:bg-white/15 transition"
-            />
-          </div>
 
-          <div>
-            <label className="block text-white/80 text-sm mb-1.5">
-              Password
-            </label>
-            <input
-              required
-              name="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 6 characters"
-              className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white placeholder-white/40 outline-none focus:border-violet-400 focus:bg-white/15 transition"
-            />
-          </div>
-
-          {error && (
-            <div className="rounded-2xl bg-red-500/20 border border-red-400/30 p-3 text-sm text-red-100">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white rounded-2xl px-4 py-3.5 font-semibold hover:opacity-90 transition disabled:opacity-60"
-          >
-            {loading ? "Creating account..." : "Sign Up"}
-          </button>
-        </form>
-
-        <div className="flex items-center gap-3 my-5">
-          <div className="flex-1 h-px bg-white/15" />
-          <span className="text-white/40 text-xs">or</span>
-          <div className="flex-1 h-px bg-white/15" />
-        </div>
 
         <button
           onClick={handleGoogle}
