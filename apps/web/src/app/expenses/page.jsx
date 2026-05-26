@@ -30,13 +30,13 @@ export default function ExpensesPage() {
   const currency = shop?.currency || "INR";
 
   const query = useQuery({
-    queryKey: ["expenses"],
+    queryKey: ["expenses", shop?.shop_id],
     queryFn: async () => {
       const response = await fetch("/api/expenses", { headers: shopHeaders() });
       if (!response.ok) throw new Error("Failed to load expenses");
       return response.json();
     },
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
   });
   const expenses = query.data?.expenses || [];
   const total = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { Calendar, CircleDollarSign, Eye, Printer, Receipt, Trash2 } from "lucide-react";
@@ -54,8 +54,14 @@ export default function SalesPage() {
   const fmt = (number) => formatMoney(number, currency);
   const canManage = role === "owner" || role === "manager";
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const value = new URLSearchParams(window.location.search).get("search");
+    if (value) setSearch(value);
+  }, []);
+
   const query = useQuery({
-    queryKey: ["sales", search, fromDate, toDate, status, sort],
+    queryKey: ["sales", shop?.shop_id, search, fromDate, toDate, status, sort],
     queryFn: async () => {
       const params = new URLSearchParams({ status, sort });
       if (search) params.set("search", search);
@@ -65,7 +71,7 @@ export default function SalesPage() {
       if (!response.ok) throw new Error("Failed to load sales");
       return response.json();
     },
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
     staleTime: 15000,
   });
   const sales = query.data?.sales || [];

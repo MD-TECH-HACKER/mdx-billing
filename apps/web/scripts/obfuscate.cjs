@@ -26,7 +26,12 @@ if (!fs.existsSync(ROOT)) {
 }
 
 const SKIP_PATTERNS = [
-    /\.map$/,                            // source maps
+    /\.map$/,                              // source maps
+    /\/react-[a-zA-Z0-9_-]+\.js$/,         // React core library chunk
+    /\/chunk-[a-zA-Z0-9_-]+\.js$/,         // Common vendor/library chunk
+    /\/entry\.client-[a-zA-Z0-9_-]+\.js$/,   // React Router client entry point
+    /\/index-[a-zA-Z0-9_-]+\.js$/,         // Vite main bundle / framework chunk
+    /\/createLucideIcon-[a-zA-Z0-9_-]+\.js$/, // Lucide icons core helper
 ];
 
 const obfuscatorOptions = {

@@ -22,6 +22,7 @@ import {
   Store,
   ChevronLeft,
   ChevronRight,
+  Sparkles,
 } from "lucide-react";
 import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
@@ -42,31 +43,32 @@ const NAV = [
   { label: "Purchases", icon: ClipboardList, href: "/purchases", roles: ["owner", "manager"] },
   { label: "Expenses", icon: Wallet, href: "/expenses", roles: ["owner", "manager"] },
   { label: "Analytics", icon: BarChart3, href: "/analytics", roles: ["owner", "manager"] },
+  { label: "AI Assistant", icon: Sparkles, href: "/ai", roles: ["owner", "manager"] },
   { label: "Team", icon: Users, href: "/team", roles: ["owner"] },
   { label: "Audit Log", icon: ShieldCheck, href: "/audit", roles: ["owner"] },
   { label: "Settings", icon: Settings, href: "/settings", roles: ["owner"] },
 ];
 
 // Prefetch fetch helpers for snappy nav
-function prefetchRoute(qc, href) {
+function prefetchRoute(qc, href, shopId) {
   const headers = shopHeaders();
   if (href === "/dashboard" || href === "/analytics") {
     qc.prefetchQuery({
-      queryKey: ["analytics"],
+      queryKey: ["analytics", shopId],
       queryFn: async () => (await fetch("/api/analytics", { headers })).json(),
       staleTime: 30000,
     });
   }
   if (href === "/products") {
     qc.prefetchQuery({
-      queryKey: ["products", ""],
+      queryKey: ["products", "", shopId],
       queryFn: async () => (await fetch("/api/products", { headers })).json(),
       staleTime: 30000,
     });
   }
   if (href === "/sales") {
     qc.prefetchQuery({
-      queryKey: ["sales", {}],
+      queryKey: ["sales", shopId, "", "", "", "all", "newest"],
       queryFn: async () => (await fetch("/api/sales", { headers })).json(),
       staleTime: 30000,
     });
@@ -212,7 +214,7 @@ export default function DashboardShell({
                   <Link
                     key={item.href}
                     to={item.href}
-                    onMouseEnter={() => prefetchRoute(qc, item.href)}
+                    onMouseEnter={() => prefetchRoute(qc, item.href, shop?.shop_id)}
                     title={collapsed ? item.label : undefined}
                     className={`relative flex items-center rounded-[10px] transition-all text-[13px] font-semibold ${
                       collapsed ? "justify-center w-10 h-10 mx-auto" : "gap-3 px-3 py-2"
@@ -380,6 +382,16 @@ export default function DashboardShell({
 
               <div className="flex-1" />
 
+              {role !== "cashier" ? (
+                <Link
+                  to="/ai"
+                  className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl t-elev hover:bg-[var(--bg-input-focus)] t-text"
+                  title="AI Assistant"
+                >
+                  <Sparkles className="w-4 h-4 t-accent-text" />
+                  <span className="text-xs font-semibold">AI</span>
+                </Link>
+              ) : null}
               <Link
                 to="/billing"
                 className="relative flex items-center gap-2 px-3 py-1.5 rounded-xl t-elev hover:bg-[var(--bg-input-focus)] t-text"

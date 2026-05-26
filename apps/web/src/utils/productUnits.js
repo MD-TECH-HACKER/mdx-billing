@@ -19,6 +19,7 @@ export const PRODUCT_UNITS = [
 ];
 
 const ALLOWED_PRODUCT_UNITS = new Set(PRODUCT_UNITS.map((unit) => unit.value));
+const CUSTOM_PRODUCT_UNIT_PATTERN = /^[a-z][a-z0-9 _/-]{0,29}$/;
 
 function rounded(value, precision = 6) {
   const scale = 10 ** precision;
@@ -28,6 +29,7 @@ function rounded(value, precision = 6) {
 export function sanitizeProductUnit(value, { fallback = null } = {}) {
   const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
   if (ALLOWED_PRODUCT_UNITS.has(normalized)) return normalized;
+  if (CUSTOM_PRODUCT_UNIT_PATTERN.test(normalized)) return normalized;
   return fallback;
 }
 

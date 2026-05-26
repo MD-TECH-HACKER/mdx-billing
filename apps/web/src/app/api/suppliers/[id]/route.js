@@ -44,6 +44,62 @@ export async function PUT(request, { params }) {
   }
 }
 
+export async function PATCH(request, { params }) {
+  try {
+    const context = await requireShopAccess(request, "supplier.write");
+    await ensureBusinessFeatureSchema();
+    const id = parseId(params.id);
+    if (!id) return Response.json({ error: "Invalid id" }, { status: 400 });
+    const body = await request.json();
+    const amount = Math.round((Number(body.amount) + Number.EPSILON) * 100) / 100;
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return Response.json({ error: "Payment amount must be greater than zero" }, { status: 400 });
+    }
+    const method = ["cash", "upi", "bank", "bank_transfer"].includes(body.paymentMethod)
+      ? body.paymentMethod
+      : "cash";
+    const notes = String(body.notes || "").trim().slice(0, 300) || null;
+    const rows = await sql`
+      WITH locked_supplier AS (
+        SELECT supplier_id, COALESCE(opening_balance, 0) AS opening_balance
+        FROM suppliers
+        WHERE supplier_id = ${id} AND shop_id = ${context.shopId} AND is_deleted = FALSE
+        FOR UPDATE
+      ),
+      outstanding AS (
+        SELECT locked_supplier.supplier_id,
+          GREATEST(0, locked_supplier.opening_balance +
+            COALESCE((SELECT SUM(total_amount - COALESCE(paid_amount, 0)) FROM purchases
+              WHERE supplier_id = locked_supplier.supplier_id AND shop_id = ${context.shopId}), 0) -
+            COALESCE((SELECT SUM(amount) FROM payments
+              WHERE supplier_id = locked_supplier.supplier_id AND shop_id = ${context.shopId}
+                AND direction = 'paid' AND purchase_id IS NULL), 0)
+          ) AS balance_due
+        FROM locked_supplier
+      ),
+      created AS (
+        INSERT INTO payments
+          (shop_id, supplier_id, amount, payment_method, direction, notes, created_by)
+        SELECT ${context.shopId}, outstanding.supplier_id, ${amount}, ${method}, 'paid', ${notes}, ${context.userId}
+        FROM outstanding WHERE outstanding.balance_due >= ${amount}
+        RETURNING *
+      )
+      SELECT outstanding.balance_due, created.*
+      FROM outstanding LEFT JOIN created ON TRUE
+    `;
+    if (!rows[0]) return Response.json({ error: "Not found" }, { status: 404 });
+    if (!rows[0].payment_id) {
+      return Response.json({ error: `Payment exceeds balance due (${rows[0].balance_due})` }, { status: 400 });
+    }
+    await writeAuditEvent(context, "supplier.payment", "supplier", id, { amount, method });
+    return Response.json({ payment: rows[0] }, { status: 201 });
+  } catch (error) {
+    if (error instanceof AccessError) return accessErrorResponse(error);
+    console.error("PATCH /api/suppliers/[id]", error);
+    return Response.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
 export async function DELETE(request, { params }) {
   try {
     const context = await requireShopAccess(request, "supplier.write");

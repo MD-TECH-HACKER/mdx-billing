@@ -220,6 +220,9 @@ export async function POST(request) {
       thank_you_message: context.shop.thank_you_message || null,
       default_terms: context.shop.default_terms || null,
       receipt_prefix: context.shop.receipt_prefix || null,
+      receipt_size: context.shop.receipt_size || "a4",
+      print_mode: context.shop.print_mode || "color",
+      default_invoice_type: context.shop.default_invoice_type || "tax_invoice",
     });
     const stockRequests = JSON.stringify(
       [...requiredByProduct].map(([productId, quantityBaseUnit]) => ({

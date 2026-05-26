@@ -14,6 +14,7 @@ import {
   ArrowRightLeft,
   Plus,
   Check as CheckIcon,
+  Trash2,
 } from "lucide-react";
 import useUser from "@/utils/useUser";
 import useUpload from "@/utils/useUpload";
@@ -70,6 +71,7 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState(null);
   const [displayName, setDisplayName] = useState("");
+  const [newUnit, setNewUnit] = useState("");
   const importInputRef = useRef(null);
 
   // Initialize form from shop
@@ -87,6 +89,13 @@ export default function SettingsPage() {
       thankYouMessage: shop.thank_you_message || "",
       theme: shop.theme || "glass",
       accentColor: shop.accent_color || "#8b5cf6",
+      gstin: shop.gstin || "",
+      defaultInvoiceType: shop.default_invoice_type || "tax_invoice",
+      defaultPaymentMethod: shop.default_payment_method || "cash",
+      defaultTerms: shop.default_terms || "",
+      receiptSize: shop.receipt_size || "a4",
+      printMode: shop.print_mode || "color",
+      customUnits: Array.isArray(shop.custom_units) ? shop.custom_units : [],
     });
   }, [shop]);
 
@@ -116,6 +125,21 @@ export default function SettingsPage() {
   };
 
   const saveField = (patch) => updateShop(patch);
+
+  const addCustomUnit = () => {
+    const value = newUnit.trim().slice(0, 30);
+    if (!value || form.customUnits.some((unit) => unit.toLowerCase() === value.toLowerCase())) return;
+    const customUnits = [...form.customUnits, value];
+    setForm({ ...form, customUnits });
+    setNewUnit("");
+    saveField({ customUnits });
+  };
+
+  const removeCustomUnit = (value) => {
+    const customUnits = form.customUnits.filter((unit) => unit !== value);
+    setForm({ ...form, customUnits });
+    saveField({ customUnits });
+  };
 
   const saveProfileName = async () => {
     if (!displayName.trim()) {
@@ -220,6 +244,25 @@ export default function SettingsPage() {
     prefix: c.symbol,
   }));
   const currentCur = getCurrencyInfo(form.currency);
+  const invoiceTypeOptions = [
+    { value: "tax_invoice", label: "Tax invoice" },
+    { value: "receipt", label: "Receipt" },
+  ];
+  const paymentMethodOptions = [
+    { value: "cash", label: "Cash" },
+    { value: "credit", label: "Credit" },
+    { value: "upi", label: "UPI" },
+    { value: "bank", label: "Bank" },
+  ];
+  const receiptSizeOptions = [
+    { value: "a4", label: "A4 invoice" },
+    { value: "thermal", label: "Thermal receipt" },
+    { value: "small", label: "Small receipt" },
+  ];
+  const printModeOptions = [
+    { value: "color", label: "Color" },
+    { value: "bw", label: "Black and white" },
+  ];
 
   return (
     <>
@@ -452,6 +495,15 @@ export default function SettingsPage() {
                 />
               </div>
             </div>
+            <div>
+              <label className="block t-muted text-xs mb-1">GSTIN (optional)</label>
+              <Input
+                value={form.gstin}
+                onChange={(e) => setForm({ ...form, gstin: e.target.value })}
+                onBlur={() => saveField({ gstin: form.gstin })}
+                placeholder="GST identification number"
+              />
+            </div>
           </div>
         </Section>
 
@@ -517,6 +569,94 @@ export default function SettingsPage() {
                 saveField({ thankYouMessage: form.thankYouMessage })
               }
             />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+            <div>
+              <label className="block t-muted text-xs mb-1">Default invoice type</label>
+              <Select
+                value={form.defaultInvoiceType}
+                onChange={(value) => {
+                  setForm({ ...form, defaultInvoiceType: value });
+                  saveField({ defaultInvoiceType: value });
+                }}
+                options={invoiceTypeOptions}
+              />
+            </div>
+            <div>
+              <label className="block t-muted text-xs mb-1">Default payment method</label>
+              <Select
+                value={form.defaultPaymentMethod}
+                onChange={(value) => {
+                  setForm({ ...form, defaultPaymentMethod: value });
+                  saveField({ defaultPaymentMethod: value });
+                }}
+                options={paymentMethodOptions}
+              />
+            </div>
+            <div>
+              <label className="block t-muted text-xs mb-1">Receipt size</label>
+              <Select
+                value={form.receiptSize}
+                onChange={(value) => {
+                  setForm({ ...form, receiptSize: value });
+                  saveField({ receiptSize: value });
+                }}
+                options={receiptSizeOptions}
+              />
+            </div>
+            <div>
+              <label className="block t-muted text-xs mb-1">Print mode</label>
+              <Select
+                value={form.printMode}
+                onChange={(value) => {
+                  setForm({ ...form, printMode: value });
+                  saveField({ printMode: value });
+                }}
+                options={printModeOptions}
+              />
+            </div>
+          </div>
+          <div className="mt-3">
+            <label className="block t-muted text-xs mb-1">Default terms and conditions</label>
+            <Textarea
+              value={form.defaultTerms}
+              onChange={(e) => setForm({ ...form, defaultTerms: e.target.value })}
+              onBlur={() => saveField({ defaultTerms: form.defaultTerms })}
+              rows={3}
+              placeholder="Payment terms, return policy or tax terms shown on invoices"
+            />
+          </div>
+          <div className="mt-3">
+            <label className="block t-muted text-xs mb-1">Custom units</label>
+            <div className="flex gap-2">
+              <Input
+                value={newUnit}
+                onChange={(e) => setNewUnit(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addCustomUnit();
+                  }
+                }}
+                placeholder="Add unit, e.g. Carton"
+              />
+              <Button variant="secondary" onClick={addCustomUnit}>
+                <Plus className="w-4 h-4" />
+                Add
+              </Button>
+            </div>
+            {form.customUnits.length > 0 ? (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {form.customUnits.map((unit) => (
+                  <span key={unit} className="t-elev t-text rounded-xl px-3 py-1.5 text-xs flex items-center gap-2">
+                    {unit}
+                    <button type="button" onClick={() => removeCustomUnit(unit)} aria-label={`Remove ${unit}`}>
+                      <Trash2 className="w-3.5 h-3.5 t-muted" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
         </Section>
 

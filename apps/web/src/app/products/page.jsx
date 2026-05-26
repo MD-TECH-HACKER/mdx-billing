@@ -40,15 +40,20 @@ import {
 } from "@/utils/productUnits";
 import { shopHeaders } from "@/utils/shopContext";
 
-const SECONDARY_PRODUCT_UNITS = [
-  { value: "", label: "No secondary unit" },
-  ...PRODUCT_UNITS,
-];
-
-function ProductForm({ open, onClose, initial, onSaved }) {
+function ProductForm({ open, onClose, initial, onSaved, shop }) {
   const [upload, { loading: uploading }] = useUpload();
+  const unitOptions = [
+    ...PRODUCT_UNITS,
+    ...(Array.isArray(shop?.custom_units) ? shop.custom_units : [])
+      .filter((unit) => !PRODUCT_UNITS.some((commonUnit) => commonUnit.value === String(unit).trim().toLowerCase()))
+      .map((unit) => ({ value: String(unit).trim().toLowerCase(), label: String(unit).trim() })),
+  ];
+  const secondaryUnitOptions = [
+    { value: "", label: "No secondary unit" },
+    ...unitOptions,
+  ];
   const suppliersQuery = useQuery({
-    queryKey: ["suppliers", "product-form"],
+    queryKey: ["suppliers", "product-form", shop?.shop_id],
     queryFn: async () => (await fetch("/api/suppliers", { headers: shopHeaders() })).json(),
     enabled: open,
   });
@@ -297,7 +302,7 @@ function ProductForm({ open, onClose, initial, onSaved }) {
             <Select
               value={form.primaryUnit}
               onChange={(value) => setForm({ ...form, primaryUnit: value })}
-              options={PRODUCT_UNITS}
+              options={unitOptions}
               placeholder="Primary unit"
             />
           </div>
@@ -306,7 +311,7 @@ function ProductForm({ open, onClose, initial, onSaved }) {
             <Select
               value={form.secondaryUnit}
               onChange={(value) => setForm({ ...form, secondaryUnit: value })}
-              options={SECONDARY_PRODUCT_UNITS}
+              options={secondaryUnitOptions}
               placeholder="Secondary unit"
             />
           </div>
@@ -609,14 +614,14 @@ export default function ProductsPage() {
   }, []);
 
   const productsQuery = useQuery({
-    queryKey: ["products", search],
+    queryKey: ["products", search, shop?.shop_id],
     queryFn: async () => {
       const url = `/api/products${search ? `?search=${encodeURIComponent(search)}` : ""}`;
       const res = await fetch(url, { headers: shopHeaders() });
       if (!res.ok) throw new Error("Failed to load");
       return res.json();
     },
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
     keepPreviousData: true,
     staleTime: 30000,
   });
@@ -781,6 +786,7 @@ export default function ProductsPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         initial={editing}
+        shop={shop}
         onSaved={() => {
           qc.invalidateQueries({ queryKey: ["products"] });
           qc.invalidateQueries({ queryKey: ["analytics"] });

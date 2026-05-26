@@ -1,18 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
+import { Activity, ShieldCheck } from "lucide-react";
 import { Badge, Card, Skeleton } from "@/components/ui";
+import useShop from "@/utils/useShop";
 import useUser from "@/utils/useUser";
 import { shopHeaders } from "@/utils/shopContext";
 
 export default function AuditPage() {
   const { data: user } = useUser();
+  const { shop } = useShop({ enabled: !!user });
   const query = useQuery({
-    queryKey: ["audit"],
+    queryKey: ["audit", shop?.shop_id],
     queryFn: async () => {
       const response = await fetch("/api/audit", { headers: shopHeaders() });
       if (!response.ok) throw new Error("Audit log is owner-only");
       return response.json();
     },
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
   });
   const events = query.data?.events || [];
 

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MapPin, Pencil, Phone, Plus, Trash2, UserRound } from "lucide-react";
-import { Button, Card, ConfirmDialog, Input, Modal, SearchInput, Textarea } from "@/components/ui";
+import { Link } from "react-router";
+import { CircleDollarSign, MapPin, Pencil, Phone, Plus, Trash2, UserRound } from "lucide-react";
+import { Button, Card, ConfirmDialog, Input, Modal, SearchInput, Select, Textarea } from "@/components/ui";
 import { showToast } from "@/components/Toast";
 import useShop from "@/utils/useShop";
 import useUser from "@/utils/useUser";
@@ -17,6 +18,11 @@ const EMPTY_PARTY = {
   openingBalance: "",
   notes: "",
 };
+const PAYMENT_METHODS = [
+  { value: "cash", label: "Cash" },
+  { value: "upi", label: "UPI" },
+  { value: "bank", label: "Bank" },
+];
 
 export default function PartyDirectoryPage({
   endpoint,
@@ -34,16 +40,18 @@ export default function PartyDirectoryPage({
   const [deleting, setDeleting] = useState(null);
   const [form, setForm] = useState(EMPTY_PARTY);
   const [open, setOpen] = useState(false);
+  const [paying, setPaying] = useState(null);
+  const [payment, setPayment] = useState({ amount: "", paymentMethod: "cash", notes: "" });
 
   const query = useQuery({
-    queryKey: [endpoint, search],
+    queryKey: [endpoint, shop?.shop_id, search],
     queryFn: async () => {
       const suffix = search ? `?search=${encodeURIComponent(search)}` : "";
       const response = await fetch(`/api/${endpoint}${suffix}`, { headers: shopHeaders() });
       if (!response.ok) throw new Error(`Failed to load ${title.toLowerCase()}`);
       return response.json();
     },
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
   });
   const records = query.data?.[endpoint] || [];
   const currency = shop?.currency || "INR";
@@ -87,6 +95,27 @@ export default function PartyDirectoryPage({
       showToast(`${singular} removed`);
     },
     onError: () => showToast("Delete failed", "error"),
+  });
+
+  const recordSupplierPayment = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/suppliers/${paying.supplier_id}`, {
+        method: "PATCH",
+        headers: shopHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(payment),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Payment failed");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics"] });
+      setPaying(null);
+      setPayment({ amount: "", paymentMethod: "cash", notes: "" });
+      showToast("Supplier payment recorded");
+    },
+    onError: (error) => showToast(error.message, "error"),
   });
 
   const startCreate = () => {
@@ -173,7 +202,32 @@ export default function PartyDirectoryPage({
                 </div>
               )}
               {record.last_purchase_date ? <div className="t-dim text-xs">Last purchase: {new Date(record.last_purchase_date).toLocaleDateString("en-IN")}</div> : null}
+              {Array.isArray(record.payment_history) && record.payment_history.length > 0 ? (
+                <div className="t-elev rounded-xl px-3 py-2 text-xs">
+                  <div className="t-dim mb-1">Recent payments</div>
+                  {record.payment_history.slice(0, 2).map((paymentItem) => (
+                    <div key={paymentItem.paymentId} className="flex justify-between gap-2 t-muted">
+                      <span>{new Date(paymentItem.date).toLocaleDateString("en-IN")} / {paymentItem.method}</span>
+                      <span>{formatMoney(paymentItem.amount, currency)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               <div className="flex gap-2 mt-auto">
+                {endpoint === "customers" ? (
+                  <Link className="t-btn px-3 py-2 rounded-xl text-xs" to={`/sales?search=${encodeURIComponent(record.name)}`}>
+                    Invoices
+                  </Link>
+                ) : (
+                  <>
+                    <Link className="t-btn px-3 py-2 rounded-xl text-xs" to="/purchases">
+                      Purchases
+                    </Link>
+                    <Button variant="secondary" size="sm" onClick={() => setPaying(record)}>
+                      <CircleDollarSign className="w-3.5 h-3.5" />
+                    </Button>
+                  </>
+                )}
                 <Button variant="secondary" size="sm" className="flex-1" onClick={() => startEdit(record)}>
                   <Pencil className="w-3.5 h-3.5" /> Edit
                 </Button>
@@ -210,6 +264,43 @@ export default function PartyDirectoryPage({
           </Button>
         </form>
       </Modal>
+
+      {endpoint === "suppliers" ? (
+        <Modal open={!!paying} onClose={() => setPaying(null)} title="Record Supplier Payment">
+          <form
+            className="space-y-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              recordSupplierPayment.mutate();
+            }}
+          >
+            <div className="t-muted text-sm">{paying?.name}</div>
+            <Input
+              required
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={payment.amount}
+              placeholder="Amount paid"
+              onChange={(event) => setPayment({ ...payment, amount: event.target.value })}
+            />
+            <Select
+              value={payment.paymentMethod}
+              onChange={(paymentMethod) => setPayment({ ...payment, paymentMethod })}
+              options={PAYMENT_METHODS}
+            />
+            <Textarea
+              rows={2}
+              value={payment.notes}
+              placeholder="Payment notes"
+              onChange={(event) => setPayment({ ...payment, notes: event.target.value })}
+            />
+            <Button type="submit" className="w-full" disabled={recordSupplierPayment.isPending}>
+              {recordSupplierPayment.isPending ? "Saving..." : "Save Payment"}
+            </Button>
+          </form>
+        </Modal>
+      ) : null}
 
       <ConfirmDialog
         open={!!deleting}

@@ -17,6 +17,7 @@ const dashboardRoutes = layout('./_dashboard.layout.jsx', [
 	route('purchases', './purchases/page.jsx'),
 	route('expenses', './expenses/page.jsx'),
 	route('analytics', './analytics/page.jsx'),
+	route('ai', './ai/page.jsx'),
 	route('team', './team/page.jsx'),
 	route('audit', './audit/page.jsx'),
 	route('settings', './settings/page.jsx'),

@@ -11,9 +11,11 @@ import {
   Check,
 } from "lucide-react";
 import useUser from "@/utils/useUser";
+import useShop from "@/utils/useShop";
 import ToastHost, { showToast } from "@/components/Toast";
 import { formatMoney } from "@/utils/currency";
 import { inrAmountInWords } from "@/utils/amountInWords";
+import { buildInvoicePdfBlob } from "@/utils/invoicePdf";
 import { Tabs } from "@/components/ui";
 import { getProductUnitLabel } from "@/utils/productUnits";
 import { shopHeaders } from "@/utils/shopContext";
@@ -21,6 +23,7 @@ import { shopHeaders } from "@/utils/shopContext";
 export default function ReceiptPage(props) {
   const id = props?.params?.id;
   const { data: user, loading: userLoading } = useUser();
+  const { shop } = useShop({ enabled: !!user });
   const navigate = useNavigate();
   const [printMode, setPrintMode] = useState("color"); // "color" | "bw"
   const [paperSize, setPaperSize] = useState("a4"); // "a4" | "thermal"
@@ -41,39 +44,56 @@ export default function ReceiptPage(props) {
   }, []);
 
   const query = useQuery({
-    queryKey: ["sale", id],
+    queryKey: ["sale", shop?.shop_id, id],
     queryFn: async () => {
       const res = await fetch(`/api/sales/${id}`, { headers: shopHeaders() });
       if (!res.ok) throw new Error("Not found");
       return res.json();
     },
-    enabled: !!user && !!id,
+    enabled: !!user && !!shop?.shop_id && !!id,
     staleTime: 60000,
   });
 
   const sale = query.data?.sale;
   const fmt = (n) => formatMoney(n, sale?.currency || "INR");
 
+  useEffect(() => {
+    if (!sale) return;
+    setPrintMode(sale.print_mode === "bw" ? "bw" : "color");
+    setPaperSize(["thermal", "small"].includes(sale.receipt_size) ? "thermal" : "a4");
+  }, [sale]);
+
   const handlePrint = () => {
     if (typeof window !== "undefined") window.print();
   };
+  const pdfName = `${String(sale?.receipt_number || "invoice").replace(/[^a-z0-9_-]+/gi, "-")}.pdf`;
+  const createPdf = () => buildInvoicePdfBlob(sale, {
+    thermal: paperSize === "thermal",
+    amountInWords: inrAmountInWords(Number(sale?.total_amount) || 0),
+  });
+  const handleDownload = () => {
+    if (!sale || typeof window === "undefined") return;
+    const url = URL.createObjectURL(createPdf());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = pdfName;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast("Invoice PDF downloaded");
+  };
   const handleShare = async () => {
-    if (typeof window === "undefined") return;
-    const url = window.location.href;
-    if (navigator.share) {
+    if (!sale || typeof window === "undefined") return;
+    const file = new File([createPdf()], pdfName, { type: "application/pdf" });
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
         await navigator.share({
-          title: `Receipt ${sale?.receipt_number}`,
-          url,
+          title: `Invoice ${sale.receipt_number}`,
+          files: [file],
         });
       } catch {}
     } else {
-      try {
-        await navigator.clipboard.writeText(url);
-        showToast("Receipt link copied");
-      } catch {
-        showToast("Could not copy link", "error");
-      }
+      handleDownload();
+      showToast("PDF download ready; native file sharing is not available on this device.", "info");
     }
   };
 
@@ -159,7 +179,7 @@ export default function ReceiptPage(props) {
               ]}
             />
             <button
-              onClick={handlePrint}
+              onClick={handleDownload}
               className="t-btn px-3 py-2 text-xs rounded-xl flex items-center gap-1.5"
             >
               <Printer className="w-3.5 h-3.5" /> Print
@@ -167,7 +187,7 @@ export default function ReceiptPage(props) {
             <button
               onClick={handlePrint}
               className="t-btn px-3 py-2 text-xs rounded-xl flex items-center gap-1.5"
-              title="Save as PDF via system print dialog"
+              title="Download invoice PDF"
             >
               <Download className="w-3.5 h-3.5" /> PDF
             </button>
@@ -175,7 +195,7 @@ export default function ReceiptPage(props) {
               onClick={handleShare}
               className="t-btn-primary px-3 py-2 text-xs rounded-xl flex items-center gap-1.5"
             >
-              <Share2 className="w-3.5 h-3.5" /> Share
+              <Share2 className="w-3.5 h-3.5" /> Share PDF
             </button>
           </div>
         </div>

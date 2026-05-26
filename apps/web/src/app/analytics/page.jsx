@@ -75,6 +75,7 @@ import {
 import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
 import { formatMoney } from "@/utils/currency";
+import { formatStockQuantity, getStockBaseQuantity } from "@/utils/productUnits";
 import { Card, Skeleton, Button, Badge } from "@/components/ui";
 import { shopHeaders } from "@/utils/shopContext";
 
@@ -511,7 +512,7 @@ function ProductStockCard({ product, maxStock, currency = "INR", index = 0 }) {
             />
           </div>
           <div style={{ fontSize: "12px", fontWeight: 700, color: stockColor, minWidth: "40px", textAlign: "right" }}>
-            {product.stock}
+            {formatStockQuantity(getStockBaseQuantity(product), product)}
           </div>
         </div>
 
@@ -583,14 +584,26 @@ function ProductAnalyticsRow({ product, maxRevenue, currency = "INR", index = 0 
             <Box style={{ width: "16px", height: "16px", color: "var(--text-dim2)" }} />
           )}
         </div>
-        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>
-          {product.title}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>
+            {product.title}
+          </div>
+          {product.remainingStock ? (
+            <div style={{ fontSize: "10px", color: "var(--text-dim2)", marginTop: "2px" }}>
+              Remaining: {product.remainingStock}
+            </div>
+          ) : null}
+          {product.soldByUnit ? (
+            <div style={{ fontSize: "10px", color: "var(--text-dim2)", marginTop: "2px" }}>
+              Sales: {Object.entries(product.soldByUnit).map(([unit, quantity]) => `${quantity} ${unit}`).join(" / ")}
+            </div>
+          ) : null}
         </div>
       </div>
 
       {/* Quantity Sold */}
       <div style={{ textAlign: "center", fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>
-        {product.quantitySold}
+        {product.soldStock || product.quantitySold}
       </div>
 
       {/* Revenue */}
@@ -930,25 +943,25 @@ export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState("overview");
 
   const query = useQuery({
-    queryKey: ["analytics"],
+    queryKey: ["analytics", shop?.shop_id],
     queryFn: async () => {
       const res = await fetch("/api/analytics", { headers: shopHeaders() });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
     staleTime: 30000,
   });
 
   // Products query (for stock data)
   const productsQuery = useQuery({
-    queryKey: ["products"],
+    queryKey: ["products", "analytics", shop?.shop_id],
     queryFn: async () => {
       const res = await fetch("/api/products", { headers: shopHeaders() });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
     staleTime: 60000,
   });
 
@@ -1270,7 +1283,7 @@ export default function AnalyticsPage() {
         />
         <AnalyticsStat
           icon={TrendingUp}
-          label="Total Profit"
+          label="Gross Profit"
           value={fmt(animProfit)}
           trend={stats.totalProfit > 0 ? "up" : undefined}
           trendValue={stats.avgMargin ? `${stats.avgMargin.toFixed(1)}%` : ""}
@@ -1340,6 +1353,66 @@ export default function AnalyticsPage() {
           borderColor={ACCENT_BORDER}
           loading={loading}
           delay={560}
+        />
+        <AnalyticsStat
+          icon={ReceiptIcon}
+          label="Total Cost"
+          value={fmt(stats.totalCost || 0)}
+          color={WARNING}
+          bgColor={WARNING_BG}
+          borderColor={WARNING_BORDER}
+          loading={loading}
+          delay={600}
+        />
+        <AnalyticsStat
+          icon={Box}
+          label="Stock Value"
+          value={fmt(stats.totalStockValue || 0)}
+          color={INFO}
+          bgColor={INFO_BG}
+          borderColor="rgba(37, 99, 235, 0.2)"
+          loading={loading}
+          delay={640}
+        />
+        <AnalyticsStat
+          icon={Users}
+          label="Customer Due"
+          value={fmt(stats.customerDueAmount || 0)}
+          color={DANGER}
+          bgColor={DANGER_BG}
+          borderColor={DANGER_BORDER}
+          loading={loading}
+          delay={680}
+        />
+        <AnalyticsStat
+          icon={Wallet}
+          label="Supplier Due"
+          value={fmt(stats.supplierDueAmount || 0)}
+          color={WARNING}
+          bgColor={WARNING_BG}
+          borderColor={WARNING_BORDER}
+          loading={loading}
+          delay={720}
+        />
+        <AnalyticsStat
+          icon={CreditCard}
+          label="Credit Sales"
+          value={fmt(stats.creditSales || 0)}
+          color={PURPLE}
+          bgColor={PURPLE_BG}
+          borderColor="rgba(139, 92, 246, 0.2)"
+          loading={loading}
+          delay={760}
+        />
+        <AnalyticsStat
+          icon={CircleDollarSign}
+          label="Cash Sales"
+          value={fmt(stats.cashSales || 0)}
+          color={SUCCESS}
+          bgColor={SUCCESS_BG}
+          borderColor={SUCCESS_BORDER}
+          loading={loading}
+          delay={800}
         />
       </div>
 
@@ -1796,7 +1869,7 @@ export default function AnalyticsPage() {
                     {p.title}
                   </div>
                   <div style={{ fontSize: "11px", color: Number(p.stock) <= 0 ? DANGER : WARNING, fontWeight: 600 }}>
-                    {Number(p.stock) <= 0 ? "Out of Stock" : `${p.stock} remaining`}
+                    {Number(p.stock) <= 0 ? "Out of Stock" : `${p.remainingStock} remaining`}
                   </div>
                 </div>
                 <div
@@ -1806,7 +1879,7 @@ export default function AnalyticsPage() {
                     color: Number(p.stock) <= 0 ? DANGER : WARNING,
                   }}
                 >
-                  {p.stock}
+                  {p.remainingStock}
                 </div>
               </div>
             ))}

@@ -28,8 +28,17 @@ export async function GET(request) {
     const suppliers = await sql`
       SELECT s.*,
         COALESCE(SUM(p.total_amount), 0) AS total_purchase_amount,
-        COALESCE(SUM(p.paid_amount), 0) AS amount_paid,
-        COALESCE(SUM(p.total_amount - COALESCE(p.paid_amount, 0)), 0) AS balance_due,
+        COALESCE(SUM(p.paid_amount), 0) + COALESCE((
+          SELECT SUM(pay.amount) FROM payments pay
+          WHERE pay.supplier_id = s.supplier_id AND pay.shop_id = s.shop_id
+            AND pay.direction = 'paid' AND pay.purchase_id IS NULL
+        ), 0) AS amount_paid,
+        GREATEST(0, COALESCE(s.opening_balance, 0) + COALESCE(SUM(p.total_amount), 0)
+          - COALESCE(SUM(p.paid_amount), 0) - COALESCE((
+          SELECT SUM(pay.amount) FROM payments pay
+          WHERE pay.supplier_id = s.supplier_id AND pay.shop_id = s.shop_id
+            AND pay.direction = 'paid' AND pay.purchase_id IS NULL
+        ), 0)) AS balance_due,
         COUNT(p.purchase_id) AS purchase_count,
         MAX(p.purchase_date) AS last_purchase_date,
         (

@@ -34,7 +34,10 @@ export async function GET(request, { params }) {
         COALESCE(s.currency_snapshot, sh.currency) AS currency,
         COALESCE(s.shop_snapshot->>'thank_you_message', sh.thank_you_message) AS thank_you_message,
         COALESCE(s.shop_snapshot->>'default_terms', sh.default_terms) AS default_terms,
-        COALESCE(s.shop_snapshot->>'receipt_prefix', sh.receipt_prefix) AS receipt_prefix
+        COALESCE(s.shop_snapshot->>'receipt_prefix', sh.receipt_prefix) AS receipt_prefix,
+        COALESCE(s.shop_snapshot->>'receipt_size', sh.receipt_size, 'a4') AS receipt_size,
+        COALESCE(s.shop_snapshot->>'print_mode', sh.print_mode, 'color') AS print_mode,
+        COALESCE(s.shop_snapshot->>'default_invoice_type', sh.default_invoice_type, 'tax_invoice') AS invoice_type
        FROM sales s
        JOIN shops sh ON sh.shop_id = s.shop_id
        WHERE s.sale_id = $1 AND s.shop_id = $2

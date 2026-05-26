@@ -10,6 +10,7 @@ import {
 
 export async function GET(request) {
   try {
+    await ensureCoreBusinessSchema();
     const context = await requireShopAccess(request, "shop.read");
     return Response.json({ shop: context.shop, role: context.role });
   } catch (error) {
@@ -62,6 +63,7 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
+    await ensureCoreBusinessSchema();
     const context = await requireShopAccess(request, "shop.update");
     const body = await request.json();
     const fields = {};
@@ -88,6 +90,34 @@ export async function PUT(request) {
       fields.theme = body.theme.trim().slice(0, 20);
     if (typeof body.accentColor === "string")
       fields.accent_color = body.accentColor.trim().slice(0, 20);
+    if (typeof body.gstin === "string")
+      fields.gstin = body.gstin.trim().toUpperCase().slice(0, 20) || null;
+    if (typeof body.defaultInvoiceType === "string")
+      fields.default_invoice_type = ["tax_invoice", "receipt"].includes(body.defaultInvoiceType)
+        ? body.defaultInvoiceType
+        : "tax_invoice";
+    if (typeof body.defaultPaymentMethod === "string")
+      fields.default_payment_method = ["cash", "credit", "upi", "bank"].includes(body.defaultPaymentMethod)
+        ? body.defaultPaymentMethod
+        : "cash";
+    if (typeof body.defaultTerms === "string")
+      fields.default_terms = body.defaultTerms.trim().slice(0, 800) || null;
+    if (typeof body.receiptSize === "string")
+      fields.receipt_size = ["a4", "thermal", "small"].includes(body.receiptSize)
+        ? body.receiptSize
+        : "a4";
+    if (typeof body.printMode === "string")
+      fields.print_mode = ["color", "bw"].includes(body.printMode) ? body.printMode : "color";
+    if (Array.isArray(body.customUnits)) {
+      const customUnits = [
+        ...new Set(
+          body.customUnits
+            .map((unit) => String(unit || "").trim().slice(0, 30))
+            .filter(Boolean),
+        ),
+      ].slice(0, 50);
+      fields.custom_units = JSON.stringify(customUnits);
+    }
     const keys = Object.keys(fields);
     if (keys.length === 0) {
       return Response.json({ error: "No fields" }, { status: 400 });
@@ -95,7 +125,11 @@ export async function PUT(request) {
 
     const values = keys.map((key) => fields[key]);
     values.push(context.shopId);
-    const setClauses = keys.map((key, index) => `${key} = $${index + 1}`);
+    const setClauses = keys.map((key, index) =>
+      key === "custom_units"
+        ? `${key} = $${index + 1}::jsonb`
+        : `${key} = $${index + 1}`,
+    );
     const query = `UPDATE shops SET ${setClauses.join(", ")}, updated_at = NOW() WHERE shop_id = $${values.length} RETURNING *`;
     const result = await sql(query, values);
 

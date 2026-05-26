@@ -41,28 +41,28 @@ export default function PurchasesPage() {
   const currency = shop?.currency || "INR";
 
   const purchasesQuery = useQuery({
-    queryKey: ["purchases"],
+    queryKey: ["purchases", shop?.shop_id],
     queryFn: async () => {
       const response = await fetch("/api/purchases", { headers: shopHeaders() });
       if (!response.ok) throw new Error("Failed to load purchases");
       return response.json();
     },
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
   });
   const productsQuery = useQuery({
-    queryKey: ["products", "purchase-select"],
+    queryKey: ["products", "purchase-select", shop?.shop_id],
     queryFn: async () => (await fetch("/api/products", { headers: shopHeaders() })).json(),
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
   });
   const suppliersQuery = useQuery({
-    queryKey: ["suppliers", "purchase-select"],
+    queryKey: ["suppliers", "purchase-select", shop?.shop_id],
     queryFn: async () => (await fetch("/api/suppliers", { headers: shopHeaders() })).json(),
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
   });
   const movementsQuery = useQuery({
-    queryKey: ["inventory-movements"],
+    queryKey: ["inventory-movements", shop?.shop_id],
     queryFn: async () => (await fetch("/api/inventory/movements", { headers: shopHeaders() })).json(),
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
   });
 
   const products = productsQuery.data?.products || [];

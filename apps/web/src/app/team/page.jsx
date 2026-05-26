@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Shield, UserCog } from "lucide-react";
 import { Badge, Button, Card, ConfirmDialog, Input, Modal, Select } from "@/components/ui";
 import { showToast } from "@/components/Toast";
+import useShop from "@/utils/useShop";
 import useUser from "@/utils/useUser";
 import { shopHeaders } from "@/utils/shopContext";
 
@@ -12,19 +14,20 @@ const ROLES = [
 
 export default function TeamPage() {
   const { data: user } = useUser();
+  const { shop } = useShop({ enabled: !!user });
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [removing, setRemoving] = useState(null);
   const [form, setForm] = useState({ email: "", role: "cashier" });
 
   const query = useQuery({
-    queryKey: ["team"],
+    queryKey: ["team", shop?.shop_id],
     queryFn: async () => {
       const response = await fetch("/api/team", { headers: shopHeaders() });
       if (!response.ok) throw new Error("Team access is owner-only");
       return response.json();
     },
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
   });
 
   const addMember = useMutation({

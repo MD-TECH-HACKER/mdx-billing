@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
-import { Loader2, PackagePlus, Plus, Receipt, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, PackagePlus, Plus, Receipt, Trash2 } from "lucide-react";
 import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
 import useCart from "@/utils/useCart";
@@ -80,24 +80,34 @@ export default function BillingPage() {
   const fmt = (amount) => formatMoney(amount, currency);
   const date = new Date().toLocaleDateString("en-IN");
   const invoiceNo = `${shop?.receipt_prefix || "INV"}-NEW`;
+  const manualUnitOptions = [
+    ...PRODUCT_UNITS.map((unit) => ({ value: unit.value, label: unit.label })),
+    ...(Array.isArray(shop?.custom_units) ? shop.custom_units : [])
+      .filter((unit) => !PRODUCT_UNITS.some((commonUnit) => commonUnit.value === String(unit).trim().toLowerCase()))
+      .map((unit) => ({ value: String(unit).trim().toLowerCase(), label: String(unit).trim() })),
+  ];
+
+  useEffect(() => {
+    setPaymentMethod(shop?.default_payment_method || "cash");
+  }, [shop?.shop_id]);
 
   const customersQuery = useQuery({
-    queryKey: ["customers", "billing-select"],
+    queryKey: ["customers", "billing-select", shop?.shop_id],
     queryFn: async () => {
       const response = await fetch("/api/customers", { headers: shopHeaders() });
       if (!response.ok) return { customers: [] };
       return response.json();
     },
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
   });
   const productsQuery = useQuery({
-    queryKey: ["products", "billing-select"],
+    queryKey: ["products", "billing-select", shop?.shop_id],
     queryFn: async () => {
       const response = await fetch("/api/products", { headers: shopHeaders() });
       if (!response.ok) return { products: [] };
       return response.json();
     },
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
   });
   const customers = customersQuery.data?.customers || [];
   const products = productsQuery.data?.products || [];
@@ -236,6 +246,13 @@ export default function BillingPage() {
 
   return (
     <>
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="lg:hidden mb-3 t-btn px-3 py-2 rounded-xl flex items-center gap-2 t-text text-sm"
+      >
+        <ArrowLeft className="w-4 h-4" /> Back
+      </button>
       <div className="mb-4">
         <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">Billing</h1>
         <p className="t-muted text-sm">Create product or manual invoices with payment balance tracking.</p>
@@ -306,7 +323,7 @@ export default function BillingPage() {
         ) : (
           <div className="space-y-3">
             {calculated.map((line) => (
-              <InvoiceLine key={line.id} line={line} currency={currency} update={updateLine} remove={() => setItems((current) => current.filter((item) => item.id !== line.id))} />
+              <InvoiceLine key={line.id} line={line} currency={currency} manualUnitOptions={manualUnitOptions} update={updateLine} remove={() => setItems((current) => current.filter((item) => item.id !== line.id))} />
             ))}
           </div>
         )}
@@ -364,11 +381,11 @@ export default function BillingPage() {
   );
 }
 
-function InvoiceLine({ line, currency, update, remove }) {
+function InvoiceLine({ line, currency, manualUnitOptions, update, remove }) {
   const unitOptions =
     line.type === "product"
       ? availableSaleUnits(line.product).map((value) => ({ value, label: value }))
-      : PRODUCT_UNITS.map((unit) => ({ value: unit.value, label: unit.label }));
+      : manualUnitOptions;
   const fmt = (amount) => formatMoney(amount, currency);
   return (
     <div className="rounded-2xl t-elev border t-border p-3 grid grid-cols-2 sm:grid-cols-8 gap-2 items-end">

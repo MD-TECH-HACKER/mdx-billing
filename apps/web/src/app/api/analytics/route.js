@@ -22,8 +22,15 @@ export async function GET(request) {
         sql`SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS count FROM expenses WHERE shop_id = ${shopId} AND expense_date >= date_trunc('month', CURRENT_DATE)::date`,
         sql`SELECT category, SUM(amount) AS total FROM expenses WHERE shop_id = ${shopId} AND expense_date >= date_trunc('month', CURRENT_DATE)::date GROUP BY category ORDER BY total DESC`,
         sql`SELECT COALESCE(SUM(total_amount),0) AS total, COUNT(*) AS count FROM purchases WHERE shop_id = ${shopId} AND purchase_date >= date_trunc('month', CURRENT_DATE)::date`,
-        sql`SELECT COALESCE(SUM(s.total_amount - COALESCE(s.paid_amount, 0)), 0) AS total FROM sales s WHERE s.shop_id = ${shopId} AND (s.sale_status IS NULL OR s.sale_status = 'completed')`,
-        sql`SELECT COALESCE(SUM(p.total_amount - COALESCE(p.paid_amount, 0)), 0) AS total FROM purchases p WHERE p.shop_id = ${shopId}`,
+        sql`SELECT COALESCE((SELECT SUM(opening_balance) FROM customers WHERE shop_id = ${shopId} AND is_deleted = FALSE), 0) +
+          COALESCE((SELECT SUM(total_amount - COALESCE(paid_amount, 0)) FROM sales WHERE shop_id = ${shopId}
+            AND (sale_status IS NULL OR sale_status = 'completed')), 0) AS total`,
+        sql`SELECT GREATEST(0,
+          COALESCE((SELECT SUM(opening_balance) FROM suppliers WHERE shop_id = ${shopId} AND is_deleted = FALSE), 0) +
+          COALESCE((SELECT SUM(total_amount - COALESCE(paid_amount, 0)) FROM purchases WHERE shop_id = ${shopId}), 0) -
+          COALESCE((SELECT SUM(amount) FROM payments WHERE shop_id = ${shopId} AND supplier_id IS NOT NULL
+            AND purchase_id IS NULL AND direction = 'paid'), 0)
+        ) AS total`,
         sql`SELECT
           COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN total_amount ELSE 0 END), 0) AS cash_sales,
           COALESCE(SUM(CASE WHEN payment_status = 'credit' THEN total_amount ELSE 0 END), 0) AS credit_sales,
@@ -57,6 +64,7 @@ export async function GET(request) {
     sales.forEach((sale) => {
       const items = Array.isArray(sale.items) ? sale.items : [];
       items.forEach((item) => {
+        if (!item.productId) return;
         if (!productStats[item.productId]) {
           productStats[item.productId] = {
             productId: item.productId,
@@ -71,7 +79,7 @@ export async function GET(request) {
         }
         const stat = productStats[item.productId];
         stat.quantitySold += Number(item.quantityBaseUnit ?? item.quantity);
-        stat.revenue += item.subtotal;
+        stat.revenue += Number(item.subtotal ?? item.totalAmount ?? 0);
         stat.cost += Number(item.totalCost ?? (item.costPrice * item.quantity));
         stat.profit += Number(item.totalProfit ?? ((item.unitPrice - item.costPrice) * item.quantity));
         const soldUnit = item.selectedUnit || item.primaryUnit || "piece";
@@ -197,7 +205,10 @@ export async function GET(request) {
       bestSelling,
       highestMargin: allProductsWithMargin[0] || null,
       lowestMargin: allProductsWithMargin[allProductsWithMargin.length - 1] || null,
-      lowStock,
+      lowStock: lowStock.map((product) => ({
+        ...product,
+        remainingStock: formatStockQuantity(getStockBaseQuantity(product), product),
+      })),
       categoryBreakdown: Object.entries(categoryMap).map(([name, count]) => ({
         name,
         count,

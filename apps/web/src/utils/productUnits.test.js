@@ -9,8 +9,8 @@ import {
 } from "./productUnits";
 
 describe("product unit helpers", () => {
-  test("defaults invalid primary units to piece", () => {
-    expect(sanitizeProductUnit("invalid", { fallback: "piece" })).toBe("piece");
+  test("defaults unsafe or empty primary units to piece", () => {
+    expect(sanitizeProductUnit("<invalid>", { fallback: "piece" })).toBe("piece");
     expect(sanitizeProductUnit("", { fallback: "piece" })).toBe("piece");
     expect(sanitizeProductUnit(null, { fallback: "piece" })).toBe("piece");
   });
@@ -18,6 +18,12 @@ describe("product unit helpers", () => {
   test("normalizes allowed unit values", () => {
     expect(sanitizeProductUnit(" KG ", { fallback: "piece" })).toBe("kg");
     expect(sanitizeProductUnit("Liter", { fallback: "piece" })).toBe("liter");
+  });
+
+  test("keeps bounded custom units created in settings", () => {
+    expect(sanitizeProductUnit("Carton", { fallback: "piece" })).toBe("carton");
+    expect(sanitizeProductUnit("crate-20", { fallback: "piece" })).toBe("crate-20");
+    expect(sanitizeProductUnit("not<script>", { fallback: "piece" })).toBe("piece");
   });
 
   test("formats product unit labels from product rows", () => {

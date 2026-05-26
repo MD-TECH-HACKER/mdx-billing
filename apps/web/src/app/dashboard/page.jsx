@@ -1410,35 +1410,35 @@ export default function DashboardPage() {
 
   /* ─── Data queries ──────────────────────────────────────────────── */
   const analyticsQuery = useQuery({
-    queryKey: ["analytics"],
+    queryKey: ["analytics", shop?.shop_id],
     queryFn: async () => {
       const res = await fetch("/api/analytics", { headers: shopHeaders() });
       if (!res.ok) throw new Error("Failed to load");
       return res.json();
     },
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
     staleTime: 30000,
   });
 
   const recentSalesQuery = useQuery({
-    queryKey: ["sales", { recent: true }],
+    queryKey: ["sales", shop?.shop_id, "recent"],
     queryFn: async () => {
       const res = await fetch("/api/sales", { headers: shopHeaders() });
       if (!res.ok) throw new Error("Failed to load");
       return res.json();
     },
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
     staleTime: 30000,
   });
 
   const productsQuery = useQuery({
-    queryKey: ["products", ""],
+    queryKey: ["products", "", shop?.shop_id],
     queryFn: async () => {
       const res = await fetch("/api/products", { headers: shopHeaders() });
       if (!res.ok) throw new Error("Failed to load");
       return res.json();
     },
-    enabled: !!user,
+    enabled: !!user && !!shop?.shop_id,
     staleTime: 30000,
   });
 
