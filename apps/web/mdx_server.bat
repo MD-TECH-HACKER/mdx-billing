@@ -23,7 +23,7 @@ title MDX BILLING SERVER - Manager v2.0
 color 07
 
 set "PROJECT_DIR=%~dp0"
-set "WEB_DIR=%PROJECT_DIR%apps\web"
+set "WEB_DIR=%PROJECT_DIR%"
 set "CF_TOKEN=eyJhIjoiNjcwNmQ0YjI5MzZhNmUzMjdjOTM1ZTY3MWNmMzA3MzkiLCJ0IjoiNjVmYzdlNjktY2JkOS00Njg5LTg2OWQtMzZkYTEwM2MzYzljIiwicyI6IlltVTFNRGhsTURjdE5qYzNaQzAwTTJNeExUaG1PRE10TURjMU9XSXpaVGt6Tm1abCJ9"
 
 :: ════════════════════════════════════════════════════════════
@@ -42,7 +42,6 @@ echo   ║          ██║ ╚═╝ ██║██████╔╝██�
 echo   ║          ╚═╝     ╚═╝╚═════╝ ╚═╝  ╚═╝                     ║
 echo   ║                                                          ║
 echo   ║         MDX BILLING APP — MANAGER v2.0                   ║
-::           Note: Adapted for React Router Hono Server
 echo   ╠══════════════════════════════════════════════════════════╣
 echo   ║                                                          ║
 echo   ║   [1]  🟢  DEV MODE             localhost:8080           ║
@@ -97,7 +96,7 @@ cls
 echo.
 echo   ╔══════════════════════════════════════════════════════════╗
 echo   ║              🟢  STARTING DEV MODE                       ║
-|   ╠══════════════════════════════════════════════════════════╣
+echo   ╠══════════════════════════════════════════════════════════╣
 echo   ║                                                          ║
 echo   ║   🌍 App      : http://localhost:8080                    ║
 echo   ║   🔄 Reload   : Hot reload enabled (react-router dev)    ║
