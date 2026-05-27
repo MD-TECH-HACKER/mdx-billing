@@ -31,7 +31,7 @@ export async function GET(request, { params }) {
     if (!id) return Response.json({ error: "Invalid id" }, { status: 400 });
     const saleColumns = canAccess(context.role, "analytics.profit")
       ? "s.*"
-      : "s.sale_id, s.shop_id, s.customer_id, s.receipt_number, s.buyer_name, s.buyer_phone, s.customer_email, s.items, s.total_amount, s.total_quantity, s.tax_amount, s.discount_amount, s.paid_amount, s.due_date, s.payment_status, s.payment_method, s.notes, s.sale_status, s.currency_snapshot, s.tax_percent_snapshot, s.shop_snapshot, s.receipt_email_sent, s.receipt_email_sent_at, s.receipt_email_error, s.email_message_id, s.created_at, s.updated_at";
+      : "s.sale_id, s.shop_id, s.customer_id, s.receipt_number, s.buyer_name, s.buyer_phone, s.customer_email, s.customer_gstin, s.billing_address, s.place_of_supply, s.customer_state_code, s.invoice_type, s.items, s.total_amount, s.total_quantity, s.tax_amount, s.discount_amount, s.taxable_amount, s.cgst_amount, s.sgst_amount, s.igst_amount, s.paid_amount, s.due_date, s.payment_status, s.payment_method, s.notes, s.sale_status, s.currency_snapshot, s.tax_percent_snapshot, s.shop_snapshot, s.receipt_email_sent, s.receipt_email_sent_at, s.receipt_email_error, s.email_message_id, s.created_at, s.updated_at";
     const rows = await sql(
       `SELECT ${saleColumns},
         COALESCE(s.shop_snapshot->>'shop_name', sh.shop_name) AS shop_name,
@@ -47,7 +47,7 @@ export async function GET(request, { params }) {
         COALESCE(s.shop_snapshot->>'receipt_prefix', sh.receipt_prefix) AS receipt_prefix,
         COALESCE(s.shop_snapshot->>'receipt_size', sh.receipt_size, 'a4') AS receipt_size,
         COALESCE(s.shop_snapshot->>'print_mode', sh.print_mode, 'color') AS print_mode,
-        COALESCE(s.shop_snapshot->>'default_invoice_type', sh.default_invoice_type, 'tax_invoice') AS invoice_type
+        COALESCE(s.invoice_type, s.shop_snapshot->>'default_invoice_type', sh.default_invoice_type, 'invoice') AS invoice_type
        FROM sales s
        JOIN shops sh ON sh.shop_id = s.shop_id
        WHERE s.sale_id = $1 AND s.shop_id = $2
@@ -168,6 +168,30 @@ export async function DELETE(request, { params }) {
           restored_lines.quantity_base_unit,
           COALESCE(product.stock_base_unit, product.stock) AS new_stock_base_unit
       ),
+      returned_batches AS (
+        SELECT alloc."batchId" AS batch_id,
+          SUM(alloc."quantityBaseUnit") AS quantity_base_unit
+        FROM cancelled_sale
+        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(cancelled_sale.items, '[]'::jsonb)) item
+        CROSS JOIN LATERAL jsonb_to_recordset(COALESCE(item->'batchAllocations', '[]'::jsonb))
+          AS alloc("batchId" BIGINT, "quantityBaseUnit" NUMERIC)
+        WHERE alloc."batchId" IS NOT NULL
+        GROUP BY alloc."batchId"
+      ),
+      restored_batches AS (
+        UPDATE product_batches batch
+        SET
+          quantity_remaining_base_unit = batch.quantity_remaining_base_unit + returned_batches.quantity_base_unit,
+          quantity_remaining = CASE
+            WHEN batch.conversion_rate_snapshot > 0 AND batch.unit = batch.primary_unit_snapshot
+              THEN (batch.quantity_remaining_base_unit + returned_batches.quantity_base_unit) / batch.conversion_rate_snapshot
+            ELSE batch.quantity_remaining_base_unit + returned_batches.quantity_base_unit
+          END,
+          updated_at = NOW()
+        FROM returned_batches
+        WHERE batch.batch_id = returned_batches.batch_id AND batch.shop_id = ${context.shopId}
+        RETURNING batch.batch_id
+      ),
       recorded_movements AS (
         INSERT INTO stock_movements
           (shop_id, product_id, product_name_snapshot, movement_type, quantity_change,
@@ -182,7 +206,8 @@ export async function DELETE(request, { params }) {
         RETURNING movement_id
       )
       SELECT EXISTS(SELECT 1 FROM cancelled_sale) AS cancelled,
-        (SELECT COUNT(*) FROM recorded_movements) AS restored_movements
+        (SELECT COUNT(*) FROM recorded_movements) AS restored_movements,
+        (SELECT COUNT(*) FROM restored_batches) AS restored_batches
     `;
     if (!results[0]?.cancelled) {
       return Response.json({ error: "Not found or already cancelled" }, { status: 404 });

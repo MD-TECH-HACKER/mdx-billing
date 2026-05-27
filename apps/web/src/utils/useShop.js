@@ -111,6 +111,24 @@ export default function useShop({ enabled = true } = {}) {
           next.accent_color = patch.accentColor;
         if (typeof patch.sendReceiptEmail === "boolean")
           next.send_receipt_email = patch.sendReceiptEmail;
+        if (typeof patch.gstBillingEnabled === "boolean")
+          next.gst_billing_enabled = patch.gstBillingEnabled;
+        if (typeof patch.businessLegalName === "string")
+          next.business_legal_name = patch.businessLegalName;
+        if (typeof patch.businessAddress === "string")
+          next.business_address = patch.businessAddress;
+        if (typeof patch.state === "string") next.state = patch.state;
+        if (typeof patch.stateCode === "string") next.state_code = patch.stateCode;
+        if (typeof patch.defaultGstRate === "number")
+          next.default_gst_rate = patch.defaultGstRate;
+        if (typeof patch.taxMode === "string") next.tax_mode = patch.taxMode;
+        if (typeof patch.defaultInvoiceType === "string")
+          next.default_invoice_type = patch.defaultInvoiceType;
+        if (typeof patch.defaultPaymentMethod === "string")
+          next.default_payment_method = patch.defaultPaymentMethod;
+        if (typeof patch.receiptSize === "string") next.receipt_size = patch.receiptSize;
+        if (typeof patch.printMode === "string") next.print_mode = patch.printMode;
+        if (Array.isArray(patch.customUnits)) next.custom_units = patch.customUnits;
         return { ...old, role: old.role, shop: next };
       });
       // immediate UI update for theme changes

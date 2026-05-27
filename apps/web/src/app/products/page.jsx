@@ -30,6 +30,7 @@ import {
   Badge,
   Skeleton,
   Select,
+  Toggle,
 } from "@/components/ui";
 import CartPanel from "@/components/CartPanel";
 import {
@@ -40,8 +41,121 @@ import {
 } from "@/utils/productUnits";
 import { shopHeaders } from "@/utils/shopContext";
 
+const EMPTY_SUPPLIER = {
+  name: "",
+  phone: "",
+  email: "",
+  address: "",
+  gstin: "",
+  upiId: "",
+  notes: "",
+  qrImageUrl: "",
+};
+
+const EMPTY_CATEGORY = {
+  name: "",
+  description: "",
+  icon: "",
+  color: "#F97316",
+};
+
+function SearchCreateSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+  createLabel,
+  onCreate,
+  loading,
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const selected = options.find((option) => String(option.value) === String(value));
+  const filtered = options.filter((option) => {
+    const haystack = `${option.label || ""} ${option.description || ""} ${option.meta || ""}`.toLowerCase();
+    return haystack.includes(search.trim().toLowerCase());
+  });
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="t-input w-full px-3 py-2.5 text-sm flex items-center justify-between gap-2 text-left"
+      >
+        <span className="min-w-0 flex-1">
+          {selected ? (
+            <>
+              <span className="t-text font-medium truncate block">{selected.label}</span>
+              {selected.description ? <span className="t-dim text-[10px] truncate block">{selected.description}</span> : null}
+            </>
+          ) : (
+            <span className="t-dim2">{placeholder}</span>
+          )}
+        </span>
+        <span className="t-dim text-xs">v</span>
+      </button>
+      {open ? (
+        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-[60] t-card t-card-strong p-2 shadow-2xl max-h-80 overflow-y-auto">
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search..."
+            autoFocus
+            className="mb-2"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              onChange("");
+              setOpen(false);
+            }}
+            className="w-full text-left px-3 py-2 rounded-xl text-sm t-muted hover:bg-[var(--bg-elev)]"
+          >
+            Clear selection
+          </button>
+          {loading ? (
+            <div className="px-3 py-4 text-sm t-muted">Loading...</div>
+          ) : filtered.length === 0 ? (
+            <div className="px-3 py-4 text-sm t-muted">No matches</div>
+          ) : (
+            filtered.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(String(option.value));
+                  setOpen(false);
+                }}
+                className={`w-full text-left px-3 py-2 rounded-xl text-sm hover:bg-[var(--bg-elev)] ${
+                  String(option.value) === String(value) ? "t-accent-soft" : "t-text"
+                }`}
+              >
+                <span className="font-medium block truncate">{option.label}</span>
+                {option.description ? <span className="t-dim text-[10px] block truncate">{option.description}</span> : null}
+                {option.meta ? <span className="t-dim text-[10px] block truncate">{option.meta}</span> : null}
+              </button>
+            ))
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onCreate?.();
+            }}
+            className="w-full mt-2 px-3 py-2 rounded-xl text-sm font-semibold t-accent-soft text-left"
+          >
+            + {createLabel}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ProductForm({ open, onClose, initial, onSaved, shop }) {
   const [upload, { loading: uploading }] = useUpload();
+  const qc = useQueryClient();
   const unitOptions = [
     ...PRODUCT_UNITS,
     ...(Array.isArray(shop?.custom_units) ? shop.custom_units : [])
@@ -57,13 +171,27 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
     queryFn: async () => (await fetch("/api/suppliers", { headers: shopHeaders() })).json(),
     enabled: open,
   });
-  const supplierOptions = [
-    { value: "", label: "No supplier selected" },
-    ...(suppliersQuery.data?.suppliers || []).map((supplier) => ({
-      value: String(supplier.supplier_id),
-      label: supplier.name,
-    })),
-  ];
+  const categoriesQuery = useQuery({
+    queryKey: ["categories", "product-form", shop?.shop_id],
+    queryFn: async () => {
+      const response = await fetch("/api/categories", { headers: shopHeaders() });
+      if (!response.ok) return { categories: [] };
+      return response.json();
+    },
+    enabled: open,
+  });
+  const supplierOptions = (suppliersQuery.data?.suppliers || []).map((supplier) => ({
+    value: String(supplier.supplier_id),
+    label: supplier.name,
+    description: [supplier.phone, supplier.gstin ? `GSTIN ${supplier.gstin}` : null].filter(Boolean).join(" / "),
+    meta: supplier.balance_due ? `Due ${formatMoney(supplier.balance_due, shop?.currency || "INR")}` : "",
+  }));
+  const categoryOptions = (categoriesQuery.data?.categories || []).map((category) => ({
+    value: String(category.category_id),
+    label: category.name,
+    description: `${category.product_count || 0} products`,
+    meta: category.stock_value ? `Stock ${formatMoney(category.stock_value, shop?.currency || "INR")}` : "",
+  }));
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -76,13 +204,23 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
     lowStockAlertQuantity: "",
     taxRate: "",
     supplierId: "",
+    categoryId: "",
     category: "",
     sku: "",
     primaryUnit: "piece",
     secondaryUnit: "",
+    taxMode: "exclusive",
+    gstExempt: false,
+    cessRate: "",
+    productStatus: "active",
   });
+  const [supplierModalOpen, setSupplierModalOpen] = useState(false);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [supplierForm, setSupplierForm] = useState(EMPTY_SUPPLIER);
+  const [categoryForm, setCategoryForm] = useState(EMPTY_CATEGORY);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [creatingRelated, setCreatingRelated] = useState(false);
 
   useEffect(() => {
     if (initial) {
@@ -94,13 +232,18 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
         costPrice: String(initial.cost_price || ""),
         stock: String(initial.stock || ""),
         category: initial.category || "",
+        categoryId: String(initial.category_id || ""),
         sku: initial.sku || "",
         primaryUnit: initial.primary_unit || "piece",
         secondaryUnit: initial.secondary_unit || "",
         conversionRate: String(initial.conversion_rate || ""),
         hsnSac: initial.hsn_sac || "",
         lowStockAlertQuantity: String(initial.reorder_level || ""),
-        taxRate: String(initial.tax_rate || ""),
+        taxRate: String(initial.gst_rate ?? initial.tax_rate ?? ""),
+        taxMode: initial.tax_mode || "exclusive",
+        gstExempt: !!initial.gst_exempt,
+        cessRate: String(initial.cess_rate || ""),
+        productStatus: initial.product_status || "active",
         supplierId: String(initial.supplier_id || ""),
       });
     } else {
@@ -119,11 +262,16 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
         hsnSac: "",
         lowStockAlertQuantity: "",
         taxRate: "",
+        taxMode: shop?.tax_mode || "exclusive",
+        gstExempt: false,
+        cessRate: "",
+        productStatus: "active",
         supplierId: "",
+        categoryId: "",
       });
     }
     setError("");
-  }, [initial, open]);
+  }, [initial, open, shop?.tax_mode]);
 
   const handleImage = async (e) => {
     const file = e.target.files?.[0];
@@ -144,6 +292,25 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
     setForm((f) => ({ ...f, imageUrl: url }));
   };
 
+  const handleSupplierQr = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      setError("Only PNG, JPG, WEBP allowed for QR image");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Max QR image size is 5MB");
+      return;
+    }
+    const { url, error: upErr } = await upload({ file });
+    if (upErr) {
+      setError(upErr);
+      return;
+    }
+    setSupplierForm((current) => ({ ...current, qrImageUrl: url }));
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     setError("");
@@ -157,11 +324,8 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
         title: form.title,
         description: form.description,
         imageUrl: form.imageUrl,
-        sellingPrice: Number(form.sellingPrice) || 0,
-        costPrice: Number(form.costPrice) || 0,
-        stock: Number(form.stock) || 0,
-        openingStock: Number(form.stock) || 0,
         category: form.category,
+        categoryId: form.categoryId || null,
         sku: form.sku,
         primaryUnit: form.primaryUnit,
         secondaryUnit: form.secondaryUnit,
@@ -169,8 +333,19 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
         hsnSac: form.hsnSac,
         lowStockAlertQuantity: Number(form.lowStockAlertQuantity) || 0,
         taxRate: Number(form.taxRate) || 0,
+        gstRate: Number(form.taxRate) || 0,
+        taxMode: form.taxMode,
+        gstExempt: form.gstExempt,
+        cessRate: Number(form.cessRate) || 0,
+        productStatus: form.productStatus,
         supplierId: form.supplierId || null,
       };
+      if (!initial) {
+        payload.sellingPrice = Number(form.sellingPrice) || 0;
+        payload.costPrice = Number(form.costPrice) || 0;
+        payload.stock = Number(form.stock) || 0;
+        payload.openingStock = Number(form.stock) || 0;
+      }
       const res = await fetch(
         initial ? `/api/products/${initial.product_id}` : "/api/products",
         {
@@ -193,7 +368,88 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
     }
   };
 
+  const createSupplier = async (event) => {
+    event.preventDefault();
+    if (!supplierForm.name.trim()) {
+      setError("Supplier name required");
+      return;
+    }
+    setCreatingRelated(true);
+    try {
+      const response = await fetch("/api/suppliers", {
+        method: "POST",
+        headers: shopHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(supplierForm),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 409 && data.supplier?.supplier_id) {
+          setForm((current) => ({ ...current, supplierId: String(data.supplier.supplier_id) }));
+          setSupplierModalOpen(false);
+          showToast("Existing supplier selected.");
+          return;
+        }
+        throw new Error(data.error || "Could not create supplier");
+      }
+      setForm((current) => ({ ...current, supplierId: String(data.supplier.supplier_id) }));
+      setSupplierForm(EMPTY_SUPPLIER);
+      setSupplierModalOpen(false);
+      await suppliersQuery.refetch();
+      qc.invalidateQueries({ queryKey: ["suppliers"] });
+      showToast("Supplier created and selected.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setCreatingRelated(false);
+    }
+  };
+
+  const createCategory = async (event) => {
+    event.preventDefault();
+    if (!categoryForm.name.trim()) {
+      setError("Category name required");
+      return;
+    }
+    setCreatingRelated(true);
+    try {
+      const response = await fetch("/api/categories", {
+        method: "POST",
+        headers: shopHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(categoryForm),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 409 && data.category?.category_id) {
+          setForm((current) => ({
+            ...current,
+            categoryId: String(data.category.category_id),
+            category: data.category.name,
+          }));
+          setCategoryModalOpen(false);
+          showToast("Existing category selected.");
+          return;
+        }
+        throw new Error(data.error || "Could not create category");
+      }
+      setForm((current) => ({
+        ...current,
+        categoryId: String(data.category.category_id),
+        category: data.category.name,
+      }));
+      setCategoryForm(EMPTY_CATEGORY);
+      setCategoryModalOpen(false);
+      await categoriesQuery.refetch();
+      qc.invalidateQueries({ queryKey: ["categories"] });
+      showToast("Category created and selected.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setCreatingRelated(false);
+    }
+  };
+
   return (
+    <>
     <Modal
       open={open}
       onClose={onClose}
@@ -244,47 +500,61 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block t-muted text-xs mb-1">Selling price</label>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={form.sellingPrice}
-              onChange={(e) =>
-                setForm({ ...form, sellingPrice: e.target.value })
-              }
-            />
+        {!initial ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block t-muted text-xs mb-1">Opening stock</label>
+              <Input
+                type="number"
+                step="0.001"
+                min="0"
+                value={form.stock}
+                onChange={(e) => setForm({ ...form, stock: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block t-muted text-xs mb-1">Cost price</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.costPrice}
+                onChange={(e) => setForm({ ...form, costPrice: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block t-muted text-xs mb-1">Selling price</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.sellingPrice}
+                onChange={(e) =>
+                  setForm({ ...form, sellingPrice: e.target.value })
+                }
+              />
+            </div>
           </div>
-          <div>
-            <label className="block t-muted text-xs mb-1">Cost price</label>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={form.costPrice}
-              onChange={(e) => setForm({ ...form, costPrice: e.target.value })}
-            />
+        ) : (
+          <div className="rounded-2xl t-accent-soft px-3 py-2 text-xs">
+            Stock, cost price and selling price are managed from Add New Stock or Purchases, not Edit Product.
           </div>
-        </div>
+        )}
 
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="block t-muted text-xs mb-1">{initial ? "Current stock" : "Opening stock"}</label>
-            <Input
-              type="number"
-              step="0.001"
-              min="0"
-              value={form.stock}
-              onChange={(e) => setForm({ ...form, stock: e.target.value })}
-            />
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block t-muted text-xs mb-1">Category</label>
-            <Input
-              value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
+            <SearchCreateSelect
+              value={form.categoryId}
+              onChange={(categoryId) => {
+                const category = categoryOptions.find((option) => String(option.value) === String(categoryId));
+                setForm({ ...form, categoryId, category: category?.label || "" });
+              }}
+              options={categoryOptions}
+              placeholder="Select category"
+              createLabel="Create New Category"
+              loading={categoriesQuery.isLoading}
+              onCreate={() => setCategoryModalOpen(true)}
             />
           </div>
           <div>
@@ -350,8 +620,56 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
         </div>
         <div>
           <label className="block t-muted text-xs mb-1">Supplier</label>
-          <Select value={form.supplierId} onChange={(supplierId) => setForm({ ...form, supplierId })} options={supplierOptions} placeholder="Supplier (optional)" />
+          <SearchCreateSelect
+            value={form.supplierId}
+            onChange={(supplierId) => setForm({ ...form, supplierId })}
+            options={supplierOptions}
+            placeholder="Select supplier"
+            createLabel="Create New Supplier"
+            loading={suppliersQuery.isLoading}
+            onCreate={() => setSupplierModalOpen(true)}
+          />
         </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block t-muted text-xs mb-1">Tax mode</label>
+            <Select
+              value={form.taxMode}
+              onChange={(taxMode) => setForm({ ...form, taxMode })}
+              options={[
+                { value: "exclusive", label: "Tax exclusive" },
+                { value: "inclusive", label: "Tax inclusive" },
+              ]}
+            />
+          </div>
+          <div>
+            <label className="block t-muted text-xs mb-1">Cess % optional</label>
+            <Input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={form.cessRate}
+              onChange={(e) => setForm({ ...form, cessRate: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block t-muted text-xs mb-1">Status</label>
+            <Select
+              value={form.productStatus}
+              onChange={(productStatus) => setForm({ ...form, productStatus })}
+              options={[
+                { value: "active", label: "Active" },
+                { value: "inactive", label: "Inactive" },
+              ]}
+            />
+          </div>
+        </div>
+        <Toggle
+          checked={form.gstExempt}
+          onChange={(gstExempt) => setForm({ ...form, gstExempt })}
+          label="Exempted product"
+        />
 
         {error ? (
           <div className="rounded-xl t-danger-bg text-xs px-3 py-2">
@@ -379,26 +697,84 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
         </div>
       </form>
     </Modal>
+    <Modal open={supplierModalOpen} onClose={() => setSupplierModalOpen(false)} title="Create New Supplier">
+      <form onSubmit={createSupplier} className="space-y-3">
+        <Input required value={supplierForm.name} placeholder="Supplier name *" onChange={(event) => setSupplierForm({ ...supplierForm, name: event.target.value })} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input value={supplierForm.phone} placeholder="Phone optional" onChange={(event) => setSupplierForm({ ...supplierForm, phone: event.target.value })} />
+          <Input type="email" value={supplierForm.email} placeholder="Email optional" onChange={(event) => setSupplierForm({ ...supplierForm, email: event.target.value })} />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input value={supplierForm.gstin} placeholder="GSTIN optional" onChange={(event) => setSupplierForm({ ...supplierForm, gstin: event.target.value })} />
+          <Input value={supplierForm.upiId} placeholder="UPI ID optional" onChange={(event) => setSupplierForm({ ...supplierForm, upiId: event.target.value })} />
+        </div>
+        <Textarea rows={2} value={supplierForm.address} placeholder="Address optional" onChange={(event) => setSupplierForm({ ...supplierForm, address: event.target.value })} />
+        <Textarea rows={2} value={supplierForm.notes} placeholder="Notes optional" onChange={(event) => setSupplierForm({ ...supplierForm, notes: event.target.value })} />
+        <label className="block">
+          <span className="block t-muted text-xs mb-1">Upload UPI QR optional</span>
+          <div className="t-elev border t-border rounded-2xl px-3 py-3 text-sm t-muted flex items-center gap-3 cursor-pointer">
+            {supplierForm.qrImageUrl ? (
+              <img src={supplierForm.qrImageUrl} alt="Supplier QR" className="w-12 h-12 rounded-xl object-cover" />
+            ) : (
+              <Upload className="w-5 h-5" />
+            )}
+            <span>{supplierForm.qrImageUrl ? "QR uploaded" : "Choose QR image"}</span>
+          </div>
+          <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleSupplierQr} />
+        </label>
+        <div className="flex gap-2">
+          <Button type="button" variant="secondary" className="flex-1" onClick={() => setSupplierModalOpen(false)}>Cancel</Button>
+          <Button type="submit" className="flex-1" disabled={creatingRelated}>{creatingRelated ? "Saving..." : "Save Supplier"}</Button>
+        </div>
+      </form>
+    </Modal>
+    <Modal open={categoryModalOpen} onClose={() => setCategoryModalOpen(false)} title="Create New Category">
+      <form onSubmit={createCategory} className="space-y-3">
+        <Input required value={categoryForm.name} placeholder="Category name *" onChange={(event) => setCategoryForm({ ...categoryForm, name: event.target.value })} />
+        <Textarea rows={2} value={categoryForm.description} placeholder="Description optional" onChange={(event) => setCategoryForm({ ...categoryForm, description: event.target.value })} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input value={categoryForm.icon} placeholder="Icon optional" onChange={(event) => setCategoryForm({ ...categoryForm, icon: event.target.value })} />
+          <Input value={categoryForm.color} placeholder="Color" onChange={(event) => setCategoryForm({ ...categoryForm, color: event.target.value })} />
+        </div>
+        <div className="flex gap-2">
+          <Button type="button" variant="secondary" className="flex-1" onClick={() => setCategoryModalOpen(false)}>Cancel</Button>
+          <Button type="submit" className="flex-1" disabled={creatingRelated}>{creatingRelated ? "Saving..." : "Save Category"}</Button>
+        </div>
+      </form>
+    </Modal>
+    </>
   );
 }
 
-function ProductInfo({ product, onClose, onEdit, currency, canManage, canViewMargins }) {
+function ProductInfo({ product, onClose, onEdit, onAddStock, currency, canManage, canViewMargins }) {
+  const detailQuery = useQuery({
+    queryKey: ["product-detail", product?.product_id],
+    queryFn: async () => {
+      const response = await fetch(`/api/products/${product.product_id}`, { headers: shopHeaders() });
+      if (!response.ok) throw new Error("Failed to load product detail");
+      return response.json();
+    },
+    enabled: !!product?.product_id,
+  });
   if (!product) return null;
-  const sp = Number(product.selling_price);
-  const cp = Number(product.cost_price);
+  const detailProduct = detailQuery.data?.product || product;
+  const batches = detailQuery.data?.batches || [];
+  const movements = detailQuery.data?.stockMovements || [];
+  const sp = Number(detailProduct.selling_price);
+  const cp = Number(detailProduct.cost_price);
   const profit = sp - cp;
   const margin = sp > 0 ? (profit / sp) * 100 : 0;
   const fmt = (n) => formatMoney(n, currency);
-  const unitLabel = getProductUnitLabel(product);
-  const remainingStock = formatStockQuantity(getStockBaseQuantity(product), product);
-  const soldStock = formatStockQuantity(Number(product.sold_base_unit) || 0, product);
-  const openingStock = formatStockQuantity(Number(product.opening_stock_base_unit) || 0, product);
+  const unitLabel = getProductUnitLabel(detailProduct);
+  const remainingStock = formatStockQuantity(getStockBaseQuantity(detailProduct), detailProduct);
+  const soldStock = formatStockQuantity(Number(detailProduct.sold_base_unit) || 0, detailProduct);
+  const openingStock = formatStockQuantity(Number(detailProduct.opening_stock_base_unit) || 0, detailProduct);
   return (
     <Modal open={!!product} onClose={onClose} title="Product Details">
-      {product.image_url ? (
+      {detailProduct.image_url ? (
         <img
-          src={product.image_url}
-          alt={product.title}
+          src={detailProduct.image_url}
+          alt={detailProduct.title}
           className="w-full h-48 rounded-2xl object-cover mb-4 border t-border"
         />
       ) : (
@@ -406,9 +782,9 @@ function ProductInfo({ product, onClose, onEdit, currency, canManage, canViewMar
           <Package className="w-12 h-12 t-dim2" />
         </div>
       )}
-      <h3 className="t-text text-lg font-bold">{product.title}</h3>
+      <h3 className="t-text text-lg font-bold">{detailProduct.title}</h3>
       <p className="t-muted text-sm mt-1">
-        {product.description || "No description"}
+        {detailProduct.description || "No description"}
       </p>
       <div className="grid grid-cols-2 gap-2 mt-4">
         <div className="rounded-xl t-elev px-3 py-2">
@@ -447,16 +823,79 @@ function ProductInfo({ product, onClose, onEdit, currency, canManage, canViewMar
           Close
         </Button>
         {canManage ? (
-          <Button variant="primary" className="flex-1" onClick={onEdit}>
-            Edit
-          </Button>
+          <>
+            <Button variant="secondary" className="flex-1" onClick={() => onAddStock(detailProduct)}>
+              Add New Stock
+            </Button>
+            <Button variant="primary" className="flex-1" onClick={onEdit}>
+              Edit
+            </Button>
+          </>
         ) : null}
       </div>
       <div className="mt-3 space-y-2 text-xs">
         <div className="flex justify-between t-muted"><span>Opening stock</span><span className="t-text">{openingStock}</span></div>
         <div className="flex justify-between t-muted"><span>Sold quantity</span><span className="t-text">{soldStock}</span></div>
-        <div className="flex justify-between t-muted"><span>Stock value</span><span className="t-text">{fmt((Number(product.stock) || 0) * cp)}</span></div>
-        {product.conversion_rate ? <div className="flex justify-between t-muted"><span>Conversion</span><span className="t-text">1 {product.primary_unit} = {product.conversion_rate} {product.secondary_unit}</span></div> : null}
+        <div className="flex justify-between t-muted"><span>Product added</span><span className="t-text">{detailProduct.product_created_at ? new Date(detailProduct.product_created_at).toLocaleString("en-IN") : "Not recorded"}</span></div>
+        <div className="flex justify-between t-muted"><span>HSN/SAC</span><span className="t-text">{detailProduct.hsn_sac || "-"}</span></div>
+        <div className="flex justify-between t-muted"><span>SKU</span><span className="t-text">{detailProduct.sku || "-"}</span></div>
+        <div className="flex justify-between t-muted"><span>Category</span><span className="t-text">{detailProduct.category_name_snapshot || detailProduct.category || "-"}</span></div>
+        <div className="flex justify-between t-muted"><span>GST</span><span className="t-text">{Number((detailProduct.gst_rate ?? detailProduct.tax_rate) || 0)}% / {detailProduct.tax_mode || "exclusive"}</span></div>
+        <div className="flex justify-between t-muted"><span>Stock value</span><span className="t-text">{fmt((Number(detailProduct.stock) || 0) * cp)}</span></div>
+        {detailProduct.conversion_rate ? <div className="flex justify-between t-muted"><span>Conversion</span><span className="t-text">1 {detailProduct.primary_unit} = {detailProduct.conversion_rate} {detailProduct.secondary_unit}</span></div> : null}
+      </div>
+      <div className="mt-4">
+        <h4 className="t-text text-sm font-semibold mb-2">Batch History</h4>
+        {detailQuery.isLoading ? (
+          <Skeleton className="h-20" />
+        ) : batches.length === 0 ? (
+          <div className="t-elev rounded-2xl p-3 t-muted text-xs">No stock batches yet.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs min-w-[620px]">
+              <thead className="t-muted">
+                <tr>
+                  <th className="text-left py-2">Date</th>
+                  <th className="text-left py-2">Purchased</th>
+                  <th className="text-left py-2">Remaining</th>
+                  <th className="text-left py-2">Cost</th>
+                  <th className="text-left py-2">Selling</th>
+                  <th className="text-left py-2">Supplier</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batches.slice(0, 8).map((batch) => (
+                  <tr key={batch.batch_id} className="t-divider">
+                    <td className="py-2">{new Date(batch.purchase_date).toLocaleDateString("en-IN")}</td>
+                    <td className="py-2">{Number(batch.quantity_purchased)} {batch.unit}</td>
+                    <td className="py-2">{Number(batch.quantity_remaining)} {batch.unit}</td>
+                    <td className="py-2">{fmt(batch.cost_price)}</td>
+                    <td className="py-2">{fmt(batch.selling_price)}</td>
+                    <td className="py-2">{batch.supplier_name_snapshot || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      <div className="mt-4">
+        <h4 className="t-text text-sm font-semibold mb-2">Stock Movements</h4>
+        {movements.length === 0 ? (
+          <div className="t-elev rounded-2xl p-3 t-muted text-xs">No movements recorded yet.</div>
+        ) : (
+          <div className="space-y-2">
+            {movements.slice(0, 6).map((movement) => (
+              <div key={movement.movement_id} className="t-elev rounded-xl px-3 py-2 text-xs flex justify-between gap-3">
+                <div>
+                  <div className="t-text font-semibold">{movement.movement_type}</div>
+                  <div className="t-dim">{new Date(movement.created_at).toLocaleString("en-IN")}</div>
+                </div>
+                <div className="t-text font-semibold">{Number(movement.quantity_base_unit)} {movement.unit || "base"}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </Modal>
   );
@@ -594,6 +1033,147 @@ function ProductCard({ product, currency, onInfo, onEdit, onDelete, canManage, c
   );
 }
 
+function AddStockModal({ product, open, onClose, onSaved, shop }) {
+  const [form, setForm] = useState({
+    quantity: "",
+    unit: product?.primary_unit || "piece",
+    costPrice: "",
+    sellingPrice: "",
+    supplierId: "",
+    purchaseInvoiceNo: "",
+    notes: "",
+    purchaseDate: "",
+    paidAmount: "",
+    paymentMethod: "cash",
+    dueDate: "",
+  });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const suppliersQuery = useQuery({
+    queryKey: ["suppliers", "add-stock", shop?.shop_id],
+    queryFn: async () => {
+      const response = await fetch("/api/suppliers", { headers: shopHeaders() });
+      if (!response.ok) return { suppliers: [] };
+      return response.json();
+    },
+    enabled: open,
+  });
+
+  useEffect(() => {
+    if (!product || !open) return;
+    setForm({
+      quantity: "",
+      unit: product.primary_unit || "piece",
+      costPrice: String(product.cost_price || ""),
+      sellingPrice: String(product.selling_price || ""),
+      supplierId: String(product.supplier_id || ""),
+      purchaseInvoiceNo: "",
+      notes: "",
+      purchaseDate: new Date().toISOString().slice(0, 10),
+      paidAmount: "",
+      paymentMethod: "cash",
+      dueDate: "",
+    });
+    setError("");
+  }, [product, open]);
+
+  if (!product) return null;
+  const unitOptions = [
+    { value: product.primary_unit || "piece", label: product.primary_unit || "piece" },
+    ...(product.secondary_unit ? [{ value: product.secondary_unit, label: product.secondary_unit }] : []),
+  ];
+  const supplierOptions = [
+    { value: "", label: "No supplier" },
+    ...(suppliersQuery.data?.suppliers || []).map((supplier) => ({
+      value: String(supplier.supplier_id),
+      label: supplier.name,
+    })),
+  ];
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setError("");
+    if (!Number(form.quantity) || Number(form.quantity) <= 0) {
+      setError("Quantity is required");
+      return;
+    }
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/products/${product.product_id}/stock`, {
+        method: "POST",
+        headers: shopHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          ...form,
+          quantity: Number(form.quantity),
+          costPrice: Number(form.costPrice) || 0,
+          sellingPrice: Number(form.sellingPrice) || 0,
+          paidAmount: Number(form.paidAmount) || 0,
+          supplierId: form.supplierId || null,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Could not add stock");
+      showToast("New stock batch added.");
+      onSaved?.();
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title={`Add New Stock - ${product.title}`} maxWidth="max-w-xl">
+      <form onSubmit={submit} className="space-y-3">
+        <div className="rounded-2xl t-elev px-3 py-2 text-xs t-muted">
+          Date is auto-generated. Owner can edit purchase date for old inward stock.
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block t-muted text-xs mb-1">Quantity</label>
+            <Input type="number" min="0.001" step="0.001" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} />
+          </div>
+          <div>
+            <label className="block t-muted text-xs mb-1">Unit</label>
+            <Select value={form.unit} onChange={(unit) => setForm({ ...form, unit })} options={unitOptions} />
+          </div>
+          <div>
+            <label className="block t-muted text-xs mb-1">Cost price for this stock</label>
+            <Input type="number" min="0" step="0.01" value={form.costPrice} onChange={(event) => setForm({ ...form, costPrice: event.target.value })} />
+          </div>
+          <div>
+            <label className="block t-muted text-xs mb-1">Selling price for this stock</label>
+            <Input type="number" min="0" step="0.01" value={form.sellingPrice} onChange={(event) => setForm({ ...form, sellingPrice: event.target.value })} />
+          </div>
+          <div>
+            <label className="block t-muted text-xs mb-1">Supplier optional</label>
+            <Select value={form.supplierId} onChange={(supplierId) => setForm({ ...form, supplierId })} options={supplierOptions} />
+          </div>
+          <div>
+            <label className="block t-muted text-xs mb-1">Purchase invoice no optional</label>
+            <Input value={form.purchaseInvoiceNo} onChange={(event) => setForm({ ...form, purchaseInvoiceNo: event.target.value })} />
+          </div>
+          <div>
+            <label className="block t-muted text-xs mb-1">Purchase date</label>
+            <Input type="date" value={form.purchaseDate} onChange={(event) => setForm({ ...form, purchaseDate: event.target.value })} />
+          </div>
+          <div>
+            <label className="block t-muted text-xs mb-1">Paid amount</label>
+            <Input type="number" min="0" step="0.01" value={form.paidAmount} onChange={(event) => setForm({ ...form, paidAmount: event.target.value })} />
+          </div>
+        </div>
+        <Textarea rows={2} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Notes optional" />
+        {error ? <div className="rounded-xl t-danger-bg px-3 py-2 text-xs">{error}</div> : null}
+        <div className="flex gap-2">
+          <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
+          <Button type="submit" className="flex-1" disabled={saving}>{saving ? "Adding..." : "Add Stock"}</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 export default function ProductsPage() {
   const { data: user } = useUser();
   const { shop, role } = useShop({ enabled: !!user });
@@ -603,8 +1183,10 @@ export default function ProductsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [infoProduct, setInfoProduct] = useState(null);
+  const [stockProduct, setStockProduct] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState("all");
   const { count: cartCount } = useCart();
 
   useEffect(() => {
@@ -613,10 +1195,24 @@ export default function ProductsPage() {
     if (params.get("search")) setSearch(params.get("search"));
   }, []);
 
-  const productsQuery = useQuery({
-    queryKey: ["products", search, shop?.shop_id],
+  const categoriesQuery = useQuery({
+    queryKey: ["categories", shop?.shop_id],
     queryFn: async () => {
-      const url = `/api/products${search ? `?search=${encodeURIComponent(search)}` : ""}`;
+      const res = await fetch("/api/categories", { headers: shopHeaders() });
+      if (!res.ok) throw new Error("Failed to load categories");
+      return res.json();
+    },
+    enabled: !!user && !!shop?.shop_id,
+    staleTime: 30000,
+  });
+
+  const productsQuery = useQuery({
+    queryKey: ["products", search, selectedCategoryId, shop?.shop_id],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      if (selectedCategoryId !== "all") params.set("categoryId", selectedCategoryId);
+      const url = `/api/products${params.toString() ? `?${params.toString()}` : ""}`;
       const res = await fetch(url, { headers: shopHeaders() });
       if (!res.ok) throw new Error("Failed to load");
       return res.json();
@@ -627,6 +1223,7 @@ export default function ProductsPage() {
   });
 
   const products = productsQuery.data?.products || [];
+  const categories = categoriesQuery.data?.categories || [];
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
@@ -681,6 +1278,36 @@ export default function ProductsPage() {
               onChange={setSearch}
               placeholder="Search products by name or description..."
             />
+          </div>
+          <div className="mb-4 overflow-x-auto pb-1">
+            <div className="flex gap-2 min-w-max">
+              <button
+                type="button"
+                onClick={() => setSelectedCategoryId("all")}
+                className={`rounded-2xl border t-border px-4 py-3 text-left min-w-[140px] ${
+                  selectedCategoryId === "all" ? "t-accent-soft" : "t-card hover:bg-[var(--bg-elev)]"
+                }`}
+              >
+                <div className="t-text text-sm font-semibold">All Products</div>
+                <div className="t-dim text-xs">{productsQuery.data?.products?.length || 0} shown</div>
+              </button>
+              {categories.map((category) => (
+                <button
+                  type="button"
+                  key={category.category_id}
+                  onClick={() => setSelectedCategoryId(String(category.category_id))}
+                  className={`rounded-2xl border t-border px-4 py-3 text-left min-w-[160px] max-w-[220px] ${
+                    selectedCategoryId === String(category.category_id) ? "t-accent-soft" : "t-card hover:bg-[var(--bg-elev)]"
+                  }`}
+                >
+                  <div className="t-text text-sm font-semibold truncate">{category.name}</div>
+                  <div className="t-dim text-xs truncate">{category.product_count || 0} products</div>
+                  <div className="t-dim text-[10px] truncate">
+                    {formatMoney(category.stock_value || 0, currency)} stock value
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
 
           {productsQuery.isLoading ? (
@@ -790,6 +1417,7 @@ export default function ProductsPage() {
         onSaved={() => {
           qc.invalidateQueries({ queryKey: ["products"] });
           qc.invalidateQueries({ queryKey: ["analytics"] });
+          qc.invalidateQueries({ queryKey: ["categories"] });
         }}
       /> : null}
 
@@ -804,7 +1432,26 @@ export default function ProductsPage() {
           setInfoProduct(null);
           setModalOpen(true);
         }}
+        onAddStock={(product) => {
+          setInfoProduct(null);
+          setStockProduct(product);
+        }}
       />
+      {canManageInventory ? (
+        <AddStockModal
+          open={!!stockProduct}
+          product={stockProduct}
+          shop={shop}
+          onClose={() => setStockProduct(null)}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["products"] });
+            qc.invalidateQueries({ queryKey: ["product-detail"] });
+            qc.invalidateQueries({ queryKey: ["purchases"] });
+            qc.invalidateQueries({ queryKey: ["analytics"] });
+            qc.invalidateQueries({ queryKey: ["categories"] });
+          }}
+        />
+      ) : null}
 
       {canManageInventory ? <ConfirmDialog
         open={!!deleting}

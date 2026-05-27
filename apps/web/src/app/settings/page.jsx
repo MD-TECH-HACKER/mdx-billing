@@ -93,7 +93,17 @@ export default function SettingsPage() {
       theme: shop.theme || "glass",
       accentColor: shop.accent_color || "#8b5cf6",
       gstin: shop.gstin || "",
-      defaultInvoiceType: shop.default_invoice_type || "tax_invoice",
+      gstBillingEnabled: !!shop.gst_billing_enabled,
+      businessLegalName: shop.business_legal_name || "",
+      businessAddress: shop.business_address || "",
+      state: shop.state || "",
+      stateCode: shop.state_code || "",
+      defaultGstRate: Number(shop.default_gst_rate) || 18,
+      taxMode: shop.tax_mode || "exclusive",
+      stockSellingMethod: shop.stock_selling_method || "fifo",
+      defaultInvoiceType: shop.default_invoice_type === "tax_invoice"
+        ? "gst_invoice"
+        : shop.default_invoice_type || "invoice",
       defaultPaymentMethod: shop.default_payment_method || "cash",
       defaultTerms: shop.default_terms || "",
       receiptSize: shop.receipt_size || "a4",
@@ -249,7 +259,9 @@ export default function SettingsPage() {
   }));
   const currentCur = getCurrencyInfo(form.currency);
   const invoiceTypeOptions = [
-    { value: "tax_invoice", label: "Tax invoice" },
+    { value: "invoice", label: "Invoice" },
+    { value: "gst_invoice", label: "GST invoice" },
+    { value: "estimate", label: "Estimate / quotation" },
     { value: "receipt", label: "Receipt" },
   ];
   const paymentMethodOptions = [
@@ -257,6 +269,7 @@ export default function SettingsPage() {
     { value: "credit", label: "Credit" },
     { value: "upi", label: "UPI" },
     { value: "bank", label: "Bank" },
+    { value: "card", label: "Card" },
   ];
   const receiptSizeOptions = [
     { value: "a4", label: "A4 invoice" },
@@ -589,6 +602,99 @@ export default function SettingsPage() {
             <span className="t-accent-text font-bold text-lg">
               {currentCur.symbol}
             </span>
+          </div>
+          <div className="mt-3 rounded-2xl t-elev border t-border p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+              <div>
+                <div className="t-text text-sm font-semibold">GST Settings</div>
+                <p className="t-muted text-xs mt-1">Configure legal GST invoice fields and tax behavior per shop.</p>
+              </div>
+              <Toggle
+                checked={!!form.gstBillingEnabled}
+                onChange={(checked) => {
+                  setForm({ ...form, gstBillingEnabled: checked });
+                  saveField({ gstBillingEnabled: checked });
+                }}
+                label={form.gstBillingEnabled ? "ON" : "OFF"}
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block t-muted text-xs mb-1">Business legal name</label>
+                <Input
+                  value={form.businessLegalName}
+                  onChange={(e) => setForm({ ...form, businessLegalName: e.target.value })}
+                  onBlur={() => saveField({ businessLegalName: form.businessLegalName })}
+                />
+              </div>
+              <div>
+                <label className="block t-muted text-xs mb-1">Default GST rate</label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={form.defaultGstRate}
+                  onChange={(e) => setForm({ ...form, defaultGstRate: Number(e.target.value) })}
+                  onBlur={() => saveField({ defaultGstRate: form.defaultGstRate })}
+                />
+              </div>
+              <div>
+                <label className="block t-muted text-xs mb-1">State</label>
+                <Input
+                  value={form.state}
+                  onChange={(e) => setForm({ ...form, state: e.target.value })}
+                  onBlur={() => saveField({ state: form.state })}
+                />
+              </div>
+              <div>
+                <label className="block t-muted text-xs mb-1">State code</label>
+                <Input
+                  value={form.stateCode}
+                  onChange={(e) => setForm({ ...form, stateCode: e.target.value })}
+                  onBlur={() => saveField({ stateCode: form.stateCode })}
+                  placeholder="33"
+                />
+              </div>
+              <div>
+                <label className="block t-muted text-xs mb-1">Tax mode</label>
+                <Select
+                  value={form.taxMode}
+                  onChange={(taxMode) => {
+                    setForm({ ...form, taxMode });
+                    saveField({ taxMode });
+                  }}
+                  options={[
+                    { value: "exclusive", label: "Tax exclusive" },
+                    { value: "inclusive", label: "Tax inclusive" },
+                  ]}
+                />
+              </div>
+              <div>
+                <label className="block t-muted text-xs mb-1">Stock selling method</label>
+                <Select
+                  value={form.stockSellingMethod}
+                  onChange={(stockSellingMethod) => {
+                    setForm({ ...form, stockSellingMethod });
+                    saveField({ stockSellingMethod });
+                  }}
+                  options={[
+                    { value: "fifo", label: "FIFO (old stock first)" },
+                    { value: "manual_batch", label: "Manual batch selection" },
+                    { value: "weighted_average", label: "Weighted average later" },
+                  ]}
+                />
+              </div>
+            </div>
+            <div className="mt-3">
+              <label className="block t-muted text-xs mb-1">Business address for GST invoice</label>
+              <Textarea
+                rows={2}
+                value={form.businessAddress}
+                onChange={(e) => setForm({ ...form, businessAddress: e.target.value })}
+                onBlur={() => saveField({ businessAddress: form.businessAddress })}
+              />
+            </div>
           </div>
           <div className="mt-3">
             <label className="block t-muted text-xs mb-1">

@@ -105,9 +105,9 @@ export async function PUT(request) {
     if (typeof body.gstin === "string")
       fields.gstin = body.gstin.trim().toUpperCase().slice(0, 20) || null;
     if (typeof body.defaultInvoiceType === "string")
-      fields.default_invoice_type = ["tax_invoice", "receipt"].includes(body.defaultInvoiceType)
+      fields.default_invoice_type = ["invoice", "gst_invoice", "estimate", "receipt", "tax_invoice"].includes(body.defaultInvoiceType)
         ? body.defaultInvoiceType
-        : "tax_invoice";
+        : "invoice";
     if (typeof body.defaultPaymentMethod === "string")
       fields.default_payment_method = ["cash", "credit", "upi", "bank"].includes(body.defaultPaymentMethod)
         ? body.defaultPaymentMethod
@@ -122,6 +122,24 @@ export async function PUT(request) {
       fields.print_mode = ["color", "bw"].includes(body.printMode) ? body.printMode : "color";
     if (typeof body.sendReceiptEmail === "boolean")
       fields.send_receipt_email = body.sendReceiptEmail;
+    if (typeof body.gstBillingEnabled === "boolean")
+      fields.gst_billing_enabled = body.gstBillingEnabled;
+    if (typeof body.businessLegalName === "string")
+      fields.business_legal_name = body.businessLegalName.trim().slice(0, 150) || null;
+    if (typeof body.businessAddress === "string")
+      fields.business_address = body.businessAddress.trim().slice(0, 500) || null;
+    if (typeof body.state === "string")
+      fields.state = body.state.trim().slice(0, 80) || null;
+    if (typeof body.stateCode === "string")
+      fields.state_code = body.stateCode.trim().slice(0, 2) || null;
+    if (typeof body.defaultGstRate === "number")
+      fields.default_gst_rate = Math.max(0, Math.min(100, body.defaultGstRate));
+    if (typeof body.taxMode === "string")
+      fields.tax_mode = ["inclusive", "exclusive"].includes(body.taxMode) ? body.taxMode : "exclusive";
+    if (typeof body.stockSellingMethod === "string")
+      fields.stock_selling_method = ["fifo", "manual_batch", "weighted_average"].includes(body.stockSellingMethod)
+        ? body.stockSellingMethod
+        : "fifo";
     if (Array.isArray(body.customUnits)) {
       const customUnits = [
         ...new Set(

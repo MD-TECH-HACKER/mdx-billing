@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { CircleDollarSign, MapPin, Pencil, Phone, Plus, Trash2, UserRound } from "lucide-react";
+import { CircleDollarSign, Copy, MapPin, Pencil, Phone, Plus, Trash2, UserRound } from "lucide-react";
 import { Button, Card, ConfirmDialog, Input, Modal, SearchInput, Select, Textarea } from "@/components/ui";
 import { showToast } from "@/components/Toast";
 import useShop from "@/utils/useShop";
@@ -16,6 +16,8 @@ const EMPTY_PARTY = {
   gstin: "",
   address: "",
   openingBalance: "",
+  upiId: "",
+  qrImageUrl: "",
   notes: "",
 };
 const PAYMENT_METHODS = [
@@ -118,6 +120,16 @@ export default function PartyDirectoryPage({
     onError: (error) => showToast(error.message, "error"),
   });
 
+  const copyValue = async (value, label) => {
+    if (!value || typeof navigator === "undefined") return;
+    try {
+      await navigator.clipboard.writeText(value);
+      showToast(`${label} copied`);
+    } catch {
+      showToast("Could not copy", "error");
+    }
+  };
+
   const startCreate = () => {
     setEditing(null);
     setForm(EMPTY_PARTY);
@@ -134,6 +146,8 @@ export default function PartyDirectoryPage({
       address: record.address || "",
       openingBalance: String(record.opening_balance || ""),
       notes: record.notes || "",
+      upiId: record.upi_id || "",
+      qrImageUrl: record.qr_image_url || "",
     });
     setOpen(true);
   };
@@ -188,6 +202,21 @@ export default function PartyDirectoryPage({
                 </div>
               </div>
               {record.gstin ? <div className="t-elev rounded-xl px-3 py-2 t-muted text-xs">GSTIN: {record.gstin}</div> : null}
+              {endpoint === "suppliers" && (record.upi_id || record.qr_image_url) ? (
+                <div className="t-elev rounded-xl px-3 py-2 text-xs">
+                  {record.upi_id ? (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="t-muted truncate">UPI: <strong className="t-text">{record.upi_id}</strong></span>
+                      <button type="button" className="t-btn px-2 py-1 rounded-lg" onClick={() => copyValue(record.upi_id, "UPI ID")}>
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : null}
+                  {record.qr_image_url ? (
+                    <img src={record.qr_image_url} alt={`${record.name} UPI QR`} className="mt-2 w-24 h-24 rounded-xl object-cover border t-border" />
+                  ) : null}
+                </div>
+              ) : null}
               {endpoint === "customers" ? (
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <Stat label="Purchases" value={formatMoney(record.total_purchases || 0, currency)} />
@@ -257,6 +286,12 @@ export default function PartyDirectoryPage({
             <Input value={form.gstin} placeholder="GSTIN (optional)" onChange={(event) => setForm({ ...form, gstin: event.target.value })} />
             <Input type="number" step="0.01" value={form.openingBalance} placeholder="Opening balance" onChange={(event) => setForm({ ...form, openingBalance: event.target.value })} />
           </div>
+          {endpoint === "suppliers" ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input value={form.upiId} placeholder="UPI ID optional" onChange={(event) => setForm({ ...form, upiId: event.target.value })} />
+              <Input value={form.qrImageUrl} placeholder="UPI QR image URL optional" onChange={(event) => setForm({ ...form, qrImageUrl: event.target.value })} />
+            </div>
+          ) : null}
           <Textarea rows={2} value={form.address} placeholder="Address" onChange={(event) => setForm({ ...form, address: event.target.value })} />
           <Textarea rows={2} value={form.notes} placeholder="Notes" onChange={(event) => setForm({ ...form, notes: event.target.value })} />
           <Button type="submit" className="w-full" disabled={save.isPending}>

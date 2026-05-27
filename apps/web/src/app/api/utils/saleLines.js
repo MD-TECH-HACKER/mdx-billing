@@ -5,6 +5,7 @@ import {
   priceForUnit,
   toBaseQuantity,
 } from "@/utils/productUnits";
+import { calculateLineGst } from "./gst";
 
 function currency(value) {
   return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
@@ -19,20 +20,42 @@ export function customerNameError() {
   return null;
 }
 
-function lineAmounts({ quantity, price, discount, taxRate, totalCost }) {
-  const grossAmount = currency(quantity * price);
-  const discountAmount = currency(Math.min(grossAmount, Math.max(0, number(discount))));
-  const taxableAmount = currency(grossAmount - discountAmount);
-  const taxPercent = Math.max(0, Math.min(100, number(taxRate)));
-  const taxAmount = currency(taxableAmount * (taxPercent / 100));
+function lineAmounts({
+  quantity,
+  price,
+  discount,
+  taxRate,
+  totalCost,
+  taxMode,
+  shopStateCode,
+  customerStateCode,
+  exempted,
+}) {
+  const gst = calculateLineGst({
+    quantity,
+    unitPrice: price,
+    discount,
+    gstRate: taxRate,
+    taxMode,
+    shopStateCode,
+    customerStateCode,
+    exempted,
+  });
   return {
-    subtotal: taxableAmount,
-    discountAmount,
-    taxRate: taxPercent,
-    taxAmount,
-    totalAmount: currency(taxableAmount + taxAmount),
+    subtotal: gst.taxableValue,
+    taxableValue: gst.taxableValue,
+    discountAmount: gst.discountAmount,
+    taxRate: gst.taxRate,
+    gstRateAtSale: gst.taxRate,
+    taxModeAtSale: gst.taxMode,
+    taxAmount: gst.taxAmount,
+    gstAmount: gst.gstAmount,
+    cgstAmount: gst.cgstAmount,
+    sgstAmount: gst.sgstAmount,
+    igstAmount: gst.igstAmount,
+    totalAmount: gst.totalAmount,
     totalCost: currency(totalCost),
-    totalProfit: currency(taxableAmount - totalCost),
+    totalProfit: currency(gst.taxableValue - totalCost),
   };
 }
 
@@ -52,7 +75,11 @@ export function buildProductSaleLine(product, input) {
     throw new Error(`Not enough stock for ${product.title}`);
   }
 
-  const pricePerUnitAtSale = priceForUnit(product.selling_price, selectedUnit, product);
+  const quotedPrice = Number(input.unitPriceOverride);
+  const pricePerUnitAtSale =
+    Number.isFinite(quotedPrice) && quotedPrice >= 0
+      ? currency(quotedPrice)
+      : priceForUnit(product.selling_price, selectedUnit, product);
   const costPerBaseUnitAtSale = model.conversionRate
     ? currency(number(product.cost_price) / model.conversionRate)
     : currency(product.cost_price);
@@ -63,6 +90,10 @@ export function buildProductSaleLine(product, input) {
     discount: input.discount,
     taxRate: input.taxRate,
     totalCost,
+    taxMode: input.taxMode,
+    shopStateCode: input.shopStateCode,
+    customerStateCode: input.customerStateCode,
+    exempted: input.gstExempt ?? product.gst_exempt,
   });
 
   return {
@@ -119,6 +150,9 @@ export function buildManualSaleLine(input) {
       discount: input.discount,
       taxRate: input.taxRate,
       totalCost: 0,
+      taxMode: input.taxMode,
+      shopStateCode: input.shopStateCode,
+      customerStateCode: input.customerStateCode,
     }),
   };
 }

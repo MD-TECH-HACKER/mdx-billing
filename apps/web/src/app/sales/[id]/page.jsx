@@ -19,7 +19,7 @@ import ToastHost, { showToast } from "@/components/Toast";
 import { formatMoney } from "@/utils/currency";
 import { inrAmountInWords } from "@/utils/amountInWords";
 import { buildInvoicePdfBlob } from "@/utils/invoicePdf";
-import { Tabs } from "@/components/ui";
+import { ConfirmDialog, Tabs } from "@/components/ui";
 import { getProductUnitLabel } from "@/utils/productUnits";
 import { shopHeaders } from "@/utils/shopContext";
 
@@ -31,6 +31,7 @@ export default function ReceiptPage(props) {
   const navigate = useNavigate();
   const [printMode, setPrintMode] = useState("color"); // "color" | "bw"
   const [paperSize, setPaperSize] = useState("a4"); // "a4" | "thermal"
+  const [confirmEmailResend, setConfirmEmailResend] = useState(false);
 
   useEffect(() => {
     if (publicMode) return;
@@ -247,7 +248,10 @@ export default function ReceiptPage(props) {
             {!publicMode && sale.customer_email ? (
               <button
                 onClick={() => {
-                  if (sale.receipt_email_sent && !window.confirm("Receipt already emailed. Send again?")) return;
+                  if (sale.receipt_email_sent) {
+                    setConfirmEmailResend(true);
+                    return;
+                  }
                   emailReceipt.mutate();
                 }}
                 disabled={emailReceipt.isPending}
@@ -264,6 +268,18 @@ export default function ReceiptPage(props) {
             ) : null}
           </div>
         </div>
+        <ConfirmDialog
+          open={confirmEmailResend}
+          title="Receipt already sent"
+          message={`This receipt was already sent to ${sale.customer_email}. Do you want to send it again?`}
+          confirmText="Send Again"
+          cancelText="Cancel"
+          onClose={() => setConfirmEmailResend(false)}
+          onConfirm={() => {
+            setConfirmEmailResend(false);
+            emailReceipt.mutate();
+          }}
+        />
         {!publicMode && sale.publicReceiptUrl ? (
           <div className="no-print mb-4 rounded-2xl t-card px-4 py-3 text-xs t-muted flex flex-wrap items-center justify-between gap-2">
             <div>

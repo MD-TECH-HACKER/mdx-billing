@@ -13,6 +13,7 @@ import {
   buildManualSaleLine,
   buildProductSaleLine,
 } from "@/app/api/utils/saleLines";
+import { allocateFifoBatches } from "@/app/api/utils/productBatches";
 import { isValidEmail, normalizeEmail } from "@/app/api/utils/email";
 import {
   markReceiptEmailError,
@@ -46,7 +47,7 @@ export async function GET(request) {
     const sort = url.searchParams.get("sort") || "newest";
     const columns = canAccess(context.role, "analytics.profit")
       ? "*"
-      : "sale_id, shop_id, customer_id, receipt_number, buyer_name, buyer_phone, customer_email, items, total_amount, total_quantity, tax_amount, discount_amount, paid_amount, due_date, payment_status, payment_method, notes, sale_status, currency_snapshot, receipt_email_sent, receipt_email_sent_at, receipt_email_error, email_message_id, created_at, updated_at";
+      : "sale_id, shop_id, customer_id, receipt_number, buyer_name, buyer_phone, customer_email, customer_gstin, billing_address, place_of_supply, customer_state_code, invoice_type, items, total_amount, total_quantity, tax_amount, discount_amount, taxable_amount, cgst_amount, sgst_amount, igst_amount, paid_amount, due_date, payment_status, payment_method, notes, sale_status, currency_snapshot, receipt_email_sent, receipt_email_sent_at, receipt_email_error, email_message_id, created_at, updated_at";
     let query = `SELECT ${columns} FROM sales WHERE shop_id = $1`;
     const values = [context.shopId];
 
@@ -152,12 +153,36 @@ export async function POST(request) {
     const buyerName = String(body.buyerName || "").trim().slice(0, 100);
     const buyerPhone = String(body.buyerPhone || "").trim().slice(0, 50) || null;
     const buyerEmail = normalizeEmail(body.customerEmail ?? body.buyerEmail);
+    const invoiceType = ["invoice", "gst_invoice", "receipt"].includes(body.invoiceType)
+      ? body.invoiceType
+      : "invoice";
+    const customerGstin = String(body.customerGstin || "").trim().toUpperCase().slice(0, 20) || null;
+    const billingAddress = String(body.billingAddress || "").trim().slice(0, 500) || null;
+    const placeOfSupply = String(body.placeOfSupply || "").trim().slice(0, 100) || null;
+    const customerStateCode = String(body.customerStateCode || "").trim().slice(0, 2) || null;
+    const shopStateCode = String(context.shop.state_code || "").trim().slice(0, 2) || null;
     if (buyerEmail && !isValidEmail(buyerEmail)) {
       return Response.json({ error: "Enter a valid customer email" }, { status: 400 });
     }
     const items = Array.isArray(body.items) ? body.items : [];
     if (items.length === 0) {
       return Response.json({ error: "Add at least one product or manual bill item." }, { status: 400 });
+    }
+    const sourceEstimateId = Number.parseInt(body.sourceEstimateId, 10);
+    let sourceEstimate = null;
+    if (Number.isInteger(sourceEstimateId) && sourceEstimateId > 0) {
+      const estimates = await sql`
+        SELECT estimate_id, estimate_number, status
+        FROM estimates
+        WHERE estimate_id = ${sourceEstimateId}
+          AND shop_id = ${context.shopId}
+          AND status = 'draft'
+        LIMIT 1
+      `;
+      sourceEstimate = estimates[0] || null;
+      if (!sourceEstimate) {
+        return Response.json({ error: "Estimate is not available for conversion" }, { status: 409 });
+      }
     }
 
     const checkoutSessionId = String(body.checkoutSessionId || "").trim() || null;
@@ -180,6 +205,7 @@ export async function POST(request) {
       ),
     ];
     let productMap = {};
+    let productBatches = {};
     if (productIds.length) {
       const placeholders = productIds.map((_, index) => `$${index + 2}`).join(",");
       const products = await sql(
@@ -187,24 +213,74 @@ export async function POST(request) {
         [context.shopId, ...productIds],
       );
       productMap = Object.fromEntries(products.map((product) => [product.product_id, product]));
+      const batchPlaceholders = productIds.map((_, index) => `$${index + 2}`).join(",");
+      const batches = await sql(
+        `SELECT * FROM product_batches
+         WHERE shop_id = $1 AND product_id IN (${batchPlaceholders})
+           AND quantity_remaining_base_unit > 0
+         ORDER BY purchase_date ASC, batch_id ASC`,
+        [context.shopId, ...productIds],
+      );
+      productBatches = batches.reduce((acc, batch) => {
+        acc[batch.product_id] = acc[batch.product_id] || [];
+        acc[batch.product_id].push(batch);
+        return acc;
+      }, {});
     }
 
     const lineItems = [];
+    const batchRequests = [];
     for (const item of items) {
       const productId = Number.parseInt(item.productId, 10);
       if (Number.isInteger(productId) && productId > 0) {
         const product = productMap[productId];
         if (!product) return Response.json({ error: "Product not found" }, { status: 400 });
+        const line = buildProductSaleLine(product, {
+          quantity: item.quantity,
+          selectedUnit: item.selectedUnit,
+          unitPriceOverride: sourceEstimate ? item.unitPriceOverride : undefined,
+          discount: item.discount,
+          taxRate: item.taxRate ?? product.gst_rate ?? product.tax_rate,
+          taxMode: item.taxMode || product.tax_mode || context.shop.tax_mode || "exclusive",
+          shopStateCode,
+          customerStateCode,
+        });
+        const pricePerBaseUnit =
+          line.quantityBaseUnit > 0
+            ? money((line.pricePerUnitAtSale * line.quantity) / line.quantityBaseUnit)
+            : line.pricePerUnitAtSale;
+        const allocation = allocateFifoBatches({
+          quantityBaseUnit: line.quantityBaseUnit,
+          sellingPricePerBaseUnit: pricePerBaseUnit,
+          batches: productBatches[productId] || [],
+          product,
+        });
+        line.batchId = allocation.allocations[0]?.batchId || null;
+        line.batchAllocations = allocation.allocations;
+        line.costPerBaseUnitAtSale = line.quantityBaseUnit > 0
+          ? money(allocation.totalCost / line.quantityBaseUnit)
+          : 0;
+        line.costPrice = line.costPerBaseUnitAtSale;
+        line.totalCost = allocation.totalCost;
+        line.totalProfit = money(line.subtotal - allocation.totalCost);
+        line.marginPercent = line.subtotal > 0 ? money((line.totalProfit / line.subtotal) * 100) : 0;
+        allocation.allocations.forEach((batch) => {
+          batchRequests.push({
+            batchId: batch.batchId,
+            productId,
+            quantityBaseUnit: batch.quantityBaseUnit,
+          });
+        });
+        lineItems.push(line);
+      } else {
         lineItems.push(
-          buildProductSaleLine(product, {
-            quantity: item.quantity,
-            selectedUnit: item.selectedUnit,
-            discount: item.discount,
-            taxRate: item.taxRate ?? product.tax_rate,
+          buildManualSaleLine({
+            ...item,
+            taxMode: item.taxMode || context.shop.tax_mode || "exclusive",
+            shopStateCode,
+            customerStateCode,
           }),
         );
-      } else {
-        lineItems.push(buildManualSaleLine(item));
       }
     }
 
@@ -227,6 +303,9 @@ export async function POST(request) {
 
     const lineSubtotal = money(lineItems.reduce((sum, item) => sum + item.subtotal, 0));
     const itemTax = money(lineItems.reduce((sum, item) => sum + item.taxAmount, 0));
+    const cgstAmount = money(lineItems.reduce((sum, item) => sum + Number(item.cgstAmount || 0), 0));
+    const sgstAmount = money(lineItems.reduce((sum, item) => sum + Number(item.sgstAmount || 0), 0));
+    const igstAmount = money(lineItems.reduce((sum, item) => sum + Number(item.igstAmount || 0), 0));
     const usesItemTax = lineItems.some((item) => item.taxRate > 0);
     const totalCost = money(lineItems.reduce((sum, item) => sum + item.totalCost, 0));
     const invoice = calculateInvoiceTotals(
@@ -251,18 +330,21 @@ export async function POST(request) {
     const receiptNumber = `${context.shop.receipt_prefix || "INV"}-${Date.now()}`;
     const shopSnapshot = JSON.stringify({
       shop_name: context.shop.shop_name,
+      business_legal_name: context.shop.business_legal_name || null,
       shop_description: context.shop.shop_description || null,
       shop_logo: context.shop.shop_logo || null,
-      address: context.shop.address || null,
+      address: context.shop.business_address || context.shop.address || null,
       phone: context.shop.phone || null,
       email: context.shop.email || null,
       gstin: context.shop.gstin || null,
+      state: context.shop.state || null,
+      state_code: context.shop.state_code || null,
       thank_you_message: context.shop.thank_you_message || null,
       default_terms: context.shop.default_terms || null,
       receipt_prefix: context.shop.receipt_prefix || null,
       receipt_size: context.shop.receipt_size || "a4",
       print_mode: context.shop.print_mode || "color",
-      default_invoice_type: context.shop.default_invoice_type || "tax_invoice",
+      default_invoice_type: invoiceType,
     });
     const stockRequests = JSON.stringify(
       [...requiredByProduct].map(([productId, quantityBaseUnit]) => ({
@@ -272,7 +354,9 @@ export async function POST(request) {
       })),
     );
     const linesJson = JSON.stringify(lineItems);
+    const batchRequestsJson = JSON.stringify(batchRequests);
     const productLineCount = requiredByProduct.size;
+    const batchLineCount = batchRequests.length;
 
     const saleRows = await sql`
       WITH requested AS (
@@ -296,20 +380,51 @@ export async function POST(request) {
         RETURNING product.product_id, requested.product_name, requested.quantity_base_unit,
           COALESCE(product.stock_base_unit, product.stock) AS new_stock_base_unit
       ),
+      requested_batches AS (
+        SELECT item."batchId" AS batch_id, item."productId" AS product_id,
+          item."quantityBaseUnit" AS quantity_base_unit
+        FROM jsonb_to_recordset(${batchRequestsJson}::jsonb)
+          AS item("batchId" BIGINT, "productId" INTEGER, "quantityBaseUnit" NUMERIC)
+      ),
+      decremented_batches AS (
+        UPDATE product_batches batch
+        SET
+          quantity_remaining_base_unit = batch.quantity_remaining_base_unit - requested_batches.quantity_base_unit,
+          quantity_remaining = CASE
+            WHEN batch.conversion_rate_snapshot > 0 AND batch.unit = batch.primary_unit_snapshot
+              THEN (batch.quantity_remaining_base_unit - requested_batches.quantity_base_unit) / batch.conversion_rate_snapshot
+            ELSE batch.quantity_remaining_base_unit - requested_batches.quantity_base_unit
+          END,
+          updated_at = NOW()
+        FROM requested_batches
+        WHERE batch.batch_id = requested_batches.batch_id
+          AND batch.shop_id = ${context.shopId}
+          AND batch.product_id = requested_batches.product_id
+          AND batch.quantity_remaining_base_unit >= requested_batches.quantity_base_unit
+        RETURNING batch.batch_id
+      ),
       verified AS (
-        SELECT 1 / CASE WHEN COUNT(*) = ${productLineCount} THEN 1 ELSE 0 END AS ok
-        FROM decremented
+        SELECT 1 / CASE
+          WHEN (SELECT COUNT(*) FROM decremented) = ${productLineCount}
+           AND (SELECT COUNT(*) FROM decremented_batches) = ${batchLineCount}
+          THEN 1 ELSE 0 END AS ok
       ),
       created_sale AS (
         INSERT INTO sales
           (owner_id, shop_id, customer_id, receipt_number, buyer_name, buyer_phone, customer_email, items,
            total_amount, total_cost, total_profit, total_quantity, tax_amount, discount_amount,
+           invoice_type, customer_gstin, billing_address, place_of_supply, customer_state_code,
+           taxable_amount, cgst_amount, sgst_amount, igst_amount, gst_breakdown,
            paid_amount, due_date, payment_status, payment_method, notes, sale_status,
            currency_snapshot, tax_percent_snapshot, shop_snapshot, checkout_session_id)
         SELECT
           ${context.shopOwnerId}, ${context.shopId}, ${customer?.customer_id || null}, ${receiptNumber},
           ${displayBuyerName}, ${displayBuyerPhone}, ${displayBuyerEmail}, ${linesJson}::jsonb, ${grandTotal}, ${totalCost}, ${totalProfit},
-          ${totalQuantity}, ${taxAmount}, ${invoice.discountAmount}, ${paidAmount}, ${dueDate},
+          ${totalQuantity}, ${taxAmount}, ${invoice.discountAmount},
+          ${invoiceType}, ${customerGstin}, ${billingAddress}, ${placeOfSupply}, ${customerStateCode},
+          ${invoice.taxableAmount}, ${cgstAmount}, ${sgstAmount}, ${igstAmount},
+          ${JSON.stringify({ cgstAmount, sgstAmount, igstAmount, shopStateCode, customerStateCode })}::jsonb,
+          ${paidAmount}, ${dueDate},
           ${paymentStatus}, ${paymentMethod}, ${notes}, 'completed', ${context.shop.currency || "INR"},
           ${Number(context.shop.tax_percent) || 0}, ${shopSnapshot}::jsonb, ${checkoutSessionId}
         FROM verified WHERE verified.ok = 1
@@ -335,10 +450,20 @@ export async function POST(request) {
           ${paymentMethod}, 'received', 'Payment received at billing', ${context.userId}
         FROM created_sale WHERE ${paidAmount} > 0
         RETURNING payment_id
+      ),
+      converted_estimate AS (
+        UPDATE estimates estimate
+        SET status = 'converted', converted_sale_id = created_sale.sale_id, updated_at = NOW()
+        FROM created_sale
+        WHERE estimate.estimate_id = ${sourceEstimate?.estimate_id || null}
+          AND estimate.shop_id = ${context.shopId}
+          AND estimate.status = 'draft'
+        RETURNING estimate.estimate_id
       )
       SELECT created_sale.* FROM created_sale
       CROSS JOIN (SELECT COUNT(*) FROM recorded_movements) movements
       CROSS JOIN (SELECT COUNT(*) FROM initial_payment) payments
+      CROSS JOIN (SELECT COUNT(*) FROM converted_estimate) converted
     `;
     const sale = saleRows[0];
     await writeAuditEvent(context, "sale.create", "sale", sale.sale_id, {
@@ -346,6 +471,7 @@ export async function POST(request) {
       totalAmount: grandTotal,
       balanceAmount: money(grandTotal - paidAmount),
       itemCount: lineItems.length,
+      sourceEstimateId: sourceEstimate?.estimate_id || null,
     });
     const receiptEmail = { attempted: false, sent: false };
     if (context.shop.send_receipt_email && displayBuyerEmail) {

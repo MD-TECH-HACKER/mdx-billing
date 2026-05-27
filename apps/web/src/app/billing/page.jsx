@@ -21,8 +21,20 @@ const PAYMENT_METHODS = [
   { value: "credit", label: "Credit" },
   { value: "upi", label: "UPI" },
   { value: "bank", label: "Bank" },
+  { value: "card", label: "Card" },
+];
+const BILLING_TYPES = [
+  { value: "invoice", label: "Invoice", help: "Normal sale invoice, stock reduces" },
+  { value: "gst_invoice", label: "GST Invoice", help: "Tax invoice with GST split" },
+  { value: "estimate", label: "Estimate / Quotation", help: "Quote only, no stock out" },
+  { value: "receipt", label: "Receipt", help: "Simple paid or balance receipt" },
 ];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeBillingType(value) {
+  if (value === "tax_invoice") return "gst_invoice";
+  return BILLING_TYPES.some((type) => type.value === value) ? value : "invoice";
+}
 
 function lineId() {
   return typeof crypto !== "undefined" && crypto.randomUUID
@@ -67,9 +79,16 @@ export default function BillingPage() {
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [customerGstin, setCustomerGstin] = useState("");
+  const [billingAddress, setBillingAddress] = useState("");
+  const [customerStateCode, setCustomerStateCode] = useState("");
+  const [placeOfSupply, setPlaceOfSupply] = useState("");
   const [customerId, setCustomerId] = useState("");
+  const [billingType, setBillingType] = useState("invoice");
+  const [pendingBillingType, setPendingBillingType] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [receivedAmount, setReceivedAmount] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [discountAmount, setDiscountAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [itemsError, setItemsError] = useState("");
@@ -90,6 +109,8 @@ export default function BillingPage() {
 
   useEffect(() => {
     setPaymentMethod(shop?.default_payment_method || "cash");
+    const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    setBillingType(normalizeBillingType(params?.get("type") || shop?.default_invoice_type || "invoice"));
   }, [shop?.shop_id]);
 
   const customersQuery = useQuery({
@@ -134,15 +155,34 @@ export default function BillingPage() {
             ? priceForUnit(product?.selling_price, line.selectedUnit, product)
             : Math.max(0, Number(line.price) || 0);
         const discount = Math.min(quantity * price, Math.max(0, Number(line.discount) || 0));
-        const taxable = quantity * price - discount;
+        const grossAfterDiscount = quantity * price - discount;
         const taxRate = Math.max(0, Math.min(100, Number(line.taxRate) || 0));
-        const tax = taxable * taxRate / 100;
+        const taxMode =
+          billingType === "gst_invoice"
+            ? line.product?.tax_mode || shop?.tax_mode || "exclusive"
+            : "exclusive";
+        const taxable =
+          taxMode === "inclusive" && taxRate > 0
+            ? grossAfterDiscount / (1 + taxRate / 100)
+            : grossAfterDiscount;
+        const tax =
+          taxMode === "inclusive" && taxRate > 0
+            ? grossAfterDiscount - taxable
+            : taxable * taxRate / 100;
         return { ...line, product, quantity, price, discount, taxable, tax, total: taxable + tax };
       }),
-    [items, products],
+    [items, products, billingType, shop?.tax_mode],
   );
   const subtotal = calculated.reduce((total, item) => total + item.taxable, 0);
   const taxTotal = calculated.reduce((total, item) => total + item.tax, 0);
+  const isInterState =
+    billingType === "gst_invoice" &&
+    shop?.state_code &&
+    customerStateCode &&
+    String(shop.state_code).trim() !== String(customerStateCode).trim();
+  const cgstTotal = billingType === "gst_invoice" && !isInterState ? taxTotal / 2 : 0;
+  const sgstTotal = billingType === "gst_invoice" && !isInterState ? taxTotal / 2 : 0;
+  const igstTotal = billingType === "gst_invoice" && isInterState ? taxTotal : 0;
   const billDiscount = Math.min(subtotal, Math.max(0, Number(discountAmount) || 0));
   const totalAmount = Math.max(0, subtotal - billDiscount + taxTotal);
   const defaultReceived = paymentMethod === "credit" ? 0 : totalAmount;
@@ -187,6 +227,14 @@ export default function BillingPage() {
     setAddOpen(false);
     setItemsError("");
   };
+  const requestBillingType = (nextType) => {
+    if (nextType === billingType) return;
+    if (calculated.length > 0) {
+      setPendingBillingType(nextType);
+      return;
+    }
+    setBillingType(nextType);
+  };
 
   const save = async (saveAndNew) => {
     if (!calculated.length) {
@@ -206,16 +254,23 @@ export default function BillingPage() {
     setSubmitting(true);
     try {
       const checkoutSessionId = lineId();
-      const response = await fetch("/api/sales", {
+      const endpoint = billingType === "estimate" ? "/api/estimates" : "/api/sales";
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: shopHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
+          invoiceType: billingType,
           buyerName: customerName,
           buyerPhone: phone,
           customerEmail: cleanCustomerEmail,
+          customerGstin,
+          billingAddress,
+          customerStateCode,
+          placeOfSupply,
           customerId: customerId || null,
           paymentMethod,
           receivedAmount: received,
+          dueDate,
           discountAmount: billDiscount,
           notes,
           checkoutSessionId,
@@ -227,6 +282,7 @@ export default function BillingPage() {
                   selectedUnit: line.selectedUnit,
                   discount: line.discount,
                   taxRate: line.taxRate,
+                  taxMode: billingType === "gst_invoice" ? (line.product?.tax_mode || shop?.tax_mode || "exclusive") : "exclusive",
                 }
               : {
                   name: line.name,
@@ -236,18 +292,22 @@ export default function BillingPage() {
                   price: line.price,
                   discount: line.discount,
                   taxRate: line.taxRate,
+                  taxMode: billingType === "gst_invoice" ? (shop?.tax_mode || "exclusive") : "exclusive",
                 },
           ),
         }),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || "Could not save invoice");
+      if (!response.ok) throw new Error(result.error || "Could not save bill");
       clearCart();
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["estimates"] });
       qc.invalidateQueries({ queryKey: ["customers"] });
       qc.invalidateQueries({ queryKey: ["analytics"] });
-      if (result.receiptEmail?.sent) {
+      if (billingType === "estimate") {
+        showToast("Estimate saved. Stock was not reduced.");
+      } else if (result.receiptEmail?.sent) {
         showToast("Receipt created and emailed to customer.");
       } else if (result.receiptEmail?.attempted) {
         showToast("Receipt created, but email could not be sent.", "info");
@@ -259,10 +319,17 @@ export default function BillingPage() {
         setCustomerName("");
         setPhone("");
         setCustomerEmail("");
+        setCustomerGstin("");
+        setBillingAddress("");
+        setCustomerStateCode("");
+        setPlaceOfSupply("");
         setCustomerId("");
         setReceivedAmount("");
+        setDueDate("");
         setDiscountAmount("");
         setNotes("");
+      } else if (billingType === "estimate") {
+        navigate("/estimate");
       } else {
         navigate(`/sales/${result.sale.sale_id}`);
       }
@@ -286,6 +353,26 @@ export default function BillingPage() {
         <h1 className="t-text text-2xl md:text-3xl font-bold font-poppins">Billing</h1>
         <p className="t-muted text-sm">Create product or manual invoices with payment balance tracking.</p>
       </div>
+      <Card className="mb-4">
+        <div className="flex flex-wrap gap-2">
+          {BILLING_TYPES.map((type) => {
+            const active = billingType === type.value;
+            return (
+              <button
+                key={type.value}
+                type="button"
+                onClick={() => requestBillingType(type.value)}
+                className={`flex-1 min-w-[140px] rounded-2xl px-3 py-3 text-left border transition ${
+                  active ? "t-accent-soft border-[rgba(var(--accent-rgb),0.35)]" : "t-elev t-border hover:bg-[var(--bg-elev)]"
+                }`}
+              >
+                <div className="t-text text-sm font-bold">{type.label}</div>
+                <div className="t-dim text-[10px] mt-0.5">{type.help}</div>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
       <Card className="mb-4">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <SummaryField label="Invoice No." value={invoiceNo} />
@@ -335,10 +422,36 @@ export default function BillingPage() {
             <label className="block t-muted text-xs mb-1">Customer Email Optional</label>
             <Input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} placeholder="Optional customer email" />
           </div>
+          {billingType === "gst_invoice" ? (
+            <>
+              <div>
+                <label className="block t-muted text-xs mb-1">Customer GSTIN optional</label>
+                <Input value={customerGstin} onChange={(event) => setCustomerGstin(event.target.value)} placeholder="Customer GSTIN" />
+              </div>
+              <div>
+                <label className="block t-muted text-xs mb-1">Customer state code</label>
+                <Input value={customerStateCode} onChange={(event) => setCustomerStateCode(event.target.value)} placeholder={shop?.state_code || "State code"} />
+              </div>
+              <div>
+                <label className="block t-muted text-xs mb-1">Place of supply</label>
+                <Input value={placeOfSupply} onChange={(event) => setPlaceOfSupply(event.target.value)} placeholder="Place of supply" />
+              </div>
+              <div>
+                <label className="block t-muted text-xs mb-1">Billing address</label>
+                <Input value={billingAddress} onChange={(event) => setBillingAddress(event.target.value)} placeholder="Billing address" />
+              </div>
+            </>
+          ) : null}
           <div>
             <label className="block t-muted text-xs mb-1">Invoice discount</label>
             <Input type="number" min="0" step="0.01" value={discountAmount} onChange={(event) => setDiscountAmount(event.target.value)} />
           </div>
+          {paymentMethod === "credit" || balance > 0 ? (
+            <div>
+              <label className="block t-muted text-xs mb-1">Due date for credit sale</label>
+              <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+            </div>
+          ) : null}
         </div>
       </Card>
 
@@ -371,6 +484,13 @@ export default function BillingPage() {
             <Row label="Subtotal" value={fmt(subtotal)} />
             {billDiscount > 0 ? <Row label="Discount" value={`- ${fmt(billDiscount)}`} /> : null}
             <Row label="Tax total" value={fmt(taxTotal)} />
+            {billingType === "gst_invoice" ? (
+              <>
+                <Row label="CGST" value={fmt(cgstTotal)} />
+                <Row label="SGST" value={fmt(sgstTotal)} />
+                <Row label="IGST" value={fmt(igstTotal)} />
+              </>
+            ) : null}
             <Row strong label="Total Amount" value={fmt(totalAmount)} />
             <PillRow label="Payment Status" pill={paymentState} />
             <PillRow label="Receipt Email" pill={receiptEmailState} />
@@ -393,6 +513,25 @@ export default function BillingPage() {
         <Button variant="secondary" className="flex-1" disabled={submitting} onClick={() => save(true)}>Save & New</Button>
         <Button className="flex-1" disabled={submitting} onClick={() => save(false)}>Save</Button>
       </div>
+      <Modal open={!!pendingBillingType} onClose={() => setPendingBillingType(null)} title="Change billing type?">
+        <div className="space-y-4">
+          <p className="t-muted text-sm">
+            Changing type can change tax and stock behavior. Estimate will not reduce stock until converted.
+          </p>
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={() => setPendingBillingType(null)}>Cancel</Button>
+            <Button
+              className="flex-1"
+              onClick={() => {
+                setBillingType(pendingBillingType);
+                setPendingBillingType(null);
+              }}
+            >
+              Continue
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add Item">
         <div className="space-y-4">

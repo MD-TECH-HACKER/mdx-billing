@@ -20,9 +20,10 @@ export async function GET(request) {
     const url = new URL(request.url);
     const search = url.searchParams.get("search");
     const category = url.searchParams.get("category");
+    const categoryId = Number.parseInt(url.searchParams.get("categoryId"), 10);
     const columns = canAccess(context.role, "analytics.profit")
       ? "*"
-      : "product_id, shop_id, image_url, title, description, selling_price, stock, stock_base_unit, opening_stock_base_unit, sold_base_unit, low_stock_base_unit, category, sku, primary_unit, secondary_unit, conversion_rate, hsn_sac, tax_rate, created_at, updated_at";
+      : "product_id, shop_id, image_url, title, description, selling_price, stock, stock_base_unit, opening_stock_base_unit, sold_base_unit, low_stock_base_unit, category, category_id, category_name_snapshot, sku, primary_unit, secondary_unit, conversion_rate, hsn_sac, tax_rate, gst_rate, tax_mode, gst_exempt, cess_rate, reverse_charge, product_status, product_created_at, supplier_id, created_at, updated_at";
     let query = `SELECT ${columns} FROM products WHERE shop_id = $1`;
     const values = [context.shopId];
 
@@ -33,6 +34,10 @@ export async function GET(request) {
     if (category && category !== "all") {
       values.push(category);
       query += ` AND category = $${values.length}`;
+    }
+    if (Number.isInteger(categoryId) && categoryId > 0) {
+      values.push(categoryId);
+      query += ` AND category_id = $${values.length}`;
     }
     query += " ORDER BY created_at DESC";
 
@@ -64,6 +69,19 @@ export async function POST(request) {
     const openingStock = Math.max(0, Number(body.openingStock ?? body.stock) || 0);
     const category =
       (body.category || "").toString().trim().slice(0, 50) || null;
+    const categoryId = Number.isInteger(Number.parseInt(body.categoryId, 10))
+      ? Number.parseInt(body.categoryId, 10)
+      : null;
+    let categoryNameSnapshot = category;
+    if (categoryId) {
+      const categoryRows = await sql`
+        SELECT category_id, name FROM categories
+        WHERE category_id = ${categoryId} AND shop_id = ${context.shopId}
+        LIMIT 1
+      `;
+      if (!categoryRows[0]) return Response.json({ error: "Category not found" }, { status: 400 });
+      categoryNameSnapshot = categoryRows[0].name;
+    }
     const sku = (body.sku || "").toString().trim().slice(0, 50) || null;
     const primaryUnit = sanitizeProductUnit(body.primaryUnit, {
       fallback: "piece",
@@ -84,7 +102,12 @@ export async function POST(request) {
     const lowStock = Math.max(0, Number(body.lowStockAlertQuantity ?? body.reorderLevel) || 0);
     const lowStockBaseUnit = toBaseQuantity(lowStock, primaryUnit, unitModel);
     const hsnSac = (body.hsnSac || "").toString().trim().slice(0, 30) || null;
-    const taxRate = Math.max(0, Math.min(100, Number(body.taxRate) || 0));
+    const taxRate = Math.max(0, Math.min(100, Number(body.taxRate ?? body.gstRate) || 0));
+    const taxMode = ["inclusive", "exclusive"].includes(body.taxMode) ? body.taxMode : "exclusive";
+    const gstExempt = !!body.gstExempt;
+    const cessRate = Math.max(0, Math.min(100, Number(body.cessRate) || 0));
+    const reverseCharge = !!body.reverseCharge;
+    const productStatus = ["active", "inactive"].includes(body.productStatus) ? body.productStatus : "active";
     const supplierId = Number.isInteger(Number.parseInt(body.supplierId, 10))
       ? Number.parseInt(body.supplierId, 10)
       : null;
@@ -101,11 +124,15 @@ export async function POST(request) {
       INSERT INTO products
         (owner_id, shop_id, image_url, title, description, selling_price, cost_price, stock,
          opening_stock_base_unit, stock_base_unit, sold_base_unit, low_stock_base_unit,
-         category, sku, primary_unit, secondary_unit, conversion_rate, hsn_sac, tax_rate, supplier_id)
+         category, category_id, category_name_snapshot, sku, primary_unit, secondary_unit, conversion_rate,
+         hsn_sac, tax_rate, gst_rate, tax_mode, gst_exempt, cess_rate, reverse_charge, product_status,
+         supplier_id, product_created_at)
       VALUES
         (${context.shopOwnerId}, ${context.shopId}, ${imageUrl}, ${title}, ${description}, ${sellingPrice}, ${costPrice}, ${openingStock},
          ${openingStockBaseUnit}, ${openingStockBaseUnit}, 0, ${lowStockBaseUnit},
-         ${category}, ${sku}, ${primaryUnit}, ${conversionRate ? secondaryUnit : null}, ${conversionRate}, ${hsnSac}, ${taxRate}, ${supplierId})
+         ${categoryNameSnapshot}, ${categoryId}, ${categoryNameSnapshot}, ${sku}, ${primaryUnit}, ${conversionRate ? secondaryUnit : null}, ${conversionRate},
+         ${hsnSac}, ${taxRate}, ${taxRate}, ${taxMode}, ${gstExempt}, ${cessRate}, ${reverseCharge}, ${productStatus},
+         ${supplierId}, NOW())
       RETURNING *
     `;
     if (conversionRate) {
@@ -119,15 +146,38 @@ export async function POST(request) {
       `;
     }
     if (openingStockBaseUnit > 0) {
+      const costPriceBaseUnit = conversionRate ? costPrice / conversionRate : costPrice;
+      const supplierRows = supplierId
+        ? await sql`
+            SELECT name FROM suppliers
+            WHERE supplier_id = ${supplierId} AND shop_id = ${context.shopId}
+            LIMIT 1
+          `
+        : [];
+      const batchRows = await sql`
+        INSERT INTO product_batches
+          (product_id, shop_id, owner_id, product_name_snapshot, purchase_date,
+           quantity_purchased, quantity_remaining, quantity_purchased_base_unit, quantity_remaining_base_unit,
+           unit, primary_unit_snapshot, secondary_unit_snapshot, conversion_rate_snapshot,
+           cost_price, cost_price_base_unit, selling_price, supplier_id, supplier_name_snapshot,
+           purchase_invoice_no, notes, source, created_by)
+        VALUES
+          (${created[0].product_id}, ${context.shopId}, ${context.shopOwnerId}, ${title}, NOW(),
+           ${openingStock}, ${openingStock}, ${openingStockBaseUnit}, ${openingStockBaseUnit},
+           ${primaryUnit}, ${primaryUnit}, ${conversionRate ? secondaryUnit : null}, ${conversionRate},
+           ${costPrice}, ${costPriceBaseUnit}, ${sellingPrice}, ${supplierId}, ${supplierRows[0]?.name || null},
+           NULL, 'Opening stock batch', 'opening_stock', ${context.userId})
+        RETURNING batch_id
+      `;
       await sql`
         INSERT INTO stock_movements
           (shop_id, product_id, product_name_snapshot, movement_type, quantity_change,
-           quantity_base_unit, display_quantity, unit, old_stock_base_unit, new_stock_base_unit,
-           reason, owner_id, created_by)
+           quantity_base_unit, display_quantity, unit, batch_id, old_stock_base_unit, new_stock_base_unit,
+           cost_price_snapshot, selling_price_snapshot, movement_date, reason, owner_id, created_by)
         VALUES
           (${context.shopId}, ${created[0].product_id}, ${title}, 'opening_stock', ${openingStockBaseUnit},
-           ${openingStockBaseUnit}, ${openingStock}, ${primaryUnit}, 0, ${openingStockBaseUnit},
-           'Opening stock', ${context.shopOwnerId}, ${context.userId})
+           ${openingStockBaseUnit}, ${openingStock}, ${primaryUnit}, ${batchRows[0]?.batch_id || null}, 0, ${openingStockBaseUnit},
+           ${costPrice}, ${sellingPrice}, NOW(), 'Opening stock', ${context.shopOwnerId}, ${context.userId})
       `;
     }
     await writeAuditEvent(

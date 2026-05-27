@@ -6,6 +6,7 @@ import {
   requireShopAccess,
   writeAuditEvent,
 } from "@/app/api/utils/shopAccess";
+import { isValidEmail, normalizeEmail } from "@/app/api/utils/email";
 
 function parseId(value) {
   const id = Number.parseInt(value, 10);
@@ -22,15 +23,42 @@ export async function PUT(request, { params }) {
     const name = (body.name || "").toString().trim().slice(0, 120);
     if (!name) return Response.json({ error: "Supplier name is required" }, { status: 400 });
     const phone = (body.phone || "").toString().trim().slice(0, 50) || null;
-    const email = (body.email || "").toString().trim().slice(0, 254) || null;
+    const email = normalizeEmail(body.email) || null;
+    if (email && !isValidEmail(email)) {
+      return Response.json({ error: "Enter a valid supplier email" }, { status: 400 });
+    }
     const gstin = (body.gstin || "").toString().trim().toUpperCase().slice(0, 20) || null;
     const address = (body.address || "").toString().trim().slice(0, 400) || null;
     const openingBalance = Number(body.openingBalance) || 0;
+    const upiId = (body.upiId || "").toString().trim().slice(0, 120) || null;
+    const qrImageUrl = (body.qrImageUrl || "").toString().trim().slice(0, 1000) || null;
+    const customFields = Array.isArray(body.customFields)
+      ? body.customFields
+          .map((field) => ({
+            key: String(field?.key || "").trim().slice(0, 60),
+            value: String(field?.value || "").trim().slice(0, 200),
+          }))
+          .filter((field) => field.key && field.value)
+          .slice(0, 25)
+      : [];
+    const dueDate = String(body.dueDate || "").slice(0, 10) || null;
     const notes = (body.notes || "").toString().trim().slice(0, 500) || null;
+    const duplicate = await sql`
+      SELECT supplier_id FROM suppliers
+      WHERE shop_id = ${context.shopId} AND supplier_id <> ${id} AND is_deleted = FALSE
+        AND LOWER(name) = LOWER(${name})
+        AND COALESCE(phone, '') = COALESCE(${phone}, '')
+      LIMIT 1
+    `;
+    if (duplicate[0]) {
+      return Response.json({ error: "Supplier already exists" }, { status: 409 });
+    }
     const rows = await sql`
       UPDATE suppliers
       SET name = ${name}, phone = ${phone}, email = ${email}, gstin = ${gstin},
-          address = ${address}, opening_balance = ${openingBalance}, notes = ${notes}, updated_at = NOW()
+          address = ${address}, opening_balance = ${openingBalance}, upi_id = ${upiId},
+          qr_image_url = ${qrImageUrl}, custom_fields = ${JSON.stringify(customFields)}::jsonb,
+          due_date = ${dueDate}, notes = ${notes}, updated_at = NOW()
       WHERE supplier_id = ${id} AND shop_id = ${context.shopId} AND is_deleted = FALSE
       RETURNING *
     `;

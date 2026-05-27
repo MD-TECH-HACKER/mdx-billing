@@ -8,7 +8,6 @@ import {
 import { canAccess } from "@/app/api/utils/permissions";
 import { ensureBusinessFeatureSchema } from "@/app/api/utils/businessSchema";
 import {
-  getStockBaseQuantity,
   sanitizeConversionRate,
   sanitizeProductUnit,
   toBaseQuantity,
@@ -46,13 +45,35 @@ export async function GET(request, { params }) {
 
     const columns = canAccess(context.role, "analytics.profit")
       ? "*"
-      : "product_id, shop_id, image_url, title, description, selling_price, stock, stock_base_unit, opening_stock_base_unit, sold_base_unit, low_stock_base_unit, category, sku, primary_unit, secondary_unit, conversion_rate, hsn_sac, tax_rate, created_at, updated_at";
+      : "product_id, shop_id, image_url, title, description, selling_price, stock, stock_base_unit, opening_stock_base_unit, sold_base_unit, low_stock_base_unit, category, category_id, category_name_snapshot, sku, primary_unit, secondary_unit, conversion_rate, hsn_sac, tax_rate, gst_rate, tax_mode, gst_exempt, cess_rate, reverse_charge, product_status, product_created_at, supplier_id, created_at, updated_at";
     const rows = await sql(
       `SELECT ${columns} FROM products WHERE product_id = $1 AND shop_id = $2 LIMIT 1`,
       [id, context.shopId],
     );
     if (!rows[0]) return Response.json({ error: "Not found" }, { status: 404 });
-    return Response.json({ product: rows[0] });
+    const [batches, movements] = await sql.transaction([
+      sql`
+        SELECT batch_id, product_name_snapshot, purchase_date, quantity_purchased,
+          quantity_remaining, quantity_purchased_base_unit, quantity_remaining_base_unit,
+          unit, cost_price, cost_price_base_unit, selling_price, supplier_id,
+          supplier_name_snapshot, purchase_invoice_no, notes, source, created_at
+        FROM product_batches
+        WHERE product_id = ${id} AND shop_id = ${context.shopId}
+        ORDER BY purchase_date DESC, batch_id DESC
+        LIMIT 100
+      `,
+      sql`
+        SELECT movement_id, movement_type, quantity_change, quantity_base_unit,
+          display_quantity, unit, batch_id, old_stock_base_unit, new_stock_base_unit,
+          cost_price_snapshot, selling_price_snapshot, reason, related_sale_id,
+          related_purchase_id, created_at
+        FROM stock_movements
+        WHERE product_id = ${id} AND shop_id = ${context.shopId}
+        ORDER BY created_at DESC
+        LIMIT 100
+      `,
+    ]);
+    return Response.json({ product: rows[0], batches, stockMovements: movements });
   } catch (error) {
     if (error instanceof AccessError) return accessErrorResponse(error);
     console.error("GET /api/products/[id]", error);
@@ -87,17 +108,40 @@ export async function PUT(request, { params }) {
     if (typeof body.description === "string")
       fields.description = body.description.trim().slice(0, 1000) || null;
     if (typeof body.imageUrl === "string") fields.image_url = body.imageUrl.trim() || null;
-    if (body.sellingPrice !== undefined)
-      fields.selling_price = Math.max(0, Number(body.sellingPrice) || 0);
-    if (body.costPrice !== undefined)
-      fields.cost_price = Math.max(0, Number(body.costPrice) || 0);
     if (typeof body.category === "string")
       fields.category = body.category.trim().slice(0, 50) || null;
+    if (body.categoryId !== undefined) {
+      const categoryId = Number.parseInt(body.categoryId, 10) || null;
+      if (categoryId) {
+        const category = await sql`
+          SELECT category_id, name FROM categories
+          WHERE category_id = ${categoryId} AND shop_id = ${context.shopId}
+          LIMIT 1
+        `;
+        if (!category[0]) return Response.json({ error: "Category not found" }, { status: 400 });
+        fields.category_id = categoryId;
+        fields.category = category[0].name;
+        fields.category_name_snapshot = category[0].name;
+      } else {
+        fields.category_id = null;
+        fields.category_name_snapshot = fields.category || null;
+      }
+    }
     if (typeof body.sku === "string") fields.sku = body.sku.trim().slice(0, 50) || null;
     if (typeof body.hsnSac === "string")
       fields.hsn_sac = body.hsnSac.trim().slice(0, 30) || null;
-    if (body.taxRate !== undefined)
-      fields.tax_rate = Math.max(0, Math.min(100, Number(body.taxRate) || 0));
+    if (body.taxRate !== undefined || body.gstRate !== undefined) {
+      fields.tax_rate = Math.max(0, Math.min(100, Number(body.taxRate ?? body.gstRate) || 0));
+      fields.gst_rate = fields.tax_rate;
+    }
+    if (typeof body.taxMode === "string")
+      fields.tax_mode = ["inclusive", "exclusive"].includes(body.taxMode) ? body.taxMode : "exclusive";
+    if (body.gstExempt !== undefined) fields.gst_exempt = !!body.gstExempt;
+    if (body.cessRate !== undefined)
+      fields.cess_rate = Math.max(0, Math.min(100, Number(body.cessRate) || 0));
+    if (body.reverseCharge !== undefined) fields.reverse_charge = !!body.reverseCharge;
+    if (typeof body.productStatus === "string")
+      fields.product_status = ["active", "inactive"].includes(body.productStatus) ? body.productStatus : "active";
     if (body.supplierId !== undefined)
       fields.supplier_id = Number.parseInt(body.supplierId, 10) || null;
     if (fields.supplier_id) {
@@ -119,13 +163,6 @@ export async function PUT(request, { params }) {
       fields.conversion_rate = nextUnits.conversion_rate;
     }
 
-    const currentDisplayStock = Math.max(0, Number(current.stock) || 0);
-    if (body.stock !== undefined || changesUnitModel) {
-      const displayStock =
-        body.stock !== undefined ? Math.max(0, Number(body.stock) || 0) : currentDisplayStock;
-      fields.stock = displayStock;
-      fields.stock_base_unit = toBaseQuantity(displayStock, nextUnits.primary_unit, nextUnits);
-    }
     if (body.lowStockAlertQuantity !== undefined || body.reorderLevel !== undefined) {
       const displayAlert = Math.max(
         0,
@@ -148,32 +185,12 @@ export async function PUT(request, { params }) {
     const keys = Object.keys(fields);
     if (keys.length === 0) return Response.json({ error: "No fields" }, { status: 400 });
 
-    const oldStockBase = getStockBaseQuantity(current);
     const values = keys.map((key) => fields[key]);
     values.push(id, context.shopId);
     const setClauses = keys.map((key, index) => `${key} = $${index + 1}`);
     const query = `UPDATE products SET ${setClauses.join(", ")}, updated_at = NOW() WHERE product_id = $${keys.length + 1} AND shop_id = $${keys.length + 2} RETURNING *`;
     const result = await sql(query, values);
     const product = result[0];
-
-    if (fields.stock_base_unit !== undefined) {
-      const newStockBase = getStockBaseQuantity(product);
-      const stockDiff = newStockBase - oldStockBase;
-      if (stockDiff !== 0) {
-        const reason = String(body.stockReason || "Manual stock adjustment").slice(0, 200);
-        await sql`
-          INSERT INTO stock_movements
-            (shop_id, product_id, product_name_snapshot, movement_type, quantity_change,
-             quantity_base_unit, display_quantity, unit, old_stock_base_unit, new_stock_base_unit,
-             reason, reference_type, reference_id, owner_id, created_by)
-          VALUES
-            (${context.shopId}, ${id}, ${product.title}, 'manual_adjustment', ${stockDiff},
-             ${stockDiff}, ${Math.abs(Number(product.stock) - currentDisplayStock)}, ${nextUnits.primary_unit},
-             ${oldStockBase}, ${newStockBase}, ${reason}, 'product_edit', ${String(id)},
-             ${context.shopOwnerId}, ${context.userId})
-        `;
-      }
-    }
 
     if (changesUnitModel || body.primaryUnit !== undefined || body.secondaryUnit !== undefined) {
       await sql`

@@ -17,6 +17,7 @@ import {
   Wallet,
   ShieldCheck,
   LogOut,
+  FileText,
   Menu,
   X,
   Store,
@@ -37,6 +38,7 @@ const NAV = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard", roles: ["owner", "manager"] },
   { label: "Products", icon: Package, href: "/products", roles: ["owner", "manager"] },
   { label: "Billing", icon: ShoppingCart, href: "/billing" },
+  { label: "Estimate", icon: FileText, href: "/estimate", roles: ["owner", "manager"] },
   { label: "Sales", icon: Receipt, href: "/sales" },
   { label: "Customers", icon: ContactRound, href: "/customers" },
   { label: "Suppliers", icon: Truck, href: "/suppliers", roles: ["owner", "manager"] },
@@ -339,7 +341,7 @@ export default function DashboardShell({
 
         {/* Main */}
         <main
-          className={`min-w-0 min-h-screen pb-28 lg:pb-8 transition-all duration-300 ${
+          className={`min-w-0 max-w-full overflow-x-clip min-h-screen pb-32 lg:pb-8 transition-all duration-300 ${
             collapsed
               ? "lg:ml-24 lg:w-[calc(100%-6rem)]"
               : "lg:ml-64 lg:w-[calc(100%-16rem)]"
@@ -451,7 +453,7 @@ export default function DashboardShell({
             </div>
           </header>
 
-          <div className="px-3 md:px-6 mt-2">
+          <div className="px-3 md:px-6 mt-2 max-w-full min-w-0">
             {roleDenied ? (
               <Card className="max-w-xl mx-auto text-center py-10">
                 <ShieldCheck className="w-12 h-12 t-dim2 mx-auto mb-3" />
@@ -469,8 +471,8 @@ export default function DashboardShell({
       </div>
 
       {/* Mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-3 left-3 right-3 z-30 no-print">
-        <div className="t-card px-2 py-2 flex items-center justify-around">
+      <nav className="lg:hidden fixed bottom-3 left-3 right-3 z-30 no-print" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <div className="t-card px-2 py-2 flex items-center justify-start gap-1 overflow-x-auto max-w-full">
           {availableNav.slice(0, 5).map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
@@ -478,7 +480,7 @@ export default function DashboardShell({
               <Link
                 key={item.href}
                 to={item.href}
-                className="relative flex flex-col items-center gap-0.5 px-2.5 py-1 rounded-xl"
+                className="relative flex flex-col items-center gap-0.5 px-2.5 py-1 rounded-xl min-w-[64px]"
                 style={
                   active
                     ? {

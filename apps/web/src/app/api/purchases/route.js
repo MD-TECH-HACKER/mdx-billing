@@ -53,15 +53,17 @@ export async function POST(request) {
       return Response.json({ error: "Invalid product" }, { status: 400 });
     }
     let supplierId = null;
+    let supplierName = null;
     if (body.supplierId) {
       const candidate = Number.parseInt(body.supplierId, 10);
       const supplier = await sql`
-        SELECT supplier_id FROM suppliers
+        SELECT supplier_id, name FROM suppliers
         WHERE supplier_id = ${candidate} AND shop_id = ${context.shopId} AND is_deleted = FALSE
         LIMIT 1
       `;
       if (!supplier[0]) return Response.json({ error: "Supplier not found" }, { status: 400 });
       supplierId = candidate;
+      supplierName = supplier[0].name;
     }
     const placeholders = productIds.map((_, index) => `$${index + 2}`).join(",");
     const products = await sql(
@@ -96,6 +98,18 @@ export async function POST(request) {
         conversionRate && selectedUnit === product.secondary_unit
           ? money(unitCost * conversionRate)
           : money(unitCost);
+      const hasSellingInput =
+        String(item.sellingPrice ?? "").trim() !== "" && Number.isFinite(Number(item.sellingPrice));
+      const primaryUnitSelling = hasSellingInput
+        ? money(
+            conversionRate && selectedUnit === product.secondary_unit
+              ? Number(item.sellingPrice) * conversionRate
+              : Number(item.sellingPrice),
+          )
+        : Number(product.selling_price) || 0;
+      const costPriceBaseUnit = conversionRate
+        ? money(primaryUnitCost / conversionRate)
+        : primaryUnitCost;
       const lineTotal = money(quantity * unitCost);
       subtotal += lineTotal;
       purchaseItems.push({
@@ -108,6 +122,9 @@ export async function POST(request) {
         quantity,
         quantityBaseUnit,
         unitCost: money(unitCost),
+        primaryUnitCost,
+        costPriceBaseUnit,
+        sellingPrice: primaryUnitSelling,
         totalAmount: lineTotal,
       });
       const current = receivedByProduct.get(product.product_id) || {
@@ -132,6 +149,12 @@ export async function POST(request) {
       ? body.paymentMethod
       : "cash";
     const postedItems = JSON.stringify(purchaseItems);
+    const batchItems = JSON.stringify(
+      purchaseItems.map((item) => ({
+        ...item,
+        supplierName,
+      })),
+    );
     const receivedProducts = JSON.stringify([...receivedByProduct.values()]);
     const billNumber = String(body.billNumber || "").trim().slice(0, 60) || null;
     const purchaseDate = String(body.purchaseDate || "").slice(0, 10) || null;
@@ -166,12 +189,33 @@ export async function POST(request) {
       created_purchase AS (
         INSERT INTO purchases
           (shop_id, supplier_id, bill_number, purchase_date, items, subtotal, tax_amount,
-           total_amount, paid_amount, payment_status, notes, created_by)
+           total_amount, paid_amount, payment_status, notes, created_by, owner_id)
         SELECT ${context.shopId}, ${supplierId}, ${billNumber}, COALESCE(${purchaseDate}::date, CURRENT_DATE),
           ${postedItems}::jsonb, ${subtotal}, ${taxAmount}, ${totalAmount}, ${paidAmount},
-          ${paymentStatus}, ${notes}, ${context.userId}
+          ${paymentStatus}, ${notes}, ${context.userId}, ${context.shopOwnerId}
         FROM verified WHERE verified.ok = 1
         RETURNING *
+      ),
+      created_batches AS (
+        INSERT INTO product_batches
+          (product_id, shop_id, owner_id, product_name_snapshot, purchase_date,
+           quantity_purchased, quantity_remaining, quantity_purchased_base_unit, quantity_remaining_base_unit,
+           unit, primary_unit_snapshot, secondary_unit_snapshot, conversion_rate_snapshot,
+           cost_price, cost_price_base_unit, selling_price, supplier_id, supplier_name_snapshot,
+           purchase_invoice_no, notes, source, created_by)
+        SELECT item."productId", ${context.shopId}, ${context.shopOwnerId}, item."productNameSnapshot",
+          created_purchase.purchase_date::timestamp, item.quantity, item.quantity,
+          item."quantityBaseUnit", item."quantityBaseUnit", item."selectedUnit",
+          item."primaryUnitSnapshot", item."secondaryUnitSnapshot", item."conversionRateSnapshot",
+          item."primaryUnitCost", item."costPriceBaseUnit", item."sellingPrice",
+          ${supplierId}, item."supplierName", ${billNumber}, ${notes}, 'purchase', ${context.userId}
+        FROM created_purchase
+        CROSS JOIN LATERAL jsonb_to_recordset(${batchItems}::jsonb)
+          AS item("productId" INTEGER, "productNameSnapshot" TEXT, "selectedUnit" TEXT,
+            "primaryUnitSnapshot" TEXT, "secondaryUnitSnapshot" TEXT, "conversionRateSnapshot" NUMERIC,
+            quantity NUMERIC, "quantityBaseUnit" NUMERIC, "unitCost" NUMERIC, "primaryUnitCost" NUMERIC,
+            "costPriceBaseUnit" NUMERIC, "sellingPrice" NUMERIC, "supplierName" TEXT)
+        RETURNING batch_id
       ),
       movements AS (
         INSERT INTO stock_movements
@@ -195,6 +239,7 @@ export async function POST(request) {
         RETURNING payment_id
       )
       SELECT created_purchase.* FROM created_purchase
+      CROSS JOIN (SELECT COUNT(*) FROM created_batches) batch_count
       CROSS JOIN (SELECT COUNT(*) FROM movements) movement_count
       CROSS JOIN (SELECT COUNT(*) FROM payment) payment_count
     `;

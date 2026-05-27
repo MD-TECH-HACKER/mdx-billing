@@ -45,6 +45,34 @@ describe("billing sale lines", () => {
     });
   });
 
+  test("preserves quoted product unit price when an estimate is converted", () => {
+    const line = buildProductSaleLine(
+      {
+        product_id: 9,
+        title: "Paint",
+        primary_unit: "box",
+        selling_price: 650,
+        cost_price: 400,
+        stock_base_unit: 10,
+      },
+      {
+        quantity: 2,
+        selectedUnit: "box",
+        unitPriceOverride: 575,
+        discount: 0,
+        taxRate: 0,
+      },
+    );
+
+    expect(line).toMatchObject({
+      productId: 9,
+      pricePerUnitAtSale: 575,
+      totalAmount: 1150,
+      totalCost: 800,
+      totalProfit: 350,
+    });
+  });
+
   test("creates manual invoice lines without product stock consumption", () => {
     expect(
       buildManualSaleLine({

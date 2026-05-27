@@ -11,6 +11,8 @@
   }
   html {
     background: var(--bg-page, #0f0c29);
+    width: 100%;
+    max-width: 100%;
   }
 
   body {
@@ -18,6 +20,10 @@
     line-height: 0;
     background: var(--bg-page, #0f0c29);
     background-attachment: fixed;
+    width: 100%;
+    max-width: 100%;
+    min-height: 100vh;
+    overflow-x: clip;
   }
   body > * {
     font-size: 1rem;
@@ -27,6 +33,22 @@
   #root {
     background: transparent;
     min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
   }
 
   html::-webkit-scrollbar,
@@ -44,4 +66,35 @@
 
 .mdx-route-loader {
   background: var(--bg-page, #0f0c29);
+}
+
+.responsive-table,
+.responsive-chart,
+.scroll-card {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .t-card,
+  .t-card-strong {
+    max-width: 100%;
+  }
+
+  table {
+    max-width: 100%;
+  }
+
+  .recharts-wrapper,
+  .recharts-surface {
+    max-width: 100% !important;
+  }
 }

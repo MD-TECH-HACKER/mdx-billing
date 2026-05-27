@@ -76,7 +76,7 @@ import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
 import { formatMoney } from "@/utils/currency";
 import { formatStockQuantity, getStockBaseQuantity } from "@/utils/productUnits";
-import { Card, Skeleton, Button, Badge } from "@/components/ui";
+import { Card, Skeleton, Button, Badge, Select } from "@/components/ui";
 import { shopHeaders } from "@/utils/shopContext";
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -906,6 +906,15 @@ function ExpenseRow({ category, total, maxTotal, currency, color, index = 0 }) {
 /* ═══════════════════════════════════════════════════════════════════════
  * GLOBAL ANIMATION KEYFRAMES
  * ═══════════════════════════════════════════════════════════════════════ */
+function MiniMetric({ label, value }) {
+  return (
+    <div className="rounded-2xl t-elev px-3 py-3 min-w-0">
+      <div className="t-dim text-[10px] font-semibold uppercase tracking-wide truncate">{label}</div>
+      <div className="t-text text-sm font-bold truncate mt-1">{value}</div>
+    </div>
+  );
+}
+
 const animationStyles = `
 @keyframes fadeInUp {
   from {
@@ -941,6 +950,7 @@ export default function AnalyticsPage() {
   const { data: user } = useUser();
   const { shop } = useShop({ enabled: !!user });
   const [activeTab, setActiveTab] = useState("overview");
+  const [selectedProductId, setSelectedProductId] = useState("");
 
   const query = useQuery({
     queryKey: ["analytics", shop?.shop_id],
@@ -987,6 +997,24 @@ export default function AnalyticsPage() {
   );
 
   const productAnalytics = useMemo(() => data?.productAnalytics || [], [data]);
+  const productOptions = useMemo(
+    () => [
+      { value: "", label: "Select product for analytics" },
+      ...products.map((product) => ({
+        value: String(product.product_id),
+        label: product.title,
+      })),
+    ],
+    [products],
+  );
+  const selectedProduct = useMemo(
+    () => products.find((product) => String(product.product_id) === selectedProductId) || null,
+    [products, selectedProductId],
+  );
+  const selectedProductAnalytics = useMemo(
+    () => productAnalytics.find((product) => String(product.productId) === selectedProductId) || null,
+    [productAnalytics, selectedProductId],
+  );
 
   const expensesByCategory = useMemo(
     () =>
@@ -1261,6 +1289,35 @@ export default function AnalyticsPage() {
 
 
       {/* ═══════════════════════════════════════════════════════════════════
+       * PRODUCT ANALYTICS SELECTOR
+       */}
+      <Card className="mb-5">
+        <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+          <div className="flex-1 min-w-0">
+            <h2 className="t-text text-lg font-bold">Product Analytics</h2>
+            <p className="t-muted text-sm">
+              Select one product to view stock, sold quantity, revenue, cost and margin from snapshots.
+            </p>
+          </div>
+          <div className="w-full lg:w-80">
+            <Select value={selectedProductId} onChange={setSelectedProductId} options={productOptions} />
+          </div>
+        </div>
+        {selectedProduct ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+            <MiniMetric label="Opening stock" value={formatStockQuantity(Number(selectedProduct.opening_stock_base_unit) || 0, selectedProduct)} />
+            <MiniMetric label="Remaining stock" value={formatStockQuantity(getStockBaseQuantity(selectedProduct), selectedProduct)} />
+            <MiniMetric label="Sold stock" value={formatStockQuantity(Number(selectedProduct.sold_base_unit) || 0, selectedProduct)} />
+            <MiniMetric label="Revenue" value={fmt(selectedProductAnalytics?.revenue || 0)} />
+            <MiniMetric label="Cost" value={fmt(selectedProductAnalytics?.cost || 0)} />
+            <MiniMetric label="Gross profit" value={fmt(selectedProductAnalytics?.profit || 0)} />
+            <MiniMetric label="Margin" value={`${Number(selectedProductAnalytics?.margin || 0).toFixed(1)}%`} />
+            <MiniMetric label="Average selling" value={fmt(selectedProductAnalytics?.sellingPrice || selectedProduct.selling_price || 0)} />
+          </div>
+        ) : null}
+      </Card>
+
+      {/*
        * SECTION 1: KPI STAT CARDS (8 cards in 4-column grid)
        * ═══════════════════════════════════════════════════════════════════ */}
       <div
