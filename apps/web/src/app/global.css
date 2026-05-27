@@ -83,6 +83,31 @@
   min-width: 0;
 }
 
+.dashboard-card,
+.dash-chart-grid > *,
+.dash-bottom-grid > *,
+.dash-analytics-grid > *,
+.dash-summary-grid > *,
+.dash-perf-grid > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dash-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.product-category-strip {
+  min-width: 0;
+}
+
+.product-category-chip {
+  min-height: 46px;
+  flex-shrink: 0;
+}
+
 @media (max-width: 640px) {
   .t-card,
   .t-card-strong {

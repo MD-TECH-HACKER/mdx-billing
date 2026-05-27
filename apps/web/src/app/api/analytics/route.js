@@ -6,19 +6,28 @@ import {
 } from "@/app/api/utils/shopAccess";
 import { ensureBusinessFeatureSchema } from "@/app/api/utils/businessSchema";
 import { formatStockQuantity, getStockBaseQuantity } from "@/utils/productUnits";
+import { normalizeChartPeriod } from "@/utils/dashboardPeriods";
 
 export async function GET(request) {
   try {
     const context = await requireShopAccess(request, "analytics.read");
     await ensureBusinessFeatureSchema();
     const shopId = context.shopId;
+    const chartPeriod = normalizeChartPeriod(new URL(request.url).searchParams.get("period"));
+    const salesTrendQuery = chartPeriod === "year"
+      ? sql`SELECT date_trunc('month', created_at) AS day, SUM(total_amount) AS revenue, SUM(total_profit) AS profit FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= date_trunc('year', CURRENT_DATE) GROUP BY day ORDER BY day ASC`
+      : chartPeriod === "quarter"
+        ? sql`SELECT date_trunc('month', created_at) AS day, SUM(total_amount) AS revenue, SUM(total_profit) AS profit FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= date_trunc('quarter', CURRENT_DATE) GROUP BY day ORDER BY day ASC`
+        : chartPeriod === "month"
+          ? sql`SELECT date_trunc('day', created_at) AS day, SUM(total_amount) AS revenue, SUM(total_profit) AS profit FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= date_trunc('month', CURRENT_DATE) GROUP BY day ORDER BY day ASC`
+          : sql`SELECT date_trunc('day', created_at) AS day, SUM(total_amount) AS revenue, SUM(total_profit) AS profit FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= CURRENT_DATE - INTERVAL '6 days' GROUP BY day ORDER BY day ASC`;
     const [products, sales, todaySales, monthSales, salesByDay, expenseSummary, expensesByCategory, purchasesMonth, customerDue, supplierDue, saleCollections] =
       await sql.transaction([
         sql`SELECT product_id, title, image_url, selling_price, cost_price, stock, stock_base_unit, sold_base_unit, low_stock_base_unit, primary_unit, secondary_unit, conversion_rate, category FROM products WHERE shop_id = ${shopId}`,
         sql`SELECT sale_id, receipt_number, items, total_amount, total_cost, total_profit, total_quantity, created_at FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') ORDER BY created_at DESC`,
         sql`SELECT COALESCE(SUM(total_amount),0) AS total, COALESCE(SUM(total_profit),0) AS profit, COUNT(*) AS count FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= CURRENT_DATE`,
         sql`SELECT COALESCE(SUM(total_amount),0) AS total, COALESCE(SUM(total_profit),0) AS profit, COUNT(*) AS count FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= date_trunc('month', CURRENT_DATE)`,
-        sql`SELECT date_trunc('day', created_at) AS day, SUM(total_amount) AS revenue, SUM(total_profit) AS profit FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= CURRENT_DATE - INTERVAL '30 days' GROUP BY day ORDER BY day ASC`,
+        salesTrendQuery,
         sql`SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS count FROM expenses WHERE shop_id = ${shopId} AND expense_date >= date_trunc('month', CURRENT_DATE)::date`,
         sql`SELECT category, SUM(amount) AS total FROM expenses WHERE shop_id = ${shopId} AND expense_date >= date_trunc('month', CURRENT_DATE)::date GROUP BY category ORDER BY total DESC`,
         sql`SELECT COALESCE(SUM(total_amount),0) AS total, COUNT(*) AS count FROM purchases WHERE shop_id = ${shopId} AND purchase_date >= date_trunc('month', CURRENT_DATE)::date`,
@@ -232,6 +241,7 @@ export async function GET(request) {
         name,
         count,
       })),
+      chartPeriod,
       salesByDay,
       expensesByCategory,
       productAnalytics,

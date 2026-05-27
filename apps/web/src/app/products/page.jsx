@@ -37,6 +37,7 @@ import {
   formatStockQuantity,
   getProductUnitLabel,
   getStockBaseQuantity,
+  priceForUnit,
   PRODUCT_UNITS,
 } from "@/utils/productUnits";
 import { shopHeaders } from "@/utils/shopContext";
@@ -221,6 +222,22 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [creatingRelated, setCreatingRelated] = useState(false);
+  const primaryUnitLabel = form.primaryUnit || "piece";
+  const unitPriceModel = {
+    primaryUnit: primaryUnitLabel,
+    secondaryUnit: form.secondaryUnit || "",
+    conversionRate: Number(form.conversionRate) || null,
+  };
+  const conversionEnabled = !!unitPriceModel.secondaryUnit && Number(unitPriceModel.conversionRate) > 0;
+  const secondaryCostPrice = conversionEnabled
+    ? priceForUnit(form.costPrice, unitPriceModel.secondaryUnit, unitPriceModel)
+    : 0;
+  const secondarySellingPrice = conversionEnabled
+    ? priceForUnit(form.sellingPrice, unitPriceModel.secondaryUnit, unitPriceModel)
+    : 0;
+  const openingStockQuantity = Math.max(0, Number(form.stock) || 0);
+  const openingCostValue = openingStockQuantity * Math.max(0, Number(form.costPrice) || 0);
+  const expectedSalesValue = openingStockQuantity * Math.max(0, Number(form.sellingPrice) || 0);
 
   useEffect(() => {
     if (initial) {
@@ -503,7 +520,7 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
         {!initial ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block t-muted text-xs mb-1">Opening stock</label>
+              <label className="block t-muted text-xs mb-1">Opening stock ({primaryUnitLabel})</label>
               <Input
                 type="number"
                 step="0.001"
@@ -513,7 +530,7 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
               />
             </div>
             <div>
-              <label className="block t-muted text-xs mb-1">Cost price</label>
+              <label className="block t-muted text-xs mb-1">Cost price / 1 {primaryUnitLabel}</label>
               <Input
                 type="number"
                 step="0.01"
@@ -523,7 +540,7 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
               />
             </div>
             <div>
-              <label className="block t-muted text-xs mb-1">Selling price</label>
+              <label className="block t-muted text-xs mb-1">Selling price / 1 {primaryUnitLabel}</label>
               <Input
                 type="number"
                 step="0.01"
@@ -602,6 +619,41 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
                 1 {form.primaryUnit} = {form.conversionRate} {form.secondaryUnit}
               </div>
             ) : null}
+          </div>
+        ) : null}
+        {!initial ? (
+          <div className="rounded-2xl t-elev border t-border p-3 text-xs space-y-2">
+            <div className="t-text font-semibold">Price calculation</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="rounded-xl t-card px-3 py-2 flex justify-between gap-3">
+                <span className="t-muted">Cost / 1 {primaryUnitLabel}</span>
+                <span className="t-text font-semibold">{formatMoney(form.costPrice || 0, shop?.currency || "INR")}</span>
+              </div>
+              <div className="rounded-xl t-card px-3 py-2 flex justify-between gap-3">
+                <span className="t-muted">Sell / 1 {primaryUnitLabel}</span>
+                <span className="t-text font-semibold">{formatMoney(form.sellingPrice || 0, shop?.currency || "INR")}</span>
+              </div>
+              {conversionEnabled ? (
+                <>
+                  <div className="rounded-xl t-card px-3 py-2 flex justify-between gap-3">
+                    <span className="t-muted">Secondary cost price / 1 {unitPriceModel.secondaryUnit}</span>
+                    <span className="t-text font-semibold">{formatMoney(secondaryCostPrice, shop?.currency || "INR")}</span>
+                  </div>
+                  <div className="rounded-xl t-card px-3 py-2 flex justify-between gap-3">
+                    <span className="t-muted">Secondary selling price / 1 {unitPriceModel.secondaryUnit}</span>
+                    <span className="t-text font-semibold">{formatMoney(secondarySellingPrice, shop?.currency || "INR")}</span>
+                  </div>
+                </>
+              ) : null}
+              <div className="rounded-xl t-card px-3 py-2 flex justify-between gap-3">
+                <span className="t-muted">Opening stock cost value</span>
+                <span className="t-text font-semibold">{formatMoney(openingCostValue, shop?.currency || "INR")}</span>
+              </div>
+              <div className="rounded-xl t-accent-soft px-3 py-2 flex justify-between gap-3">
+                <span>Expected sales value</span>
+                <span className="font-semibold">{formatMoney(expectedSalesValue, shop?.currency || "INR")}</span>
+              </div>
+            </div>
           </div>
         ) : null}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1416,31 +1468,42 @@ export default function ProductsPage() {
               placeholder="Search products by name or description..."
             />
           </div>
-          <div className="mb-4 overflow-x-auto pb-1">
+          <div className="product-category-strip scroll-card mb-4 pb-1">
             <div className="flex gap-2 min-w-max">
               <button
                 type="button"
                 onClick={() => setSelectedCategoryId("all")}
-                className={`rounded-2xl border t-border px-4 py-3 text-left min-w-[140px] ${
+                className={`product-category-chip rounded-xl border t-border px-2.5 py-2 text-left min-w-[112px] ${
                   selectedCategoryId === "all" ? "t-accent-soft" : "t-card hover:bg-[var(--bg-elev)]"
                 }`}
               >
-                <div className="t-text text-sm font-semibold">All Products</div>
-                <div className="t-dim text-xs">{productsQuery.data?.products?.length || 0} shown</div>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="h-7 w-7 shrink-0 rounded-lg t-accent-soft flex items-center justify-center">
+                    <Package className="h-3.5 w-3.5 t-accent-text" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block t-text text-xs font-semibold truncate">All Products</span>
+                    <span className="block t-dim text-[10px]">{productsQuery.data?.products?.length || 0} shown</span>
+                  </span>
+                </div>
               </button>
               {categories.map((category) => (
                 <button
                   type="button"
                   key={category.category_id}
                   onClick={() => setSelectedCategoryId(String(category.category_id))}
-                  className={`rounded-2xl border t-border px-4 py-3 text-left min-w-[160px] max-w-[220px] ${
+                  className={`product-category-chip rounded-xl border t-border px-2.5 py-2 text-left min-w-[112px] max-w-[158px] ${
                     selectedCategoryId === String(category.category_id) ? "t-accent-soft" : "t-card hover:bg-[var(--bg-elev)]"
                   }`}
                 >
-                  <div className="t-text text-sm font-semibold truncate">{category.name}</div>
-                  <div className="t-dim text-xs truncate">{category.product_count || 0} products</div>
-                  <div className="t-dim text-[10px] truncate">
-                    {formatMoney(category.stock_value || 0, currency)} stock value
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="h-7 w-7 shrink-0 rounded-lg t-accent-soft flex items-center justify-center">
+                      <Package className="h-3.5 w-3.5 t-accent-text" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block t-text text-xs font-semibold truncate">{category.name}</span>
+                      <span className="block t-dim text-[10px] truncate">{category.product_count || 0} products</span>
+                    </span>
                   </div>
                 </button>
               ))}

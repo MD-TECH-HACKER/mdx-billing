@@ -75,6 +75,7 @@ import useProfile from "@/utils/useProfile";
 import { formatMoney } from "@/utils/currency";
 import { Card, Skeleton, Button, Badge } from "@/components/ui";
 import { shopHeaders } from "@/utils/shopContext";
+import { createEmptyTrendData, formatTrendLabel } from "@/utils/dashboardPeriods";
 
 /* ═══════════════════════════════════════════════════════════════════════
  * CONSTANTS & HELPERS
@@ -115,8 +116,6 @@ const CHART_COLORS = [
   "#06B6D4",
   "#F43F5E",
 ];
-
-const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 // Animation helper for counting up numbers
 function useCountUp(target, duration = 1200, enabled = true) {
@@ -435,7 +434,7 @@ function ChartCard({
   if (loading) {
     return (
       <div
-        className={className}
+        className={`dashboard-card ${className}`.trim()}
         style={{
           background: "var(--bg-surface)",
           border: "1px solid var(--border)",
@@ -443,6 +442,8 @@ function ChartCard({
           padding: "24px",
           boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02)",
           minHeight,
+          minWidth: 0,
+          maxWidth: "100%",
         }}
       >
         <div className="flex items-center justify-between mb-5">
@@ -456,7 +457,7 @@ function ChartCard({
 
   return (
     <div
-      className={className}
+      className={`dashboard-card ${className}`.trim()}
       style={{
         background: "var(--bg-surface)",
         border: "1px solid var(--border)",
@@ -465,6 +466,8 @@ function ChartCard({
         boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02)",
         minHeight,
         transition: "border-color 0.3s ease",
+        minWidth: 0,
+        maxWidth: "100%",
       }}
     >
       {title && (
@@ -537,7 +540,7 @@ function ChartCard({
           </div>
         </div>
       )}
-      <div style={{ padding: noPadding ? "0 24px 24px" : "0" }}>
+      <div style={{ padding: noPadding ? "0 24px 24px" : "0", minWidth: 0, maxWidth: "100%" }}>
         {children}
       </div>
     </div>
@@ -1411,9 +1414,9 @@ export default function DashboardPage() {
 
   /* ─── Data queries ──────────────────────────────────────────────── */
   const analyticsQuery = useQuery({
-    queryKey: ["analytics", shop?.shop_id],
+    queryKey: ["analytics", shop?.shop_id, chartPeriod],
     queryFn: async () => {
-      const res = await fetch("/api/analytics", { headers: shopHeaders() });
+      const res = await fetch(`/api/analytics?period=${chartPeriod}`, { headers: shopHeaders() });
       if (!res.ok) throw new Error("Failed to load");
       return res.json();
     },
@@ -1468,25 +1471,21 @@ export default function DashboardPage() {
     [allProducts],
   );
 
-  // Sales by day for chart
+  // Trend labels and aggregation follow the selected period returned by the API.
   const salesByDay = useMemo(
     () =>
       (analytics?.salesByDay || []).map((s) => ({
-        day: new Date(s.day).toLocaleDateString("en-IN", {
-          weekday: "short",
-        }),
+        day: formatTrendLabel(s.day, chartPeriod),
         revenue: Number(s.revenue),
         profit: Number(s.profit),
       })),
-    [analytics],
+    [analytics, chartPeriod],
   );
 
-  // Weekly sales data (last 7 days) for matching preview chart
-  const weeklyChartData = useMemo(() => {
-    if (salesByDay.length > 0) return salesByDay.slice(-7);
-    // Fallback placeholder for empty state
-    return DAYS_OF_WEEK.map((day) => ({ day, revenue: 0, profit: 0 }));
-  }, [salesByDay]);
+  const trendChartData = useMemo(
+    () => (salesByDay.length > 0 ? salesByDay : createEmptyTrendData(chartPeriod)),
+    [salesByDay, chartPeriod],
+  );
 
   // Top products by quantity sold
   const topProducts = useMemo(
@@ -1818,7 +1817,7 @@ export default function DashboardPage() {
       >
         <style>{`
           @media (max-width: 1200px) {
-            .dash-chart-grid { grid-template-columns: 1fr !important; }
+            .dash-chart-grid { grid-template-columns: minmax(0, 1fr) !important; }
           }
           .dash-chart-area { height: 320px; }
           @media (max-width: 1024px) { .dash-chart-area { height: 260px; } }
@@ -1836,7 +1835,7 @@ export default function DashboardPage() {
           minHeight="auto"
         >
           <div className="dash-chart-area" style={{ width: "100%" }}>
-            {weeklyChartData.every((d) => d.revenue === 0) ? (
+            {trendChartData.every((d) => d.revenue === 0) ? (
               <div
                 style={{
                   display: "flex",
@@ -1857,7 +1856,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <ResponsiveContainer>
-                <AreaChart data={weeklyChartData}>
+                <AreaChart data={trendChartData}>
                   <defs>
                     <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor={SUCCESS} stopOpacity={0.25} />
@@ -2042,7 +2041,7 @@ export default function DashboardPage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 380px",
+          gridTemplateColumns: "minmax(0, 1fr) minmax(280px, 380px)",
           gap: "16px",
           marginBottom: "24px",
         }}
@@ -2050,7 +2049,7 @@ export default function DashboardPage() {
       >
         <style>{`
           @media (max-width: 1200px) {
-            .dash-bottom-grid { grid-template-columns: 1fr !important; }
+            .dash-bottom-grid { grid-template-columns: minmax(0, 1fr) !important; }
           }
         `}</style>
 
@@ -2109,7 +2108,7 @@ export default function DashboardPage() {
               </Link>
             </div>
           ) : (
-            <div className="dash-table-scroll" style={{ overflowX: "auto" }}>
+            <div className="dash-table-scroll scroll-card">
               <table
                 className="dash-table"
                 style={{

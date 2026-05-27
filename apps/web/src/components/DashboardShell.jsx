@@ -473,7 +473,7 @@ export default function DashboardShell({
 
       {/* Mobile bottom nav */}
       <nav className="lg:hidden fixed bottom-3 left-3 right-3 z-30 no-print" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="t-card px-2 py-2 flex items-center justify-start gap-1 overflow-x-auto max-w-full">
+        <div className="t-card scroll-card px-2 py-2 flex items-center justify-start gap-1 max-w-full">
           {availableNav.slice(0, 5).map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
@@ -519,7 +519,7 @@ export default function DashboardShell({
         </div>
       </nav>
       {import.meta.env.DEV ? (
-        <div className="fixed right-3 bottom-24 z-[60] no-print max-w-[280px] rounded-2xl border t-border t-card p-3 text-[10px] t-muted shadow-xl">
+        <div className="hidden sm:block fixed right-3 bottom-24 z-[60] no-print max-w-[280px] rounded-2xl border t-border t-card p-3 text-[10px] t-muted shadow-xl">
           <div className="t-text font-bold text-xs mb-1">MDX Dev Debug</div>
           <div>route: {currentPath}</div>
           <div>uid: {user?.id || "none"}</div>
