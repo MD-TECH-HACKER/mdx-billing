@@ -168,10 +168,7 @@ const originalGetTransformOptions = config.transformer.getTransformOptions;
 config.transformer = {
   ...config.transformer,
   getTransformOptions: async (entryPoints, options) => {
-    if (options.dev === false) {
-      fs.rmSync(cacheDir, { recursive: true, force: true });
-      fs.mkdirSync(cacheDir);
-    }
+    // Avoid deleting cacheDir dynamically during active bundling as it causes ENOENT crashes in Metro's file-watcher and cache manager
     return await originalGetTransformOptions(entryPoints, options);
   },
 };

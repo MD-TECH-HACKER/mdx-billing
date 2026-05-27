@@ -1,5 +1,5 @@
 
-import { useAuth } from '@/utils/auth/useAuth';
+import { useAuth } from '../utils/auth/useAuth';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
