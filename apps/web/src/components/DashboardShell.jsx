@@ -39,6 +39,7 @@ const NAV = [
   { label: "Products", icon: Package, href: "/products", roles: ["owner", "manager"] },
   { label: "Billing", icon: ShoppingCart, href: "/billing" },
   { label: "Estimate", icon: FileText, href: "/estimate", roles: ["owner", "manager"] },
+  { label: "Stock Estimate", icon: FileText, href: "/stock-estimate", roles: ["owner", "manager"] },
   { label: "Sales", icon: Receipt, href: "/sales" },
   { label: "Customers", icon: ContactRound, href: "/customers" },
   { label: "Suppliers", icon: Truck, href: "/suppliers", roles: ["owner", "manager"] },

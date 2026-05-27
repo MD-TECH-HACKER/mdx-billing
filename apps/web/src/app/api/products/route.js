@@ -145,6 +145,7 @@ export async function POST(request) {
         DO UPDATE SET conversion_rate = EXCLUDED.conversion_rate, active = TRUE, updated_at = NOW()
       `;
     }
+    let openingBatchId = null;
     if (openingStockBaseUnit > 0) {
       const costPriceBaseUnit = conversionRate ? costPrice / conversionRate : costPrice;
       const supplierRows = supplierId
@@ -169,17 +170,18 @@ export async function POST(request) {
            NULL, 'Opening stock batch', 'opening_stock', ${context.userId})
         RETURNING batch_id
       `;
-      await sql`
-        INSERT INTO stock_movements
-          (shop_id, product_id, product_name_snapshot, movement_type, quantity_change,
-           quantity_base_unit, display_quantity, unit, batch_id, old_stock_base_unit, new_stock_base_unit,
-           cost_price_snapshot, selling_price_snapshot, movement_date, reason, owner_id, created_by)
-        VALUES
-          (${context.shopId}, ${created[0].product_id}, ${title}, 'opening_stock', ${openingStockBaseUnit},
-           ${openingStockBaseUnit}, ${openingStock}, ${primaryUnit}, ${batchRows[0]?.batch_id || null}, 0, ${openingStockBaseUnit},
-           ${costPrice}, ${sellingPrice}, NOW(), 'Opening stock', ${context.shopOwnerId}, ${context.userId})
-      `;
+      openingBatchId = batchRows[0]?.batch_id || null;
     }
+    await sql`
+      INSERT INTO stock_movements
+        (shop_id, product_id, product_name_snapshot, movement_type, quantity_change,
+         quantity_base_unit, display_quantity, unit, batch_id, old_stock_base_unit, new_stock_base_unit,
+         cost_price_snapshot, selling_price_snapshot, movement_date, reason, owner_id, created_by)
+      VALUES
+        (${context.shopId}, ${created[0].product_id}, ${title}, 'opening_stock', ${openingStockBaseUnit},
+         ${openingStockBaseUnit}, ${openingStock}, ${primaryUnit}, ${openingBatchId}, 0, ${openingStockBaseUnit},
+         ${costPrice}, ${sellingPrice}, NOW(), 'Opening stock', ${context.shopOwnerId}, ${context.userId})
+    `;
     await writeAuditEvent(
       context,
       "product.create",

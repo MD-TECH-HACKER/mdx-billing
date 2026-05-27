@@ -109,7 +109,7 @@ export async function PUT(request) {
         ? body.defaultInvoiceType
         : "invoice";
     if (typeof body.defaultPaymentMethod === "string")
-      fields.default_payment_method = ["cash", "credit", "upi", "bank"].includes(body.defaultPaymentMethod)
+      fields.default_payment_method = ["cash", "credit", "upi", "bank", "card"].includes(body.defaultPaymentMethod)
         ? body.defaultPaymentMethod
         : "cash";
     if (typeof body.defaultTerms === "string")

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { ArrowLeft, Loader2, Package, PackagePlus, Plus, Receipt, Trash2 } from "lucide-react";
 import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
@@ -42,7 +42,7 @@ function lineId() {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function productLine(item) {
+function productLine(item, quotedUnitPrice = null) {
   return {
     id: lineId(),
     type: "product",
@@ -52,6 +52,7 @@ function productLine(item) {
     selectedUnit: item.primary_unit || "piece",
     discount: "",
     taxRate: String(item.tax_rate || ""),
+    quotedUnitPrice,
   };
 }
 
@@ -75,6 +76,8 @@ export default function BillingPage() {
   const { cart } = useCart();
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
+  const hydratedEstimateId = useRef(null);
   const [items, setItems] = useState(() => cart.map(productLine));
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
@@ -89,6 +92,8 @@ export default function BillingPage() {
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [receivedAmount, setReceivedAmount] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [validUntil, setValidUntil] = useState("");
+  const [sourceEstimate, setSourceEstimate] = useState(null);
   const [discountAmount, setDiscountAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [itemsError, setItemsError] = useState("");
@@ -142,6 +147,47 @@ export default function BillingPage() {
     label: product.title,
   }));
 
+  useEffect(() => {
+    const estimate = location.state?.fromEstimate;
+    if (!estimate || !productsQuery.isFetched || hydratedEstimateId.current === estimate.estimate_id) return;
+    hydratedEstimateId.current = estimate.estimate_id;
+    setSourceEstimate(estimate);
+    setBillingType(normalizeBillingType(location.state?.targetType || "invoice"));
+    setCustomerName(estimate.customer_name || "");
+    setPhone(estimate.customer_phone || "");
+    setCustomerEmail(estimate.customer_email || "");
+    setCustomerGstin(estimate.customer_gstin || "");
+    setBillingAddress(estimate.billing_address || "");
+    setPlaceOfSupply(estimate.place_of_supply || "");
+    setDiscountAmount(String(estimate.discount_amount || ""));
+    setNotes(estimate.notes || "");
+    setValidUntil(estimate.valid_until ? String(estimate.valid_until).slice(0, 10) : "");
+    setItems(
+      (Array.isArray(estimate.items) ? estimate.items : []).map((item) => {
+        const product = products.find((record) => String(record.product_id) === String(item.productId));
+        if (product) {
+          return {
+            ...productLine(product, Number(item.pricePerUnitAtSale ?? item.unitPrice) || 0),
+            quantity: Number(item.quantity) || 1,
+            selectedUnit: item.selectedUnit || product.primary_unit || "piece",
+            discount: String(item.discountAmount || ""),
+            taxRate: String(item.gstRateAtSale ?? item.taxRate ?? ""),
+          };
+        }
+        return {
+          ...newManualLine(),
+          name: item.productNameSnapshot || item.title || "",
+          hsnSac: item.hsnSacSnapshot || "",
+          quantity: Number(item.quantity) || 1,
+          selectedUnit: item.selectedUnit || "pcs",
+          price: String(item.pricePerUnitAtSale ?? item.unitPrice ?? ""),
+          discount: String(item.discountAmount || ""),
+          taxRate: String(item.gstRateAtSale ?? item.taxRate ?? ""),
+        };
+      }),
+    );
+  }, [location.state, products, productsQuery.isFetched]);
+
   const calculated = useMemo(
     () =>
       items.map((line) => {
@@ -152,7 +198,9 @@ export default function BillingPage() {
         const quantity = Math.max(0, Number(line.quantity) || 0);
         const price =
           line.type === "product"
-            ? priceForUnit(product?.selling_price, line.selectedUnit, product)
+            ? line.quotedUnitPrice !== null && line.quotedUnitPrice !== undefined
+              ? Math.max(0, Number(line.quotedUnitPrice) || 0)
+              : priceForUnit(product?.selling_price, line.selectedUnit, product)
             : Math.max(0, Number(line.price) || 0);
         const discount = Math.min(quantity * price, Math.max(0, Number(line.discount) || 0));
         const grossAfterDiscount = quantity * price - discount;
@@ -271,6 +319,8 @@ export default function BillingPage() {
           paymentMethod,
           receivedAmount: received,
           dueDate,
+          validUntil,
+          sourceEstimateId: billingType === "estimate" ? null : sourceEstimate?.estimate_id || null,
           discountAmount: billDiscount,
           notes,
           checkoutSessionId,
@@ -326,8 +376,10 @@ export default function BillingPage() {
         setCustomerId("");
         setReceivedAmount("");
         setDueDate("");
+        setValidUntil("");
         setDiscountAmount("");
         setNotes("");
+        setSourceEstimate(null);
       } else if (billingType === "estimate") {
         navigate("/estimate");
       } else {
@@ -373,6 +425,25 @@ export default function BillingPage() {
           })}
         </div>
       </Card>
+      {sourceEstimate ? (
+        <Card className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="t-text text-sm font-semibold">
+              Converting estimate {sourceEstimate.estimate_number}
+            </div>
+            <div className="t-muted text-xs">
+              Quoted item prices are preserved. Stock reduces only after this bill is saved.
+            </div>
+          </div>
+          <Button variant="secondary" size="sm" onClick={() => {
+            setSourceEstimate(null);
+            hydratedEstimateId.current = null;
+            navigate("/billing", { replace: true });
+          }}>
+            Clear Estimate
+          </Button>
+        </Card>
+      ) : null}
       <Card className="mb-4">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <SummaryField label="Invoice No." value={invoiceNo} />
@@ -452,6 +523,12 @@ export default function BillingPage() {
               <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
             </div>
           ) : null}
+          {billingType === "estimate" ? (
+            <div>
+              <label className="block t-muted text-xs mb-1">Valid until date</label>
+              <Input type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
+            </div>
+          ) : null}
         </div>
       </Card>
 
@@ -503,7 +580,7 @@ export default function BillingPage() {
           <div className="hidden lg:flex gap-2 mt-4">
             <Button variant="secondary" className="flex-1" disabled={submitting} onClick={() => save(true)}>Save & New</Button>
             <Button className="flex-1" disabled={submitting} onClick={() => save(false)}>
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />} Save
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />} {billingType === "estimate" ? "Save Estimate" : "Save"}
             </Button>
           </div>
         </Card>
@@ -511,7 +588,7 @@ export default function BillingPage() {
 
       <div className="lg:hidden fixed bottom-20 left-3 right-3 z-20 t-card t-card-strong p-3 flex gap-2 no-print">
         <Button variant="secondary" className="flex-1" disabled={submitting} onClick={() => save(true)}>Save & New</Button>
-        <Button className="flex-1" disabled={submitting} onClick={() => save(false)}>Save</Button>
+        <Button className="flex-1" disabled={submitting} onClick={() => save(false)}>{billingType === "estimate" ? "Save Estimate" : "Save"}</Button>
       </div>
       <Modal open={!!pendingBillingType} onClose={() => setPendingBillingType(null)} title="Change billing type?">
         <div className="space-y-4">
@@ -584,7 +661,14 @@ function InvoiceLine({ line, currency, manualUnitOptions, update, remove }) {
       </div>
       <div className="min-w-0">
         <label className="block t-dim text-[10px] mb-1">Unit</label>
-        <Select value={line.selectedUnit} onChange={(value) => update(line.id, { selectedUnit: value })} options={unitOptions} />
+        <Select
+          value={line.selectedUnit}
+          onChange={(value) => update(line.id, {
+            selectedUnit: value,
+            quotedUnitPrice: value === line.selectedUnit ? line.quotedUnitPrice : null,
+          })}
+          options={unitOptions}
+        />
       </div>
       <div className="min-w-0">
         <label className="block t-dim text-[10px] mb-1">Price / Unit</label>

@@ -75,6 +75,7 @@ export async function GET(request) {
             profit: 0,
             cost: 0,
             soldByUnit: {},
+            batchAnalytics: {},
           };
         }
         const stat = productStats[item.productId];
@@ -84,6 +85,21 @@ export async function GET(request) {
         stat.profit += Number(item.totalProfit ?? ((item.unitPrice - item.costPrice) * item.quantity));
         const soldUnit = item.selectedUnit || item.primaryUnit || "piece";
         stat.soldByUnit[soldUnit] = (stat.soldByUnit[soldUnit] || 0) + Number(item.quantity);
+        (Array.isArray(item.batchAllocations) ? item.batchAllocations : []).forEach((batch) => {
+          const key = String(batch.batchId || "unassigned");
+          const batchStat = stat.batchAnalytics[key] || {
+            batchId: batch.batchId || null,
+            quantitySoldBaseUnit: 0,
+            revenue: 0,
+            cost: 0,
+            profit: 0,
+          };
+          batchStat.quantitySoldBaseUnit += Number(batch.quantityBaseUnit || 0);
+          batchStat.cost += Number(batch.totalCost || 0);
+          batchStat.profit += Number(batch.profitAmount || 0);
+          batchStat.revenue = batchStat.cost + batchStat.profit;
+          stat.batchAnalytics[key] = batchStat;
+        });
       });
     });
 
@@ -129,6 +145,9 @@ export async function GET(request) {
     });
 
     const productAnalytics = Object.values(productStats);
+    productAnalytics.forEach((stat) => {
+      stat.batchAnalytics = Object.values(stat.batchAnalytics || {});
+    });
     const bestSelling =
       [...productAnalytics].sort((a, b) => b.quantitySold - a.quantitySold)[0] || null;
 

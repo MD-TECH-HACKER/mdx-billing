@@ -1174,6 +1174,135 @@ function AddStockModal({ product, open, onClose, onSaved, shop }) {
   );
 }
 
+function CategoryManager({ open, categories, onClose, onSaved }) {
+  const [editing, setEditing] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+  const [form, setForm] = useState(EMPTY_CATEGORY);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!open) {
+      setEditing(null);
+      setDeleting(null);
+      setForm(EMPTY_CATEGORY);
+      setError("");
+    }
+  }, [open]);
+
+  const startEdit = (category) => {
+    setEditing(category);
+    setForm({
+      name: category.name || "",
+      description: category.description || "",
+      icon: category.icon || "",
+      color: category.color || "",
+    });
+    setError("");
+  };
+
+  const saveCategory = async (event) => {
+    event.preventDefault();
+    if (!form.name.trim()) {
+      setError("Category name required");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch(editing ? `/api/categories/${editing.category_id}` : "/api/categories", {
+        method: editing ? "PUT" : "POST",
+        headers: shopHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(form),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Could not save category");
+      showToast(editing ? "Category updated." : "Category created.");
+      setEditing(null);
+      setForm(EMPTY_CATEGORY);
+      onSaved();
+    } catch (categoryError) {
+      setError(categoryError.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteCategory = async () => {
+    if (!deleting) return;
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/categories/${deleting.category_id}`, {
+        method: "DELETE",
+        headers: shopHeaders(),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Could not delete category");
+      showToast("Category deleted.");
+      setDeleting(null);
+      onSaved();
+    } catch (categoryError) {
+      setDeleting(null);
+      setError(categoryError.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <Modal open={open} onClose={onClose} title="Manage Categories" maxWidth="max-w-3xl">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-4">
+          <div className="space-y-2 max-h-[55vh] overflow-y-auto">
+            {categories.length === 0 ? (
+              <div className="rounded-2xl t-elev p-5 text-sm t-muted text-center">No categories created.</div>
+            ) : categories.map((category) => (
+              <div key={category.category_id} className="rounded-2xl t-elev border t-border px-3 py-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="t-text text-sm font-semibold truncate">{category.name}</div>
+                  <div className="t-muted text-xs">{category.product_count || 0} products</div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => startEdit(category)}>Edit</Button>
+                  <Button size="sm" variant="danger" onClick={() => setDeleting(category)}>Delete</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <form onSubmit={saveCategory} className="rounded-2xl t-elev border t-border p-3 space-y-3">
+            <div className="t-text text-sm font-semibold">{editing ? "Edit Category" : "New Category"}</div>
+            <Input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Category name *" />
+            <Textarea rows={2} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Description optional" />
+            <div className="grid grid-cols-2 gap-2">
+              <Input value={form.icon} onChange={(event) => setForm({ ...form, icon: event.target.value })} placeholder="Icon" />
+              <Input value={form.color} onChange={(event) => setForm({ ...form, color: event.target.value })} placeholder="Color" />
+            </div>
+            {error ? <div className="rounded-xl t-danger-bg p-2 text-xs">{error}</div> : null}
+            <div className="flex flex-wrap gap-2">
+              {editing ? (
+                <Button type="button" variant="secondary" size="sm" onClick={() => { setEditing(null); setForm(EMPTY_CATEGORY); }}>
+                  Cancel
+                </Button>
+              ) : null}
+              <Button type="submit" size="sm" disabled={saving}>{saving ? "Saving..." : "Save Category"}</Button>
+            </div>
+          </form>
+        </div>
+      </Modal>
+      <ConfirmDialog
+        open={!!deleting}
+        title="Delete category?"
+        message={deleting?.product_count > 0 ? "This category has products. Move products before deleting." : `Delete ${deleting?.name || "this category"}?`}
+        confirmText="Delete"
+        destructive
+        onClose={() => setDeleting(null)}
+        onConfirm={deleteCategory}
+      />
+    </>
+  );
+}
+
 export default function ProductsPage() {
   const { data: user } = useUser();
   const { shop, role } = useShop({ enabled: !!user });
@@ -1187,6 +1316,7 @@ export default function ProductsPage() {
   const [deleting, setDeleting] = useState(null);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState("all");
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const { count: cartCount } = useCart();
 
   useEffect(() => {
@@ -1261,15 +1391,22 @@ export default function ProductsPage() {
               </h1>
               <p className="t-muted text-sm">Manage your inventory</p>
             </div>
-            {canManageInventory ? <Button
-              variant="primary"
-              onClick={() => {
-                setEditing(null);
-                setModalOpen(true);
-              }}
-            >
-              <Plus className="w-4 h-4" /> Add Product
-            </Button> : null}
+            {canManageInventory ? (
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => setCategoryManagerOpen(true)}>
+                  Categories
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    setEditing(null);
+                    setModalOpen(true);
+                  }}
+                >
+                  <Plus className="w-4 h-4" /> Add Product
+                </Button>
+              </div>
+            ) : null}
           </div>
 
           <div className="mb-4">
@@ -1420,6 +1557,17 @@ export default function ProductsPage() {
           qc.invalidateQueries({ queryKey: ["categories"] });
         }}
       /> : null}
+      {canManageInventory ? (
+        <CategoryManager
+          open={categoryManagerOpen}
+          categories={categories}
+          onClose={() => setCategoryManagerOpen(false)}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["categories"] });
+            qc.invalidateQueries({ queryKey: ["products"] });
+          }}
+        />
+      ) : null}
 
       <ProductInfo
         product={infoProduct}

@@ -74,8 +74,16 @@ export function buildInvoicePdfBytes(sale, { thermal = false, amountInWords = ""
   if (sale.phone) write(`Phone: ${sale.phone}`, margin, 8);
   if (sale.gstin) write(`GSTIN: ${sale.gstin}`, margin, 8);
   divider();
-  write(sale.invoice_type === "receipt" ? "RECEIPT" : "TAX INVOICE", margin, thermal ? 11 : 14, "F2", 19);
-  write(`Invoice No: ${sale.receipt_number || "-"}`, margin, 9);
+  const documentTitle =
+    sale.invoice_type === "receipt"
+      ? "RECEIPT"
+      : sale.invoice_type === "estimate"
+        ? "ESTIMATE / QUOTATION"
+        : sale.invoice_type === "gst_invoice"
+          ? "GST TAX INVOICE"
+          : "INVOICE";
+  write(documentTitle, margin, thermal ? 11 : 14, "F2", 19);
+  write(`${sale.invoice_type === "estimate" ? "Estimate" : "Invoice"} No: ${sale.receipt_number || "-"}`, margin, 9);
   write(`Date: ${dateText(sale.created_at)}`, margin, 9);
   write(`Payment: ${sale.payment_method || "-"}`, margin, 9);
   y -= 3;

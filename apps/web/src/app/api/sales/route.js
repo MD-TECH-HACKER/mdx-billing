@@ -146,6 +146,7 @@ async function resolveCustomer(context, body, buyerName, buyerPhone, customerEma
 }
 
 export async function POST(request) {
+  let isEstimateConversion = false;
   try {
     const context = await requireShopAccess(request, "sale.write");
     await ensureBusinessFeatureSchema();
@@ -172,7 +173,7 @@ export async function POST(request) {
     let sourceEstimate = null;
     if (Number.isInteger(sourceEstimateId) && sourceEstimateId > 0) {
       const estimates = await sql`
-        SELECT estimate_id, estimate_number, status
+        SELECT estimate_id, estimate_number, status, items
         FROM estimates
         WHERE estimate_id = ${sourceEstimateId}
           AND shop_id = ${context.shopId}
@@ -183,6 +184,7 @@ export async function POST(request) {
       if (!sourceEstimate) {
         return Response.json({ error: "Estimate is not available for conversion" }, { status: 409 });
       }
+      isEstimateConversion = true;
     }
 
     const checkoutSessionId = String(body.checkoutSessionId || "").trim() || null;
@@ -230,15 +232,25 @@ export async function POST(request) {
 
     const lineItems = [];
     const batchRequests = [];
-    for (const item of items) {
+    for (const [itemIndex, item] of items.entries()) {
       const productId = Number.parseInt(item.productId, 10);
+      const quotedLine = sourceEstimate && Array.isArray(sourceEstimate.items)
+        ? sourceEstimate.items[itemIndex]
+        : null;
       if (Number.isInteger(productId) && productId > 0) {
         const product = productMap[productId];
         if (!product) return Response.json({ error: "Product not found" }, { status: 400 });
+        const quoteMatchesProduct =
+          quotedLine &&
+          String(quotedLine.productId || "") === String(productId) &&
+          String(quotedLine.selectedUnit || "").toLowerCase() ===
+            String(item.selectedUnit || product.primary_unit || "").toLowerCase();
         const line = buildProductSaleLine(product, {
           quantity: item.quantity,
           selectedUnit: item.selectedUnit,
-          unitPriceOverride: sourceEstimate ? item.unitPriceOverride : undefined,
+          unitPriceOverride: quoteMatchesProduct
+            ? quotedLine.pricePerUnitAtSale ?? quotedLine.unitPrice
+            : undefined,
           discount: item.discount,
           taxRate: item.taxRate ?? product.gst_rate ?? product.tax_rate,
           taxMode: item.taxMode || product.tax_mode || context.shop.tax_mode || "exclusive",
@@ -459,11 +471,16 @@ export async function POST(request) {
           AND estimate.shop_id = ${context.shopId}
           AND estimate.status = 'draft'
         RETURNING estimate.estimate_id
+      ),
+      conversion_verified AS (
+        SELECT 1 / CASE
+          WHEN ${!sourceEstimate} OR (SELECT COUNT(*) FROM converted_estimate) = 1
+          THEN 1 ELSE 0 END AS ok
       )
       SELECT created_sale.* FROM created_sale
       CROSS JOIN (SELECT COUNT(*) FROM recorded_movements) movements
       CROSS JOIN (SELECT COUNT(*) FROM initial_payment) payments
-      CROSS JOIN (SELECT COUNT(*) FROM converted_estimate) converted
+      CROSS JOIN conversion_verified
     `;
     const sale = saleRows[0];
     await writeAuditEvent(context, "sale.create", "sale", sale.sale_id, {
@@ -498,7 +515,14 @@ export async function POST(request) {
       return Response.json({ error: error.message }, { status: 400 });
     }
     if (error?.code === "22012" || /division by zero/i.test(String(error?.message))) {
-      return Response.json({ error: "Stock changed before saving. Refresh products and try again." }, { status: 409 });
+      return Response.json(
+        {
+          error: isEstimateConversion
+            ? "This estimate was already converted or stock changed before saving. Refresh and try again."
+            : "Stock changed before saving. Refresh products and try again.",
+        },
+        { status: 409 },
+      );
     }
     if (error?.code === "23505" && /checkout_session/i.test(String(error?.detail))) {
       return Response.json({ error: "This bill was already saved. Please refresh." }, { status: 409 });

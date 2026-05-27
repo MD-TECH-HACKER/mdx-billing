@@ -1015,6 +1015,26 @@ export default function AnalyticsPage() {
     () => productAnalytics.find((product) => String(product.productId) === selectedProductId) || null,
     [productAnalytics, selectedProductId],
   );
+  const selectedProductQuery = useQuery({
+    queryKey: ["product", "analytics-detail", shop?.shop_id, selectedProductId],
+    queryFn: async () => {
+      const response = await fetch(`/api/products/${selectedProductId}`, { headers: shopHeaders() });
+      if (!response.ok) throw new Error("Failed to load product stock history");
+      return response.json();
+    },
+    enabled: !!user && !!shop?.shop_id && !!selectedProductId,
+    staleTime: 30000,
+  });
+  const selectedBatchAnalytics = useMemo(
+    () =>
+      new Map(
+        (selectedProductAnalytics?.batchAnalytics || []).map((batch) => [
+          String(batch.batchId),
+          batch,
+        ]),
+      ),
+    [selectedProductAnalytics],
+  );
 
   const expensesByCategory = useMemo(
     () =>
@@ -1304,16 +1324,87 @@ export default function AnalyticsPage() {
           </div>
         </div>
         {selectedProduct ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-            <MiniMetric label="Opening stock" value={formatStockQuantity(Number(selectedProduct.opening_stock_base_unit) || 0, selectedProduct)} />
-            <MiniMetric label="Remaining stock" value={formatStockQuantity(getStockBaseQuantity(selectedProduct), selectedProduct)} />
-            <MiniMetric label="Sold stock" value={formatStockQuantity(Number(selectedProduct.sold_base_unit) || 0, selectedProduct)} />
-            <MiniMetric label="Revenue" value={fmt(selectedProductAnalytics?.revenue || 0)} />
-            <MiniMetric label="Cost" value={fmt(selectedProductAnalytics?.cost || 0)} />
-            <MiniMetric label="Gross profit" value={fmt(selectedProductAnalytics?.profit || 0)} />
-            <MiniMetric label="Margin" value={`${Number(selectedProductAnalytics?.margin || 0).toFixed(1)}%`} />
-            <MiniMetric label="Average selling" value={fmt(selectedProductAnalytics?.sellingPrice || selectedProduct.selling_price || 0)} />
-          </div>
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+              <MiniMetric label="Opening stock" value={formatStockQuantity(Number(selectedProduct.opening_stock_base_unit) || 0, selectedProduct)} />
+              <MiniMetric label="Remaining stock" value={formatStockQuantity(getStockBaseQuantity(selectedProduct), selectedProduct)} />
+              <MiniMetric label="Sold stock" value={formatStockQuantity(Number(selectedProduct.sold_base_unit) || 0, selectedProduct)} />
+              <MiniMetric label="Revenue" value={fmt(selectedProductAnalytics?.revenue || 0)} />
+              <MiniMetric label="Cost" value={fmt(selectedProductAnalytics?.cost || 0)} />
+              <MiniMetric label="Gross profit" value={fmt(selectedProductAnalytics?.profit || 0)} />
+              <MiniMetric label="Margin" value={`${Number(selectedProductAnalytics?.margin || 0).toFixed(1)}%`} />
+              <MiniMetric label="Average selling" value={fmt(selectedProductAnalytics?.sellingPrice || selectedProduct.selling_price || 0)} />
+            </div>
+            {selectedProductQuery.isLoading ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
+                <Skeleton className="h-44" />
+                <Skeleton className="h-44" />
+              </div>
+            ) : selectedProductQuery.isError ? (
+              <div className="rounded-2xl t-elev border t-border p-4 mt-4 flex items-center justify-between gap-3">
+                <span className="t-muted text-sm">Could not load batches and stock movements.</span>
+                <Button variant="secondary" size="sm" onClick={() => selectedProductQuery.refetch()}>Retry</Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 mt-4">
+                <div className="rounded-2xl t-elev border t-border p-3 min-w-0">
+                  <h3 className="t-text font-semibold text-sm mb-2">Batch-wise Profit And Remaining Stock</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[500px] text-xs">
+                      <thead className="t-muted">
+                        <tr>
+                          <th className="text-left py-2 pr-2">Batch date</th>
+                          <th className="text-right py-2 px-2">Remaining</th>
+                          <th className="text-right py-2 px-2">Sold</th>
+                          <th className="text-right py-2 px-2">Cost</th>
+                          <th className="text-right py-2 pl-2">Profit</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(selectedProductQuery.data?.batches || []).map((batch) => {
+                          const sold = selectedBatchAnalytics.get(String(batch.batch_id));
+                          return (
+                            <tr key={batch.batch_id} className="t-divider">
+                              <td className="t-text py-2 pr-2">{new Date(batch.purchase_date).toLocaleDateString("en-IN")}</td>
+                              <td className="t-text text-right py-2 px-2">{Number(batch.quantity_remaining)} {batch.unit}</td>
+                              <td className="t-text text-right py-2 px-2">{Number(sold?.quantitySoldBaseUnit || 0)}</td>
+                              <td className="t-text text-right py-2 px-2">{fmt(sold?.cost || 0)}</td>
+                              <td className="t-text font-semibold text-right py-2 pl-2">{fmt(sold?.profit || 0)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div className="rounded-2xl t-elev border t-border p-3 min-w-0">
+                  <h3 className="t-text font-semibold text-sm mb-2">Stock Movement History</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[460px] text-xs">
+                      <thead className="t-muted">
+                        <tr>
+                          <th className="text-left py-2 pr-2">Date</th>
+                          <th className="text-left py-2 px-2">Movement</th>
+                          <th className="text-right py-2 px-2">Quantity</th>
+                          <th className="text-right py-2 pl-2">New stock</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(selectedProductQuery.data?.stockMovements || []).map((movement) => (
+                          <tr key={movement.movement_id} className="t-divider">
+                            <td className="t-text py-2 pr-2">{new Date(movement.created_at).toLocaleDateString("en-IN")}</td>
+                            <td className="t-text py-2 px-2">{String(movement.movement_type).replaceAll("_", " ")}</td>
+                            <td className="t-text text-right py-2 px-2">{Number(movement.quantity_base_unit || 0)}</td>
+                            <td className="t-text text-right py-2 pl-2">{Number(movement.new_stock_base_unit || 0)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         ) : null}
       </Card>
 
