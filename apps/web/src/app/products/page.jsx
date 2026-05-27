@@ -34,11 +34,14 @@ import {
 } from "@/components/ui";
 import CartPanel from "@/components/CartPanel";
 import {
+  convertUnitPrice,
+  formatMovementQuantity,
   formatStockQuantity,
   getProductUnitLabel,
   getStockBaseQuantity,
   priceForUnit,
   PRODUCT_UNITS,
+  toBaseQuantity,
 } from "@/utils/productUnits";
 import { shopHeaders } from "@/utils/shopContext";
 
@@ -200,6 +203,7 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
     sellingPrice: "",
     costPrice: "",
     stock: "",
+    openingStockUnit: "piece",
     conversionRate: "",
     hsnSac: "",
     lowStockAlertQuantity: "",
@@ -229,6 +233,14 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
     conversionRate: Number(form.conversionRate) || null,
   };
   const conversionEnabled = !!unitPriceModel.secondaryUnit && Number(unitPriceModel.conversionRate) > 0;
+  const openingStockUnit =
+    conversionEnabled && form.openingStockUnit === unitPriceModel.secondaryUnit
+      ? unitPriceModel.secondaryUnit
+      : primaryUnitLabel;
+  const openingStockUnitOptions = [
+    { value: primaryUnitLabel, label: primaryUnitLabel },
+    ...(conversionEnabled ? [{ value: unitPriceModel.secondaryUnit, label: unitPriceModel.secondaryUnit }] : []),
+  ];
   const secondaryCostPrice = conversionEnabled
     ? priceForUnit(form.costPrice, unitPriceModel.secondaryUnit, unitPriceModel)
     : 0;
@@ -236,8 +248,9 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
     ? priceForUnit(form.sellingPrice, unitPriceModel.secondaryUnit, unitPriceModel)
     : 0;
   const openingStockQuantity = Math.max(0, Number(form.stock) || 0);
-  const openingCostValue = openingStockQuantity * Math.max(0, Number(form.costPrice) || 0);
-  const expectedSalesValue = openingStockQuantity * Math.max(0, Number(form.sellingPrice) || 0);
+  const openingStockBaseQuantity = toBaseQuantity(openingStockQuantity, openingStockUnit, unitPriceModel);
+  const openingCostValue = openingStockQuantity * priceForUnit(form.costPrice, openingStockUnit, unitPriceModel);
+  const expectedSalesValue = openingStockQuantity * priceForUnit(form.sellingPrice, openingStockUnit, unitPriceModel);
 
   useEffect(() => {
     if (initial) {
@@ -248,6 +261,7 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
         sellingPrice: String(initial.selling_price || ""),
         costPrice: String(initial.cost_price || ""),
         stock: String(initial.stock || ""),
+        openingStockUnit: initial.primary_unit || "piece",
         category: initial.category || "",
         categoryId: String(initial.category_id || ""),
         sku: initial.sku || "",
@@ -271,6 +285,7 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
         sellingPrice: "",
         costPrice: "",
         stock: "",
+        openingStockUnit: "piece",
         category: "",
         sku: "",
         primaryUnit: "piece",
@@ -362,6 +377,7 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
         payload.costPrice = Number(form.costPrice) || 0;
         payload.stock = Number(form.stock) || 0;
         payload.openingStock = Number(form.stock) || 0;
+        payload.openingStockUnit = openingStockUnit;
       }
       const res = await fetch(
         initial ? `/api/products/${initial.product_id}` : "/api/products",
@@ -518,15 +534,23 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
         </div>
 
         {!initial ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block t-muted text-xs mb-1">Opening stock ({primaryUnitLabel})</label>
+              <label className="block t-muted text-xs mb-1">Opening stock quantity</label>
               <Input
                 type="number"
                 step="0.001"
                 min="0"
                 value={form.stock}
                 onChange={(e) => setForm({ ...form, stock: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block t-muted text-xs mb-1">Opening stock unit</label>
+              <Select
+                value={openingStockUnit}
+                onChange={(value) => setForm({ ...form, openingStockUnit: value })}
+                options={openingStockUnitOptions}
               />
             </div>
             <div>
@@ -588,7 +612,11 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
             <label className="block t-muted text-xs mb-1">Primary unit</label>
             <Select
               value={form.primaryUnit}
-              onChange={(value) => setForm({ ...form, primaryUnit: value })}
+              onChange={(value) => setForm((current) => ({
+                ...current,
+                primaryUnit: value,
+                openingStockUnit: current.openingStockUnit === current.primaryUnit ? value : current.openingStockUnit,
+              }))}
               options={unitOptions}
               placeholder="Primary unit"
             />
@@ -597,7 +625,11 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
             <label className="block t-muted text-xs mb-1">Secondary unit</label>
             <Select
               value={form.secondaryUnit}
-              onChange={(value) => setForm({ ...form, secondaryUnit: value })}
+              onChange={(value) => setForm((current) => ({
+                ...current,
+                secondaryUnit: value,
+                openingStockUnit: current.openingStockUnit === current.secondaryUnit ? current.primaryUnit : current.openingStockUnit,
+              }))}
               options={secondaryUnitOptions}
               placeholder="Secondary unit"
             />
@@ -605,18 +637,21 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
         </div>
         {form.secondaryUnit ? (
           <div>
-            <label className="block t-muted text-xs mb-1">Conversion rate</label>
+            <label className="block t-muted text-xs mb-1">
+              How many {form.secondaryUnit} are in 1 {form.primaryUnit}?
+            </label>
             <Input
               type="number"
               min="0.001"
               step="0.001"
               value={form.conversionRate}
               onChange={(e) => setForm({ ...form, conversionRate: e.target.value })}
-              placeholder={`1 ${form.primaryUnit} = how many ${form.secondaryUnit}?`}
+              placeholder={`Example: 50 for 1 ${form.primaryUnit} = 50 ${form.secondaryUnit}`}
             />
             {form.conversionRate ? (
-              <div className="t-dim text-xs mt-1">
-                1 {form.primaryUnit} = {form.conversionRate} {form.secondaryUnit}
+              <div className="t-accent-soft rounded-xl px-3 py-2 text-xs mt-2">
+                Stock rule: 1 {form.primaryUnit} contains {form.conversionRate} {form.secondaryUnit}.
+                Quantities are tracked in {form.secondaryUnit} so partial {form.primaryUnit} sales remain accurate.
               </div>
             ) : null}
           </div>
@@ -646,7 +681,7 @@ function ProductForm({ open, onClose, initial, onSaved, shop }) {
                 </>
               ) : null}
               <div className="rounded-xl t-card px-3 py-2 flex justify-between gap-3">
-                <span className="t-muted">Opening stock cost value</span>
+                <span className="t-muted">Opening stock ({formatStockQuantity(openingStockBaseQuantity, unitPriceModel)}) cost value</span>
                 <span className="t-text font-semibold">{formatMoney(openingCostValue, shop?.currency || "INR")}</span>
               </div>
               <div className="rounded-xl t-accent-soft px-3 py-2 flex justify-between gap-3">
@@ -943,7 +978,7 @@ function ProductInfo({ product, onClose, onEdit, onAddStock, currency, canManage
                   <div className="t-text font-semibold">{movement.movement_type}</div>
                   <div className="t-dim">{new Date(movement.created_at).toLocaleString("en-IN")}</div>
                 </div>
-                <div className="t-text font-semibold">{Number(movement.quantity_base_unit)} {movement.unit || "base"}</div>
+                <div className="t-text font-semibold">{formatMovementQuantity(movement, detailProduct)}</div>
               </div>
             ))}
           </div>
@@ -1141,6 +1176,21 @@ function AddStockModal({ product, open, onClose, onSaved, shop }) {
       label: supplier.name,
     })),
   ];
+  const hasConversion = !!product.secondary_unit && Number(product.conversion_rate) > 0;
+  const quantityBaseUnit =
+    Number(form.quantity) > 0 ? toBaseQuantity(Number(form.quantity), form.unit, product) : null;
+  const conversionPreview = quantityBaseUnit === null
+    ? null
+    : `${form.quantity} ${form.unit} = ${Number(quantityBaseUnit).toLocaleString("en-IN", { maximumFractionDigits: 3 })} ${product.secondary_unit}`;
+
+  const changeUnit = (unit) => {
+    setForm({
+      ...form,
+      unit,
+      costPrice: form.costPrice === "" ? "" : String(convertUnitPrice(form.costPrice, form.unit, unit, product)),
+      sellingPrice: form.sellingPrice === "" ? "" : String(convertUnitPrice(form.sellingPrice, form.unit, unit, product)),
+    });
+  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -1181,6 +1231,16 @@ function AddStockModal({ product, open, onClose, onSaved, shop }) {
         <div className="rounded-2xl t-elev px-3 py-2 text-xs t-muted">
           Date is auto-generated. Owner can edit purchase date for old inward stock.
         </div>
+        {hasConversion ? (
+          <div className="rounded-2xl t-accent-soft px-3 py-2 text-xs space-y-1">
+            <div className="font-semibold">
+              1 {product.primary_unit} contains {product.conversion_rate} {product.secondary_unit}
+            </div>
+            <div>
+              {conversionPreview || `Enter stock in ${product.primary_unit} or ${product.secondary_unit}.`}
+            </div>
+          </div>
+        ) : null}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block t-muted text-xs mb-1">Quantity</label>
@@ -1188,14 +1248,14 @@ function AddStockModal({ product, open, onClose, onSaved, shop }) {
           </div>
           <div>
             <label className="block t-muted text-xs mb-1">Unit</label>
-            <Select value={form.unit} onChange={(unit) => setForm({ ...form, unit })} options={unitOptions} />
+            <Select value={form.unit} onChange={changeUnit} options={unitOptions} />
           </div>
           <div>
-            <label className="block t-muted text-xs mb-1">Cost price for this stock</label>
+            <label className="block t-muted text-xs mb-1">Cost price / 1 {form.unit}</label>
             <Input type="number" min="0" step="0.01" value={form.costPrice} onChange={(event) => setForm({ ...form, costPrice: event.target.value })} />
           </div>
           <div>
-            <label className="block t-muted text-xs mb-1">Selling price for this stock</label>
+            <label className="block t-muted text-xs mb-1">Selling price / 1 {form.unit}</label>
             <Input type="number" min="0" step="0.01" value={form.sellingPrice} onChange={(event) => setForm({ ...form, sellingPrice: event.target.value })} />
           </div>
           <div>

@@ -98,7 +98,18 @@ export async function POST(request) {
       secondary_unit: conversionRate ? secondaryUnit : null,
       conversion_rate: conversionRate,
     };
-    const openingStockBaseUnit = toBaseQuantity(openingStock, primaryUnit, unitModel);
+    const requestedOpeningStockUnit = sanitizeProductUnit(body.openingStockUnit, {
+      fallback: primaryUnit,
+    });
+    const openingStockUnit =
+      requestedOpeningStockUnit === primaryUnit ||
+      (conversionRate && requestedOpeningStockUnit === secondaryUnit)
+        ? requestedOpeningStockUnit
+        : primaryUnit;
+    const openingStockBaseUnit = toBaseQuantity(openingStock, openingStockUnit, unitModel);
+    const openingStockPrimaryQuantity = conversionRate
+      ? openingStockBaseUnit / conversionRate
+      : openingStockBaseUnit;
     const lowStock = Math.max(0, Number(body.lowStockAlertQuantity ?? body.reorderLevel) || 0);
     const lowStockBaseUnit = toBaseQuantity(lowStock, primaryUnit, unitModel);
     const hsnSac = (body.hsnSac || "").toString().trim().slice(0, 30) || null;
@@ -128,7 +139,7 @@ export async function POST(request) {
          hsn_sac, tax_rate, gst_rate, tax_mode, gst_exempt, cess_rate, reverse_charge, product_status,
          supplier_id, product_created_at)
       VALUES
-        (${context.shopOwnerId}, ${context.shopId}, ${imageUrl}, ${title}, ${description}, ${sellingPrice}, ${costPrice}, ${openingStock},
+        (${context.shopOwnerId}, ${context.shopId}, ${imageUrl}, ${title}, ${description}, ${sellingPrice}, ${costPrice}, ${openingStockPrimaryQuantity},
          ${openingStockBaseUnit}, ${openingStockBaseUnit}, 0, ${lowStockBaseUnit},
          ${categoryNameSnapshot}, ${categoryId}, ${categoryNameSnapshot}, ${sku}, ${primaryUnit}, ${conversionRate ? secondaryUnit : null}, ${conversionRate},
          ${hsnSac}, ${taxRate}, ${taxRate}, ${taxMode}, ${gstExempt}, ${cessRate}, ${reverseCharge}, ${productStatus},
@@ -165,7 +176,7 @@ export async function POST(request) {
         VALUES
           (${created[0].product_id}, ${context.shopId}, ${context.shopOwnerId}, ${title}, NOW(),
            ${openingStock}, ${openingStock}, ${openingStockBaseUnit}, ${openingStockBaseUnit},
-           ${primaryUnit}, ${primaryUnit}, ${conversionRate ? secondaryUnit : null}, ${conversionRate},
+           ${openingStockUnit}, ${primaryUnit}, ${conversionRate ? secondaryUnit : null}, ${conversionRate},
            ${costPrice}, ${costPriceBaseUnit}, ${sellingPrice}, ${supplierId}, ${supplierRows[0]?.name || null},
            NULL, 'Opening stock batch', 'opening_stock', ${context.userId})
         RETURNING batch_id
@@ -179,7 +190,7 @@ export async function POST(request) {
          cost_price_snapshot, selling_price_snapshot, movement_date, reason, owner_id, created_by)
       VALUES
         (${context.shopId}, ${created[0].product_id}, ${title}, 'opening_stock', ${openingStockBaseUnit},
-         ${openingStockBaseUnit}, ${openingStock}, ${primaryUnit}, ${openingBatchId}, 0, ${openingStockBaseUnit},
+         ${openingStockBaseUnit}, ${openingStock}, ${openingStockUnit}, ${openingBatchId}, 0, ${openingStockBaseUnit},
          ${costPrice}, ${sellingPrice}, NOW(), 'Opening stock', ${context.shopOwnerId}, ${context.userId})
     `;
     await writeAuditEvent(
@@ -187,7 +198,7 @@ export async function POST(request) {
       "product.create",
       "product",
       created[0].product_id,
-      { title, openingStockBaseUnit },
+      { title, openingStockBaseUnit, openingStockUnit },
     );
 
     return Response.json({ product: created[0] }, { status: 201 });

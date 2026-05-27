@@ -11,7 +11,8 @@ export async function GET(request) {
     const context = await requireShopAccess(request, "product.read");
     await ensureBusinessFeatureSchema();
     const movements = await sql`
-      SELECT m.*, COALESCE(p.title, 'Deleted Product') AS product_title
+      SELECT m.*, COALESCE(p.title, 'Deleted Product') AS product_title,
+        p.primary_unit, p.secondary_unit, p.conversion_rate
       FROM stock_movements m
       LEFT JOIN products p ON p.product_id = m.product_id AND p.shop_id = m.shop_id
       WHERE m.shop_id = ${context.shopId}

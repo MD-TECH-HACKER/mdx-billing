@@ -442,17 +442,33 @@ export async function POST(request) {
         FROM verified WHERE verified.ok = 1
         RETURNING *
       ),
+      sale_lines AS (
+        SELECT item."productId" AS product_id, item."productNameSnapshot" AS product_name,
+          item."quantityBaseUnit" AS quantity_base_unit, item.quantity AS display_quantity,
+          item."selectedUnit" AS unit,
+          SUM(item."quantityBaseUnit") OVER (
+            PARTITION BY item."productId" ORDER BY line.ordinality
+          ) AS cumulative_quantity_base_unit
+        FROM jsonb_array_elements(${linesJson}::jsonb) WITH ORDINALITY AS line(value, ordinality)
+        CROSS JOIN LATERAL jsonb_to_record(line.value)
+          AS item("productId" INTEGER, "productNameSnapshot" TEXT, "quantityBaseUnit" NUMERIC,
+            quantity NUMERIC, "selectedUnit" TEXT)
+        WHERE item."productId" IS NOT NULL
+      ),
       recorded_movements AS (
         INSERT INTO stock_movements
           (shop_id, product_id, product_name_snapshot, movement_type, quantity_change,
            quantity_base_unit, display_quantity, unit, old_stock_base_unit, new_stock_base_unit,
            reason, related_sale_id, reference_type, reference_id, owner_id, created_by)
-        SELECT ${context.shopId}, d.product_id, d.product_name, 'sale_stock_out',
-          -d.quantity_base_unit, -d.quantity_base_unit, d.quantity_base_unit, 'base',
-          d.new_stock_base_unit + d.quantity_base_unit, d.new_stock_base_unit,
+        SELECT ${context.shopId}, line.product_id, line.product_name, 'sale_stock_out',
+          -line.quantity_base_unit, -line.quantity_base_unit, line.display_quantity, line.unit,
+          d.new_stock_base_unit + d.quantity_base_unit - (line.cumulative_quantity_base_unit - line.quantity_base_unit),
+          d.new_stock_base_unit + d.quantity_base_unit - line.cumulative_quantity_base_unit,
           'Invoice stock out', created_sale.sale_id, 'sale', created_sale.sale_id::TEXT,
           ${context.shopOwnerId}, ${context.userId}
-        FROM decremented d CROSS JOIN created_sale
+        FROM sale_lines line
+        JOIN decremented d ON d.product_id = line.product_id
+        CROSS JOIN created_sale
         RETURNING movement_id
       ),
       initial_payment AS (

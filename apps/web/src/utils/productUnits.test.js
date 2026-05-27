@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
 import {
   PRODUCT_UNITS,
+  convertUnitPrice,
+  formatMovementQuantity,
   formatStockQuantity,
   getProductUnitLabel,
   priceForUnit,
@@ -72,6 +74,16 @@ describe("product unit helpers", () => {
     expect(priceForUnit(870, "kg", rice)).toBe(17.4);
   });
 
+  test("converts stock-entry prices when switching between product units", () => {
+    const rice = {
+      primary_unit: "bag",
+      secondary_unit: "kg",
+      conversion_rate: 50,
+    };
+    expect(convertUnitPrice(1200, "bag", "kg", rice)).toBe(24);
+    expect(convertUnitPrice(24, "kg", "bag", rice)).toBe(1200);
+  });
+
   test("formats remaining base stock in both units when conversion exists", () => {
     expect(
       formatStockQuantity(440, {
@@ -81,5 +93,32 @@ describe("product unit helpers", () => {
       }),
     ).toBe("8.8 bag / 440 kg");
     expect(formatStockQuantity(45, { primary_unit: "kg" })).toBe("45 kg");
+  });
+
+  test("renders movement history using the entered unit without mislabelling base quantity", () => {
+    const rice = {
+      primary_unit: "bag",
+      secondary_unit: "kg",
+      conversion_rate: 50,
+    };
+
+    expect(
+      formatMovementQuantity(
+        { quantity_base_unit: 250, display_quantity: 5, unit: "bag" },
+        rice,
+      ),
+    ).toBe("5 bag / 250 kg");
+    expect(
+      formatMovementQuantity(
+        { quantity_base_unit: 10, display_quantity: 10, unit: "kg" },
+        rice,
+      ),
+    ).toBe("10 kg");
+    expect(
+      formatMovementQuantity(
+        { quantity_base_unit: -10, display_quantity: 10, unit: "base" },
+        rice,
+      ),
+    ).toBe("-0.2 bag / 10 kg");
   });
 });

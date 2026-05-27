@@ -75,7 +75,7 @@ import {
 import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
 import { formatMoney } from "@/utils/currency";
-import { formatStockQuantity, getStockBaseQuantity } from "@/utils/productUnits";
+import { formatMovementQuantity, formatStockQuantity, getStockBaseQuantity } from "@/utils/productUnits";
 import { Card, Skeleton, Button, Badge, Select } from "@/components/ui";
 import { shopHeaders } from "@/utils/shopContext";
 
@@ -1394,8 +1394,8 @@ export default function AnalyticsPage() {
                           <tr key={movement.movement_id} className="t-divider">
                             <td className="t-text py-2 pr-2">{new Date(movement.created_at).toLocaleDateString("en-IN")}</td>
                             <td className="t-text py-2 px-2">{String(movement.movement_type).replaceAll("_", " ")}</td>
-                            <td className="t-text text-right py-2 px-2">{Number(movement.quantity_base_unit || 0)}</td>
-                            <td className="t-text text-right py-2 pl-2">{Number(movement.new_stock_base_unit || 0)}</td>
+                            <td className="t-text text-right py-2 px-2">{formatMovementQuantity(movement, selectedProduct)}</td>
+                            <td className="t-text text-right py-2 pl-2">{formatStockQuantity(Number(movement.new_stock_base_unit || 0), selectedProduct)}</td>
                           </tr>
                         ))}
                       </tbody>

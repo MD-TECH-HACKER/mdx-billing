@@ -144,15 +144,26 @@ export async function DELETE(request, { params }) {
           AND (sale_status IS NULL OR sale_status = 'completed')
         RETURNING items
       ),
-      restored_lines AS (
-        SELECT item."productId" AS product_id,
-          MAX(item."productNameSnapshot") AS product_name,
-          SUM(COALESCE(item."quantityBaseUnit", item.quantity)) AS quantity_base_unit
+      return_lines AS (
+        SELECT item."productId" AS product_id, item."productNameSnapshot" AS product_name,
+          COALESCE(item."quantityBaseUnit", item.quantity) AS quantity_base_unit,
+          item.quantity AS display_quantity, item."selectedUnit" AS unit,
+          SUM(COALESCE(item."quantityBaseUnit", item.quantity)) OVER (
+            PARTITION BY item."productId" ORDER BY line.ordinality
+          ) AS cumulative_quantity_base_unit
         FROM cancelled_sale
-        CROSS JOIN LATERAL jsonb_to_recordset(COALESCE(cancelled_sale.items, '[]'::jsonb))
-          AS item("productId" INTEGER, "productNameSnapshot" TEXT, "quantityBaseUnit" NUMERIC, quantity NUMERIC)
+        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(cancelled_sale.items, '[]'::jsonb))
+          WITH ORDINALITY AS line(value, ordinality)
+        CROSS JOIN LATERAL jsonb_to_record(line.value)
+          AS item("productId" INTEGER, "productNameSnapshot" TEXT, "quantityBaseUnit" NUMERIC,
+            quantity NUMERIC, "selectedUnit" TEXT)
         WHERE item."productId" IS NOT NULL
-        GROUP BY item."productId"
+      ),
+      restored_lines AS (
+        SELECT product_id, MAX(product_name) AS product_name,
+          SUM(quantity_base_unit) AS quantity_base_unit
+        FROM return_lines
+        GROUP BY product_id
       ),
       restored_products AS (
         UPDATE products product
@@ -197,12 +208,15 @@ export async function DELETE(request, { params }) {
           (shop_id, product_id, product_name_snapshot, movement_type, quantity_change,
            quantity_base_unit, display_quantity, unit, old_stock_base_unit, new_stock_base_unit,
            reason, related_sale_id, reference_type, reference_id, owner_id, created_by)
-        SELECT ${context.shopId}, product_id, title, 'sale_cancel_return',
-          quantity_base_unit, quantity_base_unit, quantity_base_unit, 'base',
-          new_stock_base_unit - quantity_base_unit, new_stock_base_unit,
+        SELECT ${context.shopId}, line.product_id, line.product_name, 'sale_cancel_return',
+          line.quantity_base_unit, line.quantity_base_unit, line.display_quantity, line.unit,
+          restored.new_stock_base_unit - restored.quantity_base_unit +
+            (line.cumulative_quantity_base_unit - line.quantity_base_unit),
+          restored.new_stock_base_unit - restored.quantity_base_unit + line.cumulative_quantity_base_unit,
           'Cancelled sale stock returned', ${id}, 'sale', ${String(id)},
           ${context.shopOwnerId}, ${context.userId}
-        FROM restored_products
+        FROM return_lines line
+        JOIN restored_products restored ON restored.product_id = line.product_id
         RETURNING movement_id
       )
       SELECT EXISTS(SELECT 1 FROM cancelled_sale) AS cancelled,

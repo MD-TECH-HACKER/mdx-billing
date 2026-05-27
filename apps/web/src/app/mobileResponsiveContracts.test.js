@@ -31,5 +31,7 @@ describe("mobile responsive layout contracts", () => {
     expect(products).toContain("Selling price / 1");
     expect(products).toContain("Secondary selling price");
     expect(products).toContain("Expected sales value");
+    expect(products).toContain("openingStockUnit");
+    expect(products).toContain("Opening stock unit");
   });
 });

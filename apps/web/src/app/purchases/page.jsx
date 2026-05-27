@@ -7,7 +7,7 @@ import useShop from "@/utils/useShop";
 import useUser from "@/utils/useUser";
 import { formatMoney } from "@/utils/currency";
 import { shopHeaders } from "@/utils/shopContext";
-import { availableSaleUnits, getUnitModel } from "@/utils/productUnits";
+import { availableSaleUnits, formatMovementQuantity, getUnitModel } from "@/utils/productUnits";
 
 const EMPTY_LINE = { productId: "", quantity: "1", selectedUnit: "piece", unitCost: "", sellingPrice: "" };
 const EMPTY_FORM = {
@@ -190,7 +190,7 @@ export default function PurchasesPage() {
                 <div className="flex justify-between gap-2">
                   <span className="t-text font-medium truncate">{movement.product_title}</span>
                   <span className={movement.quantity_change > 0 ? "text-emerald-400" : "text-rose-400"}>
-                    {movement.quantity_change > 0 ? "+" : ""}{movement.quantity_change}
+                    {movement.quantity_change > 0 ? "+" : ""}{formatMovementQuantity(movement, movement)}
                   </span>
                 </div>
                 <div className="t-dim mt-1">{movement.movement_type.replace("_", " ")} / {new Date(movement.created_at).toLocaleString("en-IN")}</div>

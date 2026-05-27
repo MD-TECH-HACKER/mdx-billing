@@ -104,6 +104,21 @@ export function priceForUnit(primaryUnitPrice, selectedUnit, product) {
   return unit === primaryUnit ? rounded(price, 2) : 0;
 }
 
+export function convertUnitPrice(unitPrice, fromUnit, toUnit, product) {
+  const price = Math.max(0, Number(unitPrice) || 0);
+  const { primaryUnit, secondaryUnit, conversionRate } = getUnitModel(product);
+  const sourceUnit = sanitizeProductUnit(fromUnit, { fallback: primaryUnit });
+  const targetUnit = sanitizeProductUnit(toUnit, { fallback: primaryUnit });
+  if (sourceUnit === targetUnit) return rounded(price, 2);
+  if (secondaryUnit && conversionRate && sourceUnit === primaryUnit && targetUnit === secondaryUnit) {
+    return rounded(price / conversionRate, 2);
+  }
+  if (secondaryUnit && conversionRate && sourceUnit === secondaryUnit && targetUnit === primaryUnit) {
+    return rounded(price * conversionRate, 2);
+  }
+  return 0;
+}
+
 export function getStockBaseQuantity(product) {
   const storedBase = product?.stock_base_unit ?? product?.stockBaseUnit;
   if (storedBase !== undefined && storedBase !== null) {
@@ -124,4 +139,28 @@ export function formatStockQuantity(baseQuantity, product) {
     return `${displayNumber(stockBase)} ${primaryUnit}`;
   }
   return `${displayNumber(fromBaseQuantity(stockBase, primaryUnit, product))} ${primaryUnit} / ${displayNumber(stockBase)} ${secondaryUnit}`;
+}
+
+export function formatMovementQuantity(movement, product) {
+  const { primaryUnit, secondaryUnit, conversionRate } = getUnitModel(product);
+  const rawBaseQuantity = Number(movement?.quantity_base_unit ?? movement?.quantity_change ?? 0);
+  const baseQuantity = Math.abs(Number.isFinite(rawBaseQuantity) ? rawBaseQuantity : 0);
+  const isNegative = rawBaseQuantity < 0 || Number(movement?.quantity_change) < 0;
+  const sign = isNegative ? "-" : "";
+  const rawDisplayQuantity = Number(movement?.display_quantity);
+  const savedUnit = sanitizeProductUnit(movement?.unit, { fallback: null });
+
+  if (
+    savedUnit &&
+    savedUnit !== "base" &&
+    Number.isFinite(rawDisplayQuantity)
+  ) {
+    const enteredQuantity = displayNumber(Math.abs(rawDisplayQuantity));
+    if (secondaryUnit && conversionRate && savedUnit === primaryUnit) {
+      return `${sign}${enteredQuantity} ${primaryUnit} / ${displayNumber(baseQuantity)} ${secondaryUnit}`;
+    }
+    return `${sign}${enteredQuantity} ${savedUnit}`;
+  }
+
+  return `${sign}${formatStockQuantity(baseQuantity, product)}`;
 }

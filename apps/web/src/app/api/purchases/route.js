@@ -217,17 +217,33 @@ export async function POST(request) {
             "costPriceBaseUnit" NUMERIC, "sellingPrice" NUMERIC, "supplierName" TEXT)
         RETURNING batch_id
       ),
+      purchase_lines AS (
+        SELECT item."productId" AS product_id, item."productNameSnapshot" AS product_name,
+          item."quantityBaseUnit" AS quantity_base_unit, item.quantity AS display_quantity,
+          item."selectedUnit" AS unit,
+          SUM(item."quantityBaseUnit") OVER (
+            PARTITION BY item."productId" ORDER BY line.ordinality
+          ) AS cumulative_quantity_base_unit
+        FROM jsonb_array_elements(${postedItems}::jsonb) WITH ORDINALITY AS line(value, ordinality)
+        CROSS JOIN LATERAL jsonb_to_record(line.value)
+          AS item("productId" INTEGER, "productNameSnapshot" TEXT, "quantityBaseUnit" NUMERIC,
+            quantity NUMERIC, "selectedUnit" TEXT)
+      ),
       movements AS (
         INSERT INTO stock_movements
           (shop_id, product_id, product_name_snapshot, movement_type, quantity_change,
            quantity_base_unit, display_quantity, unit, old_stock_base_unit, new_stock_base_unit,
            reason, related_purchase_id, reference_type, reference_id, owner_id, created_by)
-        SELECT ${context.shopId}, received.product_id, received.title, 'purchase_stock_in',
-          received.quantity_base_unit, received.quantity_base_unit, received.quantity_base_unit, 'base',
-          received.new_stock_base_unit - received.quantity_base_unit, received.new_stock_base_unit,
+        SELECT ${context.shopId}, line.product_id, line.product_name, 'purchase_stock_in',
+          line.quantity_base_unit, line.quantity_base_unit, line.display_quantity, line.unit,
+          received.new_stock_base_unit - received.quantity_base_unit +
+            (line.cumulative_quantity_base_unit - line.quantity_base_unit),
+          received.new_stock_base_unit - received.quantity_base_unit + line.cumulative_quantity_base_unit,
           'Purchase stock received', created_purchase.purchase_id, 'purchase',
           created_purchase.purchase_id::TEXT, ${context.shopOwnerId}, ${context.userId}
-        FROM received CROSS JOIN created_purchase
+        FROM purchase_lines line
+        JOIN received ON received.product_id = line.product_id
+        CROSS JOIN created_purchase
         RETURNING movement_id
       ),
       payment AS (
