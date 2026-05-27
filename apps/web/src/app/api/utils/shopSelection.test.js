@@ -2,14 +2,14 @@ import { describe, expect, test } from "vitest";
 import { selectAccessibleShop } from "./shopSelection";
 
 const shops = [
-  { shop_id: "shop-one", role: "owner" },
-  { shop_id: "shop-two", role: "manager" },
+  { shop_id: "shop-one", access_role: "manager" },
+  { shop_id: "shop-two", access_role: "owner" },
 ];
 
 describe("shop selection", () => {
-  test("defaults to the first accessible shop only when no selection is supplied", () => {
-    expect(selectAccessibleShop(shops, null)).toEqual(shops[0]);
-    expect(selectAccessibleShop(shops, "")).toEqual(shops[0]);
+  test("defaults to the owner shop when no selection is supplied", () => {
+    expect(selectAccessibleShop(shops, null)).toEqual(shops[1]);
+    expect(selectAccessibleShop(shops, "")).toEqual(shops[1]);
   });
 
   test("honors an accessible selected shop", () => {

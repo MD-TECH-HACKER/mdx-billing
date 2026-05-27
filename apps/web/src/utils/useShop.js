@@ -1,40 +1,68 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { applyTheme } from "@/utils/theme";
 import { getActiveShopId, setActiveShopId, shopHeaders } from "@/utils/shopContext";
+import useUser from "@/utils/useUser";
 
-async function fetchShop() {
+async function fetchShop(activeShopId) {
   const res = await fetch("/api/shop", {
-    headers: shopHeaders(),
+    headers: shopHeaders({}, activeShopId),
   });
-  if (!res.ok) throw new Error("Failed to load shop");
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to load shop");
+  }
   return res.json();
 }
 
-async function fetchAllShops() {
+async function fetchAllShops(activeShopId) {
   const res = await fetch("/api/shop/active", {
-    headers: shopHeaders(),
+    headers: shopHeaders({}, activeShopId),
   });
-  if (!res.ok) throw new Error("Failed to load shops");
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to load shops");
+  }
   return res.json();
 }
 
 export default function useShop({ enabled = true } = {}) {
   const qc = useQueryClient();
+  const { data: user, loading: userLoading } = useUser();
+  const [activeShopId, setActiveShopIdState] = useState(() => getActiveShopId());
+  const queryEnabled = enabled && !!user?.id && !userLoading;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const syncActiveShop = () => setActiveShopIdState(getActiveShopId());
+    window.addEventListener("shop-changed", syncActiveShop);
+    window.addEventListener("storage", syncActiveShop);
+    return () => {
+      window.removeEventListener("shop-changed", syncActiveShop);
+      window.removeEventListener("storage", syncActiveShop);
+    };
+  }, []);
 
   const query = useQuery({
-    queryKey: ["shop"],
-    queryFn: fetchShop,
-    enabled,
+    queryKey: ["shop", user?.id || "anonymous", activeShopId || "default"],
+    queryFn: () => fetchShop(activeShopId),
+    enabled: queryEnabled,
     staleTime: 1000 * 60 * 2,
   });
 
   const allShopsQuery = useQuery({
-    queryKey: ["allShops"],
-    queryFn: fetchAllShops,
-    enabled,
+    queryKey: ["allShops", user?.id || "anonymous", activeShopId || "default"],
+    queryFn: () => fetchAllShops(activeShopId),
+    enabled: queryEnabled,
     staleTime: 1000 * 60 * 2,
   });
+
+  useEffect(() => {
+    const loadedShopId = query.data?.shop?.shop_id;
+    if (!activeShopId && loadedShopId) {
+      setActiveShopId(loadedShopId);
+    }
+  }, [activeShopId, query.data?.shop?.shop_id]);
 
   // Sync theme + accent to DOM whenever shop loads/changes
   useEffect(() => {
@@ -48,7 +76,7 @@ export default function useShop({ enabled = true } = {}) {
     mutationFn: async (patch) => {
       const res = await fetch("/api/shop", {
         method: "PUT",
-        headers: shopHeaders({ "Content-Type": "application/json" }),
+        headers: shopHeaders({ "Content-Type": "application/json" }, activeShopId),
         body: JSON.stringify(patch),
       });
       if (!res.ok) {
@@ -58,9 +86,10 @@ export default function useShop({ enabled = true } = {}) {
       return res.json();
     },
     onMutate: async (patch) => {
-      await qc.cancelQueries({ queryKey: ["shop"] });
-      const prev = qc.getQueryData(["shop"]);
-      qc.setQueryData(["shop"], (old) => {
+      const shopQueryKey = ["shop", user?.id || "anonymous", activeShopId || "default"];
+      await qc.cancelQueries({ queryKey: shopQueryKey });
+      const prev = qc.getQueryData(shopQueryKey);
+      qc.setQueryData(shopQueryKey, (old) => {
         if (!old?.shop) return old;
         const next = { ...old.shop };
         if (typeof patch.shopName === "string") next.shop_name = patch.shopName;
@@ -82,23 +111,28 @@ export default function useShop({ enabled = true } = {}) {
           next.accent_color = patch.accentColor;
         if (typeof patch.sendReceiptEmail === "boolean")
           next.send_receipt_email = patch.sendReceiptEmail;
-        return { ...old, shop: next };
+        return { ...old, role: old.role, shop: next };
       });
       // immediate UI update for theme changes
       if (patch.theme || patch.accentColor) {
-        const current = qc.getQueryData(["shop"])?.shop;
+        const current = qc.getQueryData(shopQueryKey)?.shop;
         applyTheme(
           patch.theme || current?.theme || "glass",
           patch.accentColor || current?.accent_color || "#8b5cf6",
         );
       }
-      return { prev };
+      return { prev, shopQueryKey };
     },
     onError: (_e, _p, ctx) => {
-      if (ctx?.prev) qc.setQueryData(["shop"], ctx.prev);
+      if (ctx?.prev && ctx?.shopQueryKey) qc.setQueryData(ctx.shopQueryKey, ctx.prev);
     },
     onSuccess: (data) => {
-      qc.setQueryData(["shop"], data);
+      const shopQueryKey = ["shop", user?.id || "anonymous", activeShopId || "default"];
+      qc.setQueryData(shopQueryKey, (old) => ({
+        ...data,
+        role: data.role || old?.role || null,
+      }));
+      qc.invalidateQueries({ queryKey: ["allShops", user?.id || "anonymous"] });
     },
   });
 
@@ -108,8 +142,9 @@ export default function useShop({ enabled = true } = {}) {
   const switchShop = useCallback(
     (shopId) => {
       setActiveShopId(shopId);
+      setActiveShopIdState(shopId ? String(shopId) : null);
       // Invalidate all shop-scoped queries so they refetch with new X-Shop-Id
-      qc.invalidateQueries({ queryKey: ["shop"] });
+      qc.removeQueries({ queryKey: ["shop"] });
       qc.invalidateQueries({ queryKey: ["allShops"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
@@ -121,7 +156,7 @@ export default function useShop({ enabled = true } = {}) {
   return {
     shop: query.data?.shop || null,
     role: query.data?.role || null,
-    loading: query.isLoading,
+    loading: queryEnabled ? query.isLoading : enabled,
     error: query.error,
     refetch: query.refetch,
     update: update.mutate,
@@ -132,6 +167,6 @@ export default function useShop({ enabled = true } = {}) {
     allShopsLoading: allShopsQuery.isLoading,
     shopCount: allShopsQuery.data?.count || 0,
     switchShop,
-    activeShopId: getActiveShopId(),
+    activeShopId,
   };
 }

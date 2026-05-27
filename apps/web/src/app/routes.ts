@@ -20,6 +20,7 @@ const dashboardRoutes = layout('./_dashboard.layout.jsx', [
 	route('ai', './ai/page.jsx'),
 	route('team', './team/page.jsx'),
 	route('audit', './audit/page.jsx'),
+	route('audit-log', './audit-log/page.jsx'),
 	route('settings', './settings/page.jsx'),
 ]);
 

@@ -154,7 +154,7 @@ export async function PUT(request) {
     await writeAuditEvent(context, "shop.update", "shop", context.shopId, {
       changedFields: keys,
     });
-    return Response.json({ shop: result[0] });
+    return Response.json({ shop: result[0], role: context.role });
   } catch (error) {
     if (error instanceof AccessError) return accessErrorResponse(error);
     console.error("PUT /api/shop", error);

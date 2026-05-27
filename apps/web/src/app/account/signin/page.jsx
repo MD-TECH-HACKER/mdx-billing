@@ -1,6 +1,7 @@
 import { useState } from "react";
 import useAuth from "@/utils/useAuth";
 import { Store } from "lucide-react";
+import Turnstile from "@/components/Turnstile";
 
 function SignInPage() {
   const [error, setError] = useState(null);
@@ -8,8 +9,19 @@ function SignInPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   const { signInWithCredentials, signInWithGoogle } = useAuth();
+
+  const verifySecurity = async () => {
+    const response = await fetch("/api/security/turnstile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: turnstileToken }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Security check failed");
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -23,6 +35,7 @@ function SignInPage() {
     }
 
     try {
+      await verifySecurity();
       await signInWithCredentials({
         email,
         password,
@@ -48,13 +61,16 @@ function SignInPage() {
 
   const handleGoogle = async () => {
     setGoogleLoading(true);
+    setError(null);
     try {
+      await verifySecurity();
       await signInWithGoogle({
         callbackUrl: "/",
         redirect: true,
       });
     } catch (e) {
       console.error(e);
+      setError(e.message || "Security check failed. Please try again.");
       setGoogleLoading(false);
     }
   };
@@ -78,7 +94,17 @@ function SignInPage() {
           <p className="text-white/60 text-sm mt-1">Sign in to MDX Billing</p>
         </div>
 
-
+        <div className="mb-4">
+          <Turnstile
+            onToken={setTurnstileToken}
+            onError={(message) => setError(message)}
+          />
+        </div>
+        {error ? (
+          <div className="mb-4 rounded-2xl bg-red-500/15 border border-red-400/30 px-4 py-3 text-sm text-red-100">
+            {error}
+          </div>
+        ) : null}
 
         <button
           onClick={handleGoogle}

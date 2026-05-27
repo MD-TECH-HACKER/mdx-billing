@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { Calendar, CircleDollarSign, Eye, Printer, Receipt, Trash2 } from "lucide-react";
+import { AlertTriangle, Calendar, CircleDollarSign, Eye, Printer, Receipt, Trash2 } from "lucide-react";
 import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
 import { showToast } from "@/components/Toast";
@@ -40,7 +40,7 @@ const PAYMENT_METHODS = [
 
 export default function SalesPage() {
   const { data: user } = useUser();
-  const { shop, role } = useShop({ enabled: !!user });
+  const { shop, role, loading: shopLoading, error: shopError, refetch: refetchShop } = useShop({ enabled: !!user });
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -61,17 +61,21 @@ export default function SalesPage() {
   }, []);
 
   const query = useQuery({
-    queryKey: ["sales", shop?.shop_id, search, fromDate, toDate, status, sort],
+    queryKey: ["sales", user?.id, shop?.shop_id, search, fromDate, toDate, status, sort],
     queryFn: async () => {
       const params = new URLSearchParams({ status, sort });
       if (search) params.set("search", search);
       if (fromDate) params.set("from", fromDate);
       if (toDate) params.set("to", toDate);
       const response = await fetch(`/api/sales?${params}`, { headers: shopHeaders() });
-      if (!response.ok) throw new Error("Failed to load sales");
-      return response.json();
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (import.meta.env.DEV) console.error("Sales page API error", { status: response.status, data });
+        throw new Error(data.error || `Failed to load sales (${response.status})`);
+      }
+      return { sales: Array.isArray(data.sales) ? data.sales : [] };
     },
-    enabled: !!user && !!shop?.shop_id,
+    enabled: !!user?.id && !!shop?.shop_id && !!role,
     staleTime: 15000,
   });
   const sales = query.data?.sales || [];
@@ -143,12 +147,33 @@ export default function SalesPage() {
           {canManage ? <Metric label="Profit" value={fmt(totals.profit)} /> : null}
         </div>
       </Card>
-      {query.isLoading ? (
+      {shopLoading || (!!shop && !role) ? (
+        <Card className="py-12">
+          <div className="text-center t-muted text-sm">Loading your shop...</div>
+        </Card>
+      ) : shopError ? (
+        <Card className="text-center py-12">
+          <AlertTriangle className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--danger)" }} />
+          <h2 className="t-text font-semibold">Could not load your shop</h2>
+          <p className="t-muted text-sm mt-1">{shopError.message || "Try again."}</p>
+          <Button className="mt-4" onClick={() => refetchShop()}>Retry</Button>
+        </Card>
+      ) : query.isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">{Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="h-52" />)}</div>
+      ) : query.isError ? (
+        <Card className="text-center py-12">
+          <AlertTriangle className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--danger)" }} />
+          <h2 className="t-text font-semibold">Could not load sales</h2>
+          <p className="t-muted text-sm mt-1">{query.error?.message || "The sales API did not return data."}</p>
+          <Button className="mt-4" onClick={() => query.refetch()} disabled={query.isFetching}>
+            {query.isFetching ? "Retrying..." : "Retry"}
+          </Button>
+        </Card>
       ) : sales.length === 0 ? (
         <Card className="text-center py-12">
           <Receipt className="w-12 h-12 t-dim2 mx-auto mb-3" />
-          <h2 className="t-text font-semibold">No invoices found</h2>
+          <h2 className="t-text font-semibold">No sales yet</h2>
+          <p className="t-muted text-sm mt-1">Create your first bill and it will appear here.</p>
           <Link to="/billing"><Button className="mt-4">Create invoice</Button></Link>
         </Card>
       ) : (

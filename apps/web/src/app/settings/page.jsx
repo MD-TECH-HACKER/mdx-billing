@@ -767,7 +767,7 @@ export default function SettingsPage() {
             <Button variant="secondary" className="w-full" onClick={() => navigate("/team")}>
               Manage staff roles
             </Button>
-            <Button variant="secondary" className="w-full" onClick={() => navigate("/audit")}>
+            <Button variant="secondary" className="w-full" onClick={() => navigate("/audit-log")}>
               View audit log
             </Button>
           </div>

@@ -1,9 +1,14 @@
 import useAuth from "@/utils/useAuth";
+import { clearActiveShopId } from "@/utils/shopContext";
+import { useQueryClient } from "@tanstack/react-query";
 import { LogOut } from "lucide-react";
 
 function LogoutPage() {
   const { signOut } = useAuth();
+  const queryClient = useQueryClient();
   const handleSignOut = async () => {
+    queryClient.clear();
+    clearActiveShopId();
     await signOut({ callbackUrl: "/", redirect: true });
   };
   return (

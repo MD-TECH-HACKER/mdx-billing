@@ -30,7 +30,7 @@ import useCart from "@/utils/useCart";
 import ThemeStyles from "@/components/ThemeStyles";
 import ToastHost from "@/components/Toast";
 import { initTheme } from "@/utils/theme";
-import { AppLoader, Badge } from "@/components/ui";
+import { AppLoader, Badge, Card } from "@/components/ui";
 import { shopHeaders } from "@/utils/shopContext";
 
 const NAV = [
@@ -45,7 +45,7 @@ const NAV = [
   { label: "Analytics", icon: BarChart3, href: "/analytics", roles: ["owner", "manager"] },
   { label: "AI Assistant", icon: Sparkles, href: "/ai", roles: ["owner", "manager"] },
   { label: "Team", icon: Users, href: "/team", roles: ["owner"] },
-  { label: "Audit Log", icon: ShieldCheck, href: "/audit", roles: ["owner"] },
+  { label: "Audit Log", icon: ShieldCheck, href: "/audit-log", roles: ["owner"] },
   { label: "Settings", icon: Settings, href: "/settings" },
 ];
 
@@ -93,7 +93,9 @@ export default function DashboardShell({
   const currentNavItem = NAV.find(
     (n) => currentPath === n.href || (n.href !== "/dashboard" && currentPath.startsWith(n.href)),
   );
+  const roleConfirmed = !requireShop || !!role;
   const roleDenied = !!(
+    roleConfirmed &&
     role &&
     ((allowedRoles && !allowedRoles.includes(role)) ||
       (currentNavItem?.roles && !currentNavItem.roles.includes(role)))
@@ -144,12 +146,6 @@ export default function DashboardShell({
     }
   }, [user, shop, shopLoading, requireShop, navigate]);
 
-  useEffect(() => {
-    if (roleDenied) {
-      navigate(role === "cashier" ? "/billing" : "/dashboard", { replace: true });
-    }
-  }, [navigate, role, roleDenied]);
-
   if (userLoading) {
     return <AppLoader fullScreen label="Checking your secure session..." />;
   }
@@ -166,8 +162,8 @@ export default function DashboardShell({
     return <AppLoader fullScreen label="Opening shop setup..." />;
   }
 
-  if (roleDenied) {
-    return <AppLoader fullScreen label="Opening your authorized workspace..." />;
+  if (requireShop && !role) {
+    return <AppLoader fullScreen label="Loading your shop role..." />;
   }
 
   const isActive = (href) =>
@@ -180,7 +176,7 @@ export default function DashboardShell({
         ? "t-accent-soft"
         : "t-muted hover:bg-[var(--bg-elev)] hover:t-text"
     }`;
-  const availableNav = NAV.filter((item) => !item.roles || item.roles.includes(role));
+  const availableNav = role === "owner" ? NAV : NAV.filter((item) => !item.roles || item.roles.includes(role));
   const homePath = role === "cashier" ? "/billing" : "/dashboard";
 
   return (
@@ -455,7 +451,20 @@ export default function DashboardShell({
             </div>
           </header>
 
-          <div className="px-3 md:px-6 mt-2">{children}</div>
+          <div className="px-3 md:px-6 mt-2">
+            {roleDenied ? (
+              <Card className="max-w-xl mx-auto text-center py-10">
+                <ShieldCheck className="w-12 h-12 t-dim2 mx-auto mb-3" />
+                <h1 className="t-text text-xl font-bold">Access denied</h1>
+                <p className="t-muted text-sm mt-2">
+                  Your current role ({role}) does not have permission to open this page.
+                </p>
+                <Link to={homePath} className="t-btn-primary inline-flex rounded-xl px-4 py-2 mt-5 text-sm font-semibold">
+                  Go to your workspace
+                </Link>
+              </Card>
+            ) : children}
+          </div>
         </main>
       </div>
 
@@ -506,6 +515,18 @@ export default function DashboardShell({
           })}
         </div>
       </nav>
+      {import.meta.env.DEV ? (
+        <div className="fixed right-3 bottom-24 z-[60] no-print max-w-[280px] rounded-2xl border t-border t-card p-3 text-[10px] t-muted shadow-xl">
+          <div className="t-text font-bold text-xs mb-1">MDX Dev Debug</div>
+          <div>route: {currentPath}</div>
+          <div>uid: {user?.id || "none"}</div>
+          <div>shopId: {shop?.shop_id || "none"}</div>
+          <div>role: {role || "loading"}</div>
+          <div>userLoading: {String(userLoading)}</div>
+          <div>shopLoading: {String(shopLoading)}</div>
+          <div>roleDenied: {String(roleDenied)}</div>
+        </div>
+      ) : null}
     </div>
   );
 }

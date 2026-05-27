@@ -4,7 +4,7 @@ export function selectAccessibleShop(shops, requestedShopId) {
   }
 
   if (!requestedShopId) {
-    return shops[0];
+    return shops.find((shop) => shop.access_role === "owner") ?? shops[0];
   }
 
   return shops.find((shop) => String(shop.shop_id) === String(requestedShopId)) ?? null;

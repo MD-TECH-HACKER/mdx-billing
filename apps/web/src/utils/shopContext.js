@@ -50,8 +50,8 @@ export function clearActiveShopId() {
  * @param {object} [extra] - Additional headers to merge.
  * @returns {object}
  */
-export function shopHeaders(extra = {}) {
-  const shopId = getActiveShopId();
+export function shopHeaders(extra = {}, shopIdOverride = undefined) {
+  const shopId = shopIdOverride === undefined ? getActiveShopId() : shopIdOverride;
   const headers = { ...extra };
   if (shopId) {
     headers["X-Shop-Id"] = shopId;
