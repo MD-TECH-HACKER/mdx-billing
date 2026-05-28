@@ -1,4 +1,5 @@
 import sql from "@/app/api/utils/sql";
+import crypto from "crypto";
 import { ensureCoreBusinessSchema } from "@/app/api/utils/businessSchema";
 import {
   accessErrorResponse,
@@ -44,11 +45,12 @@ export async function POST(request) {
       return Response.json({ error: "Shop name is required" }, { status: 400 });
     }
 
-    const created = await sql`
-      INSERT INTO shops (owner_id, shop_name, shop_description, shop_logo, address, phone, email, currency)
-      VALUES (${userId}, ${shopName}, ${shopDescription}, ${shopLogo}, ${address}, ${phone}, ${email}, 'INR')
-      RETURNING *
+    const shopId = crypto.randomUUID();
+    await sql`
+      INSERT INTO shops (shop_id, owner_id, shop_name, shop_description, shop_logo, address, phone, email, currency)
+      VALUES (${shopId}, ${userId}, ${shopName}, ${shopDescription}, ${shopLogo}, ${address}, ${phone}, ${email}, 'INR')
     `;
+    const created = await sql`SELECT * FROM shops WHERE shop_id = ${shopId}`;
     const shop = created[0];
     await writeAuditEvent(
       { userId, role: "owner", shopId: shop.shop_id },
@@ -162,8 +164,9 @@ export async function PUT(request) {
         ? `${key} = $${index + 1}::jsonb`
         : `${key} = $${index + 1}`,
     );
-    const query = `UPDATE shops SET ${setClauses.join(", ")}, updated_at = NOW() WHERE shop_id = $${values.length} RETURNING *`;
-    const result = await sql(query, values);
+    const query = `UPDATE shops SET ${setClauses.join(", ")}, updated_at = NOW() WHERE shop_id = $${values.length}`;
+    await sql(query, values);
+    const result = await sql(`SELECT * FROM shops WHERE shop_id = $1`, [context.shopId]);
 
     if (!result[0]) {
       return Response.json({ error: "Not found" }, { status: 404 });

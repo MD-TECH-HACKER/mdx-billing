@@ -47,13 +47,13 @@ export async function PUT(request) {
       );
 
     // Update display_name; if user.name is empty, set name as well so it shows everywhere.
-    const result = await sql`
+    await sql`
       UPDATE auth_users
       SET display_name = ${displayName},
           name = COALESCE(NULLIF(name, ''), ${displayName})
       WHERE id = ${session.user.id}
-      RETURNING id, name, email, image, display_name
     `;
+    const result = await sql`SELECT id, name, email, image, display_name FROM auth_users WHERE id = ${session.user.id}`;
     const u = result[0];
     return Response.json({
       profile: {

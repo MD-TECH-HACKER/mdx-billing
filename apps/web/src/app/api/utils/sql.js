@@ -25,12 +25,12 @@ export default async function sql(strings, ...values) {
   }
 
   // Handle RETURNING * emulation for INSERT/UPDATE
-  const isInsertOrUpdate = /^\\s*(INSERT|UPDATE)/i.test(query);
-  const returningMatch = query.match(/RETURNING\\s+(.*)$/i);
+  const isInsertOrUpdate = /^\\s*(INSERT|UPDATE|DELETE)/i.test(query);
+  const returningMatch = query.match(/RETURNING[\\s\\S]*$/i);
   let returningFields = null;
 
   if (isInsertOrUpdate && returningMatch) {
-    returningFields = returningMatch[1].trim();
+    returningFields = returningMatch[0].replace(/RETURNING\\s+/i, '').trim();
     // Remove the RETURNING clause from the query for MySQL
     query = query.substring(0, returningMatch.index);
   }
