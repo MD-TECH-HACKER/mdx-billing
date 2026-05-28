@@ -17,6 +17,11 @@ import {
 import useUser from "@/utils/useUser";
 import useAuth from "@/utils/useAuth";
 import { setActiveShopId, shopHeaders } from "@/utils/shopContext";
+import { redirect } from "react-router";
+
+export async function action() {
+  return redirect("/");
+}
 
 export default function WelcomePage() {
   const { data: user, loading } = useUser();

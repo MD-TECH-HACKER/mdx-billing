@@ -5,6 +5,17 @@ import {
 	layout,
 } from '@react-router/dev/routes';
 
+// ─── Admin layout and routes (protected) ─────────────────────────────
+const adminRoutes = layout('./admin/_admin.layout.jsx', [
+	route('admin', './admin/page.jsx'),
+	route('admin/users', './admin/users/page.jsx'),
+	route('admin/shops', './admin/shops/page.jsx'),
+	route('admin/activity', './admin/activity/page.jsx'),
+	route('admin/security', './admin/security/page.jsx'),
+	route('admin/system', './admin/system/page.jsx'),
+	route('admin/settings', './admin/settings/page.jsx'),
+]);
+
 // ─── Dashboard pages wrapped in a shared layout (sidebar never remounts) ───
 const dashboardRoutes = layout('./_dashboard.layout.jsx', [
 	route('dashboard', './dashboard/page.jsx'),
@@ -39,6 +50,6 @@ const publicRoutes: RouteConfigEntry[] = [
 ];
 
 const notFound = route('*?', './__create/not-found.tsx');
-const routes: RouteConfigEntry[] = [...publicRoutes, dashboardRoutes, notFound];
+const routes: RouteConfigEntry[] = [...publicRoutes, dashboardRoutes, adminRoutes, notFound];
 
 export default routes;
