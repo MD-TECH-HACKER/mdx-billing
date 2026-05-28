@@ -59,7 +59,8 @@
       ],
       "expo-font",
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      "./expo-plugins/withGradleProperties.js"
     ],
     "web": {
       "bundler": "metro",
