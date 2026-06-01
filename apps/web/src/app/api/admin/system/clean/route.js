@@ -26,7 +26,7 @@ export async function POST(request) {
       await sql`DELETE FROM shops WHERE shop_name LIKE '%Demo%' OR shop_name LIKE '%Test%'`;
       await sql`DELETE FROM sales WHERE notes LIKE '%Demo%' OR notes LIKE '%Test%'`;
     } else if (target === 'invalid_sessions') {
-      await sql`DELETE FROM auth_sessions WHERE user_id NOT IN (SELECT id FROM auth_users WHERE email = ${ownerEmail})`;
+      await sql`DELETE FROM auth_sessions WHERE userId NOT IN (SELECT id FROM auth_users WHERE email = ${ownerEmail})`;
     } else if (target === 'old_logs') {
       await sql`DELETE FROM audit_events WHERE created_at < NOW() - INTERVAL 90 DAY`;
     } else if (target === 'factory_reset') {
