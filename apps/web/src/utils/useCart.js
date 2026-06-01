@@ -27,7 +27,7 @@ export default function useCart() {
 
   const count = cart.reduce((a, c) => a + c.quantity, 0);
   const totalAmount = cart.reduce(
-    (a, c) => a + Number(c.selling_price) * c.quantity,
+    (a, c) => a + Number(c.selling_price ?? c.sellingPrice ?? c.price ?? c.unitPrice ?? 0) * c.quantity,
     0,
   );
   return { cart, count, totalAmount, refresh };

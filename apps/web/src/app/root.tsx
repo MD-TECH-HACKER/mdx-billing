@@ -5,6 +5,7 @@ import {
   Scripts,
   ScrollRestoration,
   useLocation,
+  useNavigate,
   useRouteError,
 } from 'react-router';
 
@@ -22,6 +23,8 @@ import { LoadFonts } from 'virtual:load-fonts.jsx';
 import { SessionProvider } from '@auth/create/react';
 import { Toaster } from 'sonner';
 import { QueryProvider } from './layout.jsx';
+import usePlatformSettings from '@/utils/usePlatformSettings';
+import useUser from '@/utils/useUser';
 
 export const links = () => [
   { rel: "icon", type: "image/x-icon", href: "/favicon.ico?v=3" },
@@ -348,6 +351,48 @@ function ClientToaster() {
   return <Toaster position={isMobile ? 'top-center' : 'bottom-right'} />;
 }
 
+function PlatformGate({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { data: user, loading: userLoading } = useUser();
+  const { settings, currentUserIsAdmin, loading: settingsLoading } = usePlatformSettings();
+
+  useEffect(() => {
+    if (userLoading || settingsLoading || !user || !settings?.maintenanceMode) return;
+    if (currentUserIsAdmin) return;
+    const allowedPath =
+      location.pathname.startsWith('/maintenance') ||
+      location.pathname.startsWith('/account/signin') ||
+      location.pathname.startsWith('/account/logout');
+    if (!allowedPath) {
+      navigate('/maintenance', { replace: true });
+    }
+  }, [
+    currentUserIsAdmin,
+    location.pathname,
+    navigate,
+    settings?.maintenanceMode,
+    settingsLoading,
+    user,
+    userLoading,
+  ]);
+
+  if (
+    !userLoading &&
+    !settingsLoading &&
+    user &&
+    settings?.maintenanceMode &&
+    !currentUserIsAdmin &&
+    !location.pathname.startsWith('/maintenance') &&
+    !location.pathname.startsWith('/account/signin') &&
+    !location.pathname.startsWith('/account/logout')
+  ) {
+    return null;
+  }
+
+  return <>{children}</>;
+}
+
 export function Layout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
@@ -390,7 +435,9 @@ export default function App() {
   return (
     <SessionProvider>
       <QueryProvider>
-        <Outlet />
+        <PlatformGate>
+          <Outlet />
+        </PlatformGate>
       </QueryProvider>
     </SessionProvider>
   );

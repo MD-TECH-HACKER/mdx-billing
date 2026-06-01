@@ -43,6 +43,7 @@ const publicRoutes: RouteConfigEntry[] = [
 	route('account/signin', './account/signin/page.jsx'),
 	route('account/signup', './account/signup/page.jsx'),
 	route('account/logout', './account/logout/page.jsx'),
+	route('maintenance', './maintenance/page.jsx'),
 	route('setup-shop', './setup-shop/page.jsx'),
 	route('select-shop', './select-shop/page.jsx'),
 	route('invite/accept', './invite/accept/page.jsx'),

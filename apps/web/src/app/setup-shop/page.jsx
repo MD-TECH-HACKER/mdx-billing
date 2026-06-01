@@ -1,13 +1,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { Store, Upload, ArrowRight, IndianRupee, ArrowLeft } from "lucide-react";
+import { Store, Upload, ArrowRight, Globe2, ArrowLeft } from "lucide-react";
 import useUser from "@/utils/useUser";
 import useUpload from "@/utils/useUpload";
-import { AppLoader } from "@/components/ui";
+import usePlatformSettings from "@/utils/usePlatformSettings";
+import { AppLoader, Select } from "@/components/ui";
 import { setActiveShopId, shopHeaders } from "@/utils/shopContext";
+import { CURRENCIES } from "@/utils/currency";
+import { TIMEZONE_OPTIONS } from "@/utils/timezones";
 
 export default function SetupShopPage() {
   const { data: user, loading: userLoading } = useUser();
+  const { settings: platformSettings } = usePlatformSettings();
   const [upload, { loading: uploading }] = useUpload();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -18,6 +22,8 @@ export default function SetupShopPage() {
   const [shopLogo, setShopLogo] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
+  const [currency, setCurrency] = useState("INR");
+  const [timezone, setTimezone] = useState("Asia/Kolkata");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [shopChecking, setShopChecking] = useState(!isNewShop);
@@ -27,6 +33,11 @@ export default function SetupShopPage() {
       window.location.href = "/account/signin?callbackUrl=/setup-shop";
     }
   }, [user, userLoading]);
+
+  useEffect(() => {
+    if (platformSettings?.currencyDefault) setCurrency(platformSettings.currencyDefault);
+    if (platformSettings?.timezoneDefault) setTimezone(platformSettings.timezoneDefault);
+  }, [platformSettings?.currencyDefault, platformSettings?.timezoneDefault]);
 
   useEffect(() => {
     if (!user) return;
@@ -92,6 +103,8 @@ export default function SetupShopPage() {
             shopLogo,
             address,
             phone,
+            currency,
+            timezone,
           }),
         }),
       ];
@@ -142,8 +155,8 @@ export default function SetupShopPage() {
             {isNewShop ? "Add another shop to your account" : "Just a few details to get you started"}
           </p>
           <div className="mt-3 inline-flex items-center gap-1.5 text-xs t-dim t-elev t-border border px-2.5 py-1 rounded-full">
-            <IndianRupee className="w-3 h-3" />
-            Default currency is INR — change anytime in Settings
+            <Globe2 className="w-3 h-3" />
+            Defaults: {currency} / {timezone}
           </div>
         </div>
 
@@ -214,6 +227,29 @@ export default function SetupShopPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block t-text text-xs mb-1.5">
+                Currency
+              </label>
+              <Select
+                value={currency}
+                onChange={setCurrency}
+                options={CURRENCIES.map((entry) => ({
+                  value: entry.code,
+                  label: `${entry.name} (${entry.code})`,
+                }))}
+              />
+            </div>
+            <div>
+              <label className="block t-text text-xs mb-1.5">
+                Timezone
+              </label>
+              <Select
+                value={timezone}
+                onChange={setTimezone}
+                options={TIMEZONE_OPTIONS}
+              />
+            </div>
             <div>
               <label className="block t-text text-xs mb-1.5">
                 Address

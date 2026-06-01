@@ -8,6 +8,11 @@ import {
   requireShopAccess,
   writeAuditEvent,
 } from "@/app/api/utils/shopAccess";
+import {
+  normalizeCurrency,
+  normalizeTimezone,
+  readPlatformSettings,
+} from "@/app/api/utils/platformSettings";
 import { isValidEmail, normalizeEmail } from "@/app/api/utils/email";
 
 export async function GET(request) {
@@ -45,10 +50,14 @@ export async function POST(request) {
       return Response.json({ error: "Shop name is required" }, { status: 400 });
     }
 
+    const platformSettings = await readPlatformSettings();
+    const currency = normalizeCurrency(body.currency || platformSettings.currencyDefault);
+    const timezone = normalizeTimezone(body.timezone || platformSettings.timezoneDefault);
+
     const shopId = crypto.randomUUID();
     await sql`
-      INSERT INTO shops (shop_id, owner_id, shop_name, shop_description, shop_logo, address, phone, email, currency)
-      VALUES (${shopId}, ${userId}, ${shopName}, ${shopDescription}, ${shopLogo}, ${address}, ${phone}, ${email}, 'INR')
+      INSERT INTO shops (shop_id, owner_id, shop_name, shop_description, shop_logo, address, phone, email, currency, timezone)
+      VALUES (${shopId}, ${userId}, ${shopName}, ${shopDescription}, ${shopLogo}, ${address}, ${phone}, ${email}, ${currency}, ${timezone})
     `;
     const created = await sql`SELECT * FROM shops WHERE shop_id = ${shopId}`;
     const shop = created[0];
@@ -97,7 +106,9 @@ export async function PUT(request) {
     if (typeof body.taxPercent === "number")
       fields.tax_percent = Math.max(0, Math.min(100, body.taxPercent));
     if (typeof body.currency === "string")
-      fields.currency = body.currency.trim().slice(0, 10).toUpperCase();
+      fields.currency = normalizeCurrency(body.currency);
+    if (typeof body.timezone === "string")
+      fields.timezone = normalizeTimezone(body.timezone);
     if (typeof body.thankYouMessage === "string")
       fields.thank_you_message = body.thankYouMessage.trim().slice(0, 300);
     if (typeof body.theme === "string")

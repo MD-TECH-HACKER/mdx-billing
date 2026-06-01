@@ -1,17 +1,17 @@
-// Currency helpers — defaults to INR
+// Currency helpers - defaults to INR
 
 export const CURRENCIES = [
-  { code: "INR", symbol: "₹", name: "Indian Rupee" },
+  { code: "INR", symbol: "\u20B9", name: "Indian Rupee" },
   { code: "USD", symbol: "$", name: "US Dollar" },
-  { code: "EUR", symbol: "€", name: "Euro" },
-  { code: "GBP", symbol: "£", name: "British Pound" },
-  { code: "JPY", symbol: "¥", name: "Japanese Yen" },
+  { code: "EUR", symbol: "\u20AC", name: "Euro" },
+  { code: "GBP", symbol: "\u00A3", name: "British Pound" },
+  { code: "JPY", symbol: "\u00A5", name: "Japanese Yen" },
   { code: "AUD", symbol: "A$", name: "Australian Dollar" },
   { code: "CAD", symbol: "C$", name: "Canadian Dollar" },
   { code: "CHF", symbol: "Fr", name: "Swiss Franc" },
-  { code: "CNY", symbol: "¥", name: "Chinese Yuan" },
-  { code: "AED", symbol: "د.إ", name: "UAE Dirham" },
-  { code: "SAR", symbol: "﷼", name: "Saudi Riyal" },
+  { code: "CNY", symbol: "\u00A5", name: "Chinese Yuan" },
+  { code: "AED", symbol: "\u062F.\u0625", name: "UAE Dirham" },
+  { code: "SAR", symbol: "\uFDFC", name: "Saudi Riyal" },
   { code: "SGD", symbol: "S$", name: "Singapore Dollar" },
   { code: "MYR", symbol: "RM", name: "Malaysian Ringgit" },
   { code: "ZAR", symbol: "R", name: "South African Rand" },

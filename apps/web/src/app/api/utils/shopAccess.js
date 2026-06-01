@@ -67,6 +67,10 @@ export async function requireShopAccess(request, permission) {
     );
   }
 
+  if (String(shop.status || "active").toLowerCase() === "suspended") {
+    throw new AccessError(403, "This shop has been suspended. Contact support.");
+  }
+
   const role = shop.access_role === "owner" ? "owner" : shop.access_role;
 
   if (!canAccess(role, permission)) {

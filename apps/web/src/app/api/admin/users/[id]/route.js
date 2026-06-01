@@ -16,8 +16,16 @@ export async function POST(request, { params }) {
 
     const body = await request.json();
     const action = body.action; // "ban" or "unban"
+    const rows = await sql`SELECT id, name, email, banned FROM auth_users WHERE id = ${userId} LIMIT 1`;
+    const targetUser = rows[0];
+    if (!targetUser) {
+      return Response.json({ error: "User not found" }, { status: 404 });
+    }
 
     if (action === "ban") {
+      if (isAdmin(targetUser)) {
+        return Response.json({ error: "Cannot ban a platform admin" }, { status: 403 });
+      }
       await sql`UPDATE auth_users SET banned = 1 WHERE id = ${userId}`;
       // Also delete active sessions for this user so they get logged out
       await sql`DELETE FROM auth_sessions WHERE userId = ${userId}`;

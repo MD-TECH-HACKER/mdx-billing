@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import useAuth from "@/utils/useAuth";
+import usePlatformSettings from "@/utils/usePlatformSettings";
 import { Store } from "lucide-react";
 import Turnstile from "@/components/Turnstile";
 
@@ -14,6 +15,8 @@ function SignUpPage() {
   const [securityReady, setSecurityReady] = useState(false);
 
   const { signUpWithCredentials, signInWithGoogle } = useAuth();
+  const { settings: platformSettings, loading: platformLoading } = usePlatformSettings();
+  const signupBlocked = platformSettings?.allowNewSignups === false;
 
   useEffect(() => {
     let active = true;
@@ -49,6 +52,12 @@ function SignUpPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    if (signupBlocked) {
+      setError("New signups are temporarily disabled.");
+      setLoading(false);
+      return;
+    }
 
     if (!email || !password) {
       setError("Please fill in all fields");
@@ -87,6 +96,10 @@ function SignUpPage() {
   };
 
   const handleGoogle = async () => {
+    if (signupBlocked) {
+      setError("New signups are temporarily disabled.");
+      return;
+    }
     setGoogleLoading(true);
     setError(null);
     try {
@@ -132,10 +145,15 @@ function SignUpPage() {
             {error}
           </div>
         ) : null}
+        {signupBlocked ? (
+          <div className="mb-4 rounded-2xl t-warn-bg px-4 py-3 text-sm">
+            New signups are disabled by the platform administrator.
+          </div>
+        ) : null}
 
         <button
           onClick={handleGoogle}
-          disabled={googleLoading || !securityReady}
+          disabled={googleLoading || !securityReady || platformLoading || signupBlocked}
           className="w-full t-btn rounded-2xl px-4 py-3.5 font-semibold flex items-center justify-center gap-3 transition disabled:opacity-60"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">

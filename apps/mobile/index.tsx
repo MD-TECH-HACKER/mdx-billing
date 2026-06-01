@@ -1,9 +1,10 @@
-import ExceptionsManager from 'react-native/Libraries/Core/ExceptionsManager';
-
 if (__DEV__) {
-  ExceptionsManager.handleException = (error, isFatal) => {
+  try {
+    const ExceptionsManager = require('react-native/Libraries/Core/ExceptionsManager');
+    ExceptionsManager.handleException = () => {};
+  } catch (_error) {
     // no-op
-  };
+  }
 }
 
 import 'react-native-url-polyfill/auto';

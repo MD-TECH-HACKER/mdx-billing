@@ -43,6 +43,33 @@ describe("cartStore product units", () => {
     expect(getCart()[0]).toEqual(expect.objectContaining({ primary_unit: "piece", secondary_unit: null }));
   });
 
+  test("normalizes legacy cart rows so billing totals can use them", () => {
+    localStorage.setItem(
+      "mdx_cart_v3:unselected",
+      JSON.stringify([
+        {
+          id: 22,
+          name: "Legacy service",
+          price: "455",
+          quantity: 3,
+          primaryUnit: "piece",
+          taxRate: "18",
+        },
+      ]),
+    );
+
+    expect(getCart()).toEqual([
+      expect.objectContaining({
+        product_id: 22,
+        title: "Legacy service",
+        selling_price: 455,
+        quantity: 3,
+        primary_unit: "piece",
+        tax_rate: 18,
+      }),
+    ]);
+  });
+
   test("clearCart removes unit snapshots with all cart data", () => {
     addToCart({ product_id: 1, title: "Bottle", selling_price: 10, cost_price: 5, stock: 1, primary_unit: "bottle" }, 1);
     clearCart();

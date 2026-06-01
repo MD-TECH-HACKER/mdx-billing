@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -75,9 +75,9 @@
         "sitemap": false
       },
       "eas": {
-        "projectId": "31f17745-3dee-42ef-857b-9ee467d2740e"
+        "projectId": "a41cd958-b09f-4aae-9331-902e1b31ac8f"
       }
     },
-    "owner": "md_tech_hacker"
+    "owner": "md_tech"
   }
 }

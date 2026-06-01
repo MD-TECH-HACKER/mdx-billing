@@ -35,6 +35,7 @@ import {
 } from "@/components/ui";
 import { ACCENTS, applyTheme } from "@/utils/theme";
 import { CURRENCIES, getCurrencyInfo } from "@/utils/currency";
+import { TIMEZONE_OPTIONS } from "@/utils/timezones";
 import { shopHeaders } from "@/utils/shopContext";
 
 function Section({ icon: Icon, title, subtitle, children }) {
@@ -89,6 +90,7 @@ export default function SettingsPage() {
       receiptPrefix: shop.receipt_prefix || "INV",
       taxPercent: Number(shop.tax_percent) || 0,
       currency: shop.currency || "INR",
+      timezone: shop.timezone || "Asia/Kolkata",
       thankYouMessage: shop.thank_you_message || "",
       theme: shop.theme || "glass",
       accentColor: shop.accent_color || "#8b5cf6",
@@ -257,6 +259,7 @@ export default function SettingsPage() {
     label: `${c.name} (${c.code})`,
     prefix: c.symbol,
   }));
+  const timezoneOptions = TIMEZONE_OPTIONS;
   const currentCur = getCurrencyInfo(form.currency);
   const invoiceTypeOptions = [
     { value: "invoice", label: "Invoice" },
@@ -594,6 +597,17 @@ export default function SettingsPage() {
                   saveField({ currency: v });
                 }}
                 options={currencyOptions}
+              />
+            </div>
+            <div>
+              <label className="block t-muted text-xs mb-1">Timezone</label>
+              <Select
+                value={form.timezone}
+                onChange={(v) => {
+                  setForm({ ...form, timezone: v });
+                  saveField({ timezone: v });
+                }}
+                options={timezoneOptions}
               />
             </div>
           </div>

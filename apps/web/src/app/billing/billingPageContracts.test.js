@@ -10,4 +10,10 @@ describe("billing page contracts", () => {
     expect(pageSource).toContain("const syncedCartSignature = useRef");
     expect(pageSource).toContain("setItems(cart.map(productLine))");
   });
+
+  test("billing product lines preserve cart snapshot prices before product queries finish", () => {
+    expect(pageSource).toContain("function readProductId(item)");
+    expect(pageSource).toContain("function readSellingPrice(item)");
+    expect(pageSource).toContain("quotedUnitPrice: quotedUnitPrice ?? (snapshotPrice > 0 ? snapshotPrice : null)");
+  });
 });

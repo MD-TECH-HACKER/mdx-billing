@@ -1,50 +1,88 @@
-import React, { useState } from 'react';
-import { 
-  Settings, Mail, Palette, Globe, Save, RefreshCw, 
-  CheckCircle2, Building, MessageSquare, CreditCard,
-  Bell, Smartphone
-} from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import {
+  Settings,
+  Mail,
+  Globe,
+  Save,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+  Building,
+  DatabaseBackup,
+} from "lucide-react";
+import { CURRENCIES } from "@/utils/currency";
+import { TIMEZONE_OPTIONS } from "@/utils/timezones";
+
+const DEFAULT_SETTINGS = {
+  platformName: "MDX Billing App",
+  supportEmail: "support@mdx-billing.app",
+  senderEmail: "receipts@mdxbilling.app",
+  enableEmailReceipts: true,
+  enableSmsNotifications: false,
+  enableGstFeatures: true,
+  allowNewSignups: true,
+  maintenanceMode: false,
+  currencyDefault: "INR",
+  timezoneDefault: "Asia/Kolkata",
+  enforce2FA: false,
+  autoBackup: true,
+  backupIntervalHours: 5,
+};
+
+const fieldStyle = {
+  width: "100%",
+  maxWidth: "500px",
+  padding: "12px 16px",
+  borderRadius: "8px",
+  border: "1px solid var(--border)",
+  background: "var(--bg-surface)",
+  fontSize: "14px",
+  color: "var(--text)",
+  outline: "none",
+  boxSizing: "border-box",
+};
 
 const SettingsSection = ({ icon: Icon, title, description, children, color = "#F97316" }) => (
   <div style={{
     background: "var(--bg-surface, #ffffff)",
-    borderRadius: "16px",
+    borderRadius: "12px",
     border: "1px solid var(--border, #E5E7EB)",
-    padding: "32px",
+    padding: "28px",
     marginBottom: "24px",
     boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
   }}>
     <div style={{ display: "flex", alignItems: "flex-start", gap: "16px", marginBottom: "24px", borderBottom: "1px solid var(--border, #E5E7EB)", paddingBottom: "24px" }}>
-      <div style={{ background: `${color}1A`, color: color, padding: "12px", borderRadius: "12px" }}>
+      <div style={{ background: `${color}1A`, color, padding: "12px", borderRadius: "12px" }}>
         <Icon size={24} />
       </div>
       <div>
         <h3 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: 700, color: "var(--text)" }}>{title}</h3>
-        <p style={{ margin: 0, fontSize: "14px", color: "var(--text-dim)", lineHeight: 1.5, maxWidth: "600px" }}>{description}</p>
+        <p style={{ margin: 0, fontSize: "14px", color: "var(--text-dim)", lineHeight: 1.5, maxWidth: "680px" }}>{description}</p>
       </div>
     </div>
     {children}
   </div>
 );
 
-const InputGroup = ({ label, description, type = "text", value, onChange, placeholder }) => (
+const InputGroup = ({ label, description, type = "text", value, onChange, min, max }) => (
   <div style={{ marginBottom: "20px" }}>
     <label style={{ display: "block", margin: "0 0 6px", fontSize: "14px", fontWeight: 600, color: "var(--text)" }}>{label}</label>
     {description && <p style={{ margin: "0 0 10px", fontSize: "13px", color: "var(--text-dim)" }}>{description}</p>}
-    <input 
-      type={type} 
-      value={value} 
-      onChange={onChange} 
-      placeholder={placeholder}
-      style={{
-        width: "100%", maxWidth: "500px", padding: "12px 16px", borderRadius: "8px", 
-        border: "1px solid var(--border)", background: "var(--bg-surface)", 
-        fontSize: "14px", color: "var(--text)", outline: "none", boxSizing: "border-box",
-        transition: "border-color 0.2s"
-      }}
-      onFocus={(e) => e.currentTarget.style.borderColor = "#F97316"}
-      onBlur={(e) => e.currentTarget.style.borderColor = "var(--border)"}
-    />
+    <input type={type} min={min} max={max} value={value ?? ""} onChange={onChange} style={fieldStyle} />
+  </div>
+);
+
+const SelectGroup = ({ label, description, value, onChange, options }) => (
+  <div style={{ marginBottom: "20px" }}>
+    <label style={{ display: "block", margin: "0 0 6px", fontSize: "14px", fontWeight: 600, color: "var(--text)" }}>{label}</label>
+    {description && <p style={{ margin: "0 0 10px", fontSize: "13px", color: "var(--text-dim)" }}>{description}</p>}
+    <select value={value} onChange={onChange} style={fieldStyle}>
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
   </div>
 );
 
@@ -54,83 +92,124 @@ const ToggleRow = ({ label, description, enabled, onChange }) => (
       <h4 style={{ margin: "0 0 4px", fontSize: "15px", fontWeight: 600, color: "var(--text)" }}>{label}</h4>
       <p style={{ margin: 0, fontSize: "13px", color: "var(--text-dim)" }}>{description}</p>
     </div>
-    <button 
+    <button
+      type="button"
       onClick={onChange}
       style={{
         width: "44px", height: "24px", borderRadius: "12px", flexShrink: 0,
         background: enabled ? "#10B981" : "var(--border, #E5E7EB)",
         border: "none", cursor: "pointer", position: "relative",
-        transition: "background 0.3s ease"
+        transition: "background 0.3s ease",
       }}
+      aria-pressed={enabled}
     >
       <div style={{
         position: "absolute", top: "2px", left: enabled ? "22px" : "2px",
         width: "20px", height: "20px", borderRadius: "50%", background: "white",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.1)", transition: "left 0.3s ease"
+        boxShadow: "0 1px 3px rgba(0,0,0,0.1)", transition: "left 0.3s ease",
       }}/>
     </button>
   </div>
 );
 
+const BackupMetric = ({ label, value }) => (
+  <div style={{ padding: "14px", borderRadius: "10px", border: "1px solid var(--border)", background: "var(--bg-elev, #f8fafc)" }}>
+    <div style={{ fontSize: "12px", color: "var(--text-dim)", marginBottom: "6px" }}>{label}</div>
+    <div style={{ fontSize: "14px", color: "var(--text)", fontWeight: 700, wordBreak: "break-word" }}>{value || "Not available"}</div>
+  </div>
+);
+
 export default function AdminSettings() {
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
   const [toast, setToast] = useState(null);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [backup, setBackup] = useState(null);
 
-  const [settings, setSettings] = useState({
-    platformName: "MDX Billing App",
-    supportEmail: "support@mdx-billing.app",
-    resendApiKey: "re_8o2HDAH2_HgStjKbLEKdQKitmWg2jmeuD",
-    senderEmail: "receipts@mdxbilling.app",
-    enableEmailReceipts: true,
-    enableSmsNotifications: false,
-    enableGstFeatures: true,
-    allowNewSignups: true,
-    maintenanceMode: false,
-    currencyDefault: "INR",
-  });
-
-  const showToast = (message) => {
-    setToast(message);
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleSave = () => {
+  const refreshSettings = async () => {
+    setFetching(true);
+    try {
+      const [settingsResponse, backupResponse] = await Promise.all([
+        fetch("/api/admin/settings"),
+        fetch("/api/admin/backups/status"),
+      ]);
+      const settingsData = await settingsResponse.json().catch(() => ({}));
+      const backupData = await backupResponse.json().catch(() => ({}));
+      if (!settingsResponse.ok) throw new Error(settingsData.error || "Failed to load settings");
+      setSettings({ ...DEFAULT_SETTINGS, ...(settingsData.settings || {}) });
+      setBackup(backupData);
+    } catch (error) {
+      showToast(error.message || "Could not load settings", "error");
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshSettings();
+  }, []);
+
+  const handleSave = async () => {
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const response = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Failed to save settings");
+      setSettings({ ...DEFAULT_SETTINGS, ...(data.settings || {}) });
+      showToast("Platform settings saved.");
+      await refreshSettings();
+    } catch (error) {
+      showToast(error.message || "Could not save settings", "error");
+    } finally {
       setLoading(false);
-      showToast("Platform settings saved successfully.");
-    }, 1000);
+    }
   };
 
   const handleChange = (key, value) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
+  const currencyOptions = CURRENCIES.map((currency) => ({
+    value: currency.code,
+    label: `${currency.name} (${currency.code})`,
+  }));
+  const backupStatus = backup?.lastRun?.ok === true ? "Last run succeeded" : backup?.lastRun?.ok === false ? "Last run failed" : "No run recorded";
+
   return (
-    <div style={{ animation: "fadeIn 0.5s ease", paddingBottom: "60px" }}>
+    <div style={{ animation: "fadeIn 0.5s ease", paddingBottom: "60px", opacity: fetching ? 0.7 : 1 }}>
       {toast && (
         <div style={{
           position: "fixed", top: "24px", right: "24px", zIndex: 9999,
-          background: "#10B981", color: "white", padding: "12px 24px", borderRadius: "8px",
+          background: toast.type === "error" ? "#EF4444" : "#10B981", color: "white", padding: "12px 24px", borderRadius: "8px",
           fontWeight: 600, fontSize: "14px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
-          display: "flex", alignItems: "center", gap: "8px", animation: "fadeInDown 0.3s ease"
+          display: "flex", alignItems: "center", gap: "8px", animation: "fadeInDown 0.3s ease",
         }}>
-          <CheckCircle2 size={18} /> {toast}
+          {toast.type === "error" ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />} {toast.message}
         </div>
       )}
 
       <div style={{ marginBottom: "32px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "16px" }}>
         <div>
-          <h1 style={{ margin: "0 0 8px", fontSize: "28px", fontWeight: 800, letterSpacing: "-0.02em" }}>
+          <h1 style={{ margin: "0 0 8px", fontSize: "28px", fontWeight: 800 }}>
             Platform Settings
           </h1>
           <p style={{ margin: 0, color: "var(--text-dim, #6B7280)", fontSize: "15px" }}>
-            Configure global defaults, communication providers, and platform behaviors.
+            Configure global defaults, platform access, and backup delivery.
           </p>
         </div>
-        <button 
+        <button
+          type="button"
           onClick={handleSave}
-          disabled={loading}
+          disabled={loading || fetching}
           style={{
             background: "#F97316",
             color: "white",
@@ -142,111 +221,56 @@ export default function AdminSettings() {
             display: "flex",
             alignItems: "center",
             gap: "8px",
-            cursor: loading ? "not-allowed" : "pointer",
-            transition: "all 0.2s"
+            cursor: loading || fetching ? "not-allowed" : "pointer",
           }}
-          onMouseEnter={e => { if(!loading) e.currentTarget.style.background = "#EA580C" }}
-          onMouseLeave={e => { if(!loading) e.currentTarget.style.background = "#F97316" }}
         >
           {loading ? <RefreshCw size={18} className="animate-spin" /> : <Save size={18} />}
           Save Changes
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}>
-        
-        {/* General Settings */}
-        <SettingsSection icon={Building} title="General Information" description="Basic information about the platform displayed to all users." color="#3B82F6">
-          <InputGroup 
-            label="Platform Name" 
-            value={settings.platformName} 
-            onChange={(e) => handleChange("platformName", e.target.value)} 
-          />
-          <InputGroup 
-            label="Support Email" 
-            description="Where users should email if they encounter issues."
-            value={settings.supportEmail} 
-            onChange={(e) => handleChange("supportEmail", e.target.value)} 
-          />
-        </SettingsSection>
+      <SettingsSection icon={Building} title="General Information" description="Basic information displayed to all users." color="#3B82F6">
+        <InputGroup label="Platform Name" value={settings.platformName} onChange={(event) => handleChange("platformName", event.target.value)} />
+        <InputGroup label="Support Email" description="User support contact shown in public platform messages." value={settings.supportEmail} onChange={(event) => handleChange("supportEmail", event.target.value)} />
+      </SettingsSection>
 
-        {/* Email & Communication */}
-        <SettingsSection icon={Mail} title="Email & Communication" description="Configure the Resend API for transactional emails." color="#8B5CF6">
-          <InputGroup 
-            label="Resend API Key" 
-            type="password"
-            value={settings.resendApiKey} 
-            onChange={(e) => handleChange("resendApiKey", e.target.value)} 
-          />
-          <InputGroup 
-            label="Default Sender Email" 
-            description="The verified domain email address used for sending receipts."
-            value={settings.senderEmail} 
-            onChange={(e) => handleChange("senderEmail", e.target.value)} 
-          />
-          <div style={{ marginTop: "24px" }}>
-            <ToggleRow 
-              label="Enable Email Receipts" 
-              description="Allow shops to send digital receipts to customers via email."
-              enabled={settings.enableEmailReceipts} 
-              onChange={() => handleChange("enableEmailReceipts", !settings.enableEmailReceipts)} 
-            />
+      <SettingsSection icon={Mail} title="Email & Communication" description="Transactional email defaults used by platform-controlled messages." color="#8B5CF6">
+        <InputGroup label="Default Sender Email" value={settings.senderEmail} onChange={(event) => handleChange("senderEmail", event.target.value)} />
+        <ToggleRow label="Enable Email Receipts" description="Allow shops to send digital receipts to customers via email." enabled={!!settings.enableEmailReceipts} onChange={() => handleChange("enableEmailReceipts", !settings.enableEmailReceipts)} />
+        <ToggleRow label="Enable SMS Notifications" description="Reserved for shop alerts and receipt notifications." enabled={!!settings.enableSmsNotifications} onChange={() => handleChange("enableSmsNotifications", !settings.enableSmsNotifications)} />
+      </SettingsSection>
+
+      <SettingsSection icon={Globe} title="Localization & Formats" description="Set regional defaults for new shops." color="#F59E0B">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "20px" }}>
+          <SelectGroup label="Default Currency" value={settings.currencyDefault || "INR"} onChange={(event) => handleChange("currencyDefault", event.target.value)} options={currencyOptions} />
+          <SelectGroup label="Default Timezone" value={settings.timezoneDefault || "Asia/Kolkata"} onChange={(event) => handleChange("timezoneDefault", event.target.value)} options={TIMEZONE_OPTIONS} />
+        </div>
+      </SettingsSection>
+
+      <SettingsSection icon={Settings} title="Platform Features" description="Enable or disable core functionality platform-wide." color="#10B981">
+        <ToggleRow label="GST / Tax Features" description="Enable GST compliance features and tax reporting for all shops." enabled={!!settings.enableGstFeatures} onChange={() => handleChange("enableGstFeatures", !settings.enableGstFeatures)} />
+        <ToggleRow label="Allow New Signups" description="When disabled, public signup buttons are blocked." enabled={!!settings.allowNewSignups} onChange={() => handleChange("allowNewSignups", !settings.allowNewSignups)} />
+        <ToggleRow label="Enforce 2FA for Shop Owners" description="Require two-factor authentication for users managing a shop." enabled={!!settings.enforce2FA} onChange={() => handleChange("enforce2FA", !settings.enforce2FA)} />
+        <ToggleRow label="Automated Telegram Backups" description="Run database and upload-folder backups on the configured interval." enabled={!!settings.autoBackup} onChange={() => handleChange("autoBackup", !settings.autoBackup)} />
+        <ToggleRow label="Maintenance Mode" description="Blocks logged-in non-admin traffic and displays the maintenance page." enabled={!!settings.maintenanceMode} onChange={() => handleChange("maintenanceMode", !settings.maintenanceMode)} />
+        <InputGroup label="Backup Interval Hours" type="number" min="1" max="168" value={settings.backupIntervalHours || 5} onChange={(event) => handleChange("backupIntervalHours", Number(event.target.value) || 5)} />
+      </SettingsSection>
+
+      <SettingsSection icon={DatabaseBackup} title="Telegram Backups" description="Backup archive status and delivery configuration." color="#0EA5E9">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
+          <BackupMetric label="Telegram Bot" value={backup?.telegramConfigured ? "Configured" : "Missing TELEGRAM_BOT_TOKEN"} />
+          <BackupMetric label="Telegram Chat" value={backup?.chatConfigured ? "Configured" : "Missing TELEGRAM_CHAT_ID"} />
+          <BackupMetric label="Interval" value={`${backup?.intervalHours || settings.backupIntervalHours || 5} hours`} />
+          <BackupMetric label="Status" value={backupStatus} />
+          <BackupMetric label="Last Run" value={backup?.lastRun?.finishedAt || backup?.lastRun?.startedAt} />
+          <BackupMetric label="Last Archive" value={backup?.lastRun?.archiveName} />
+        </div>
+        {backup?.lastRun?.error ? (
+          <div style={{ marginTop: "12px", color: "#B91C1C", fontSize: "13px" }}>
+            {backup.lastRun.error}
           </div>
-        </SettingsSection>
-
-        {/* Localization Settings */}
-        <SettingsSection icon={Globe} title="Localization & Formats" description="Set regional defaults for new shops and users." color="#F59E0B">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-            <InputGroup 
-              label="Default Currency" 
-              value={settings.currencyDefault || "INR"} 
-              onChange={(e) => handleChange("currencyDefault", e.target.value)} 
-            />
-            <InputGroup 
-              label="Default Timezone" 
-              value={settings.timezoneDefault || "Asia/Kolkata"} 
-              onChange={(e) => handleChange("timezoneDefault", e.target.value)} 
-            />
-          </div>
-        </SettingsSection>
-
-        {/* Feature Toggles */}
-        <SettingsSection icon={Settings} title="Platform Features" description="Enable or disable core functionalities platform-wide." color="#10B981">
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <ToggleRow 
-              label="GST / Tax Features" 
-              description="Enable Indian GST compliance features and reporting for all shops."
-              enabled={settings.enableGstFeatures} 
-              onChange={() => handleChange("enableGstFeatures", !settings.enableGstFeatures)} 
-            />
-            <ToggleRow 
-              label="Allow New Signups" 
-              description="When disabled, only administrators can invite new users to the platform."
-              enabled={settings.allowNewSignups} 
-              onChange={() => handleChange("allowNewSignups", !settings.allowNewSignups)} 
-            />
-            <ToggleRow 
-              label="Enforce 2FA for Shop Owners" 
-              description="Require two-factor authentication for all users managing a shop."
-              enabled={settings.enforce2FA || false} 
-              onChange={() => handleChange("enforce2FA", !settings.enforce2FA)} 
-            />
-            <ToggleRow 
-              label="Automated Daily Backups" 
-              description="Run automated database dumps at 3:00 AM every day."
-              enabled={settings.autoBackup || true} 
-              onChange={() => handleChange("autoBackup", !settings.autoBackup)} 
-            />
-            <ToggleRow 
-              label="Maintenance Mode" 
-              description="Blocks all non-admin traffic and displays a 'System Maintenance' page."
-              enabled={settings.maintenanceMode} 
-              onChange={() => handleChange("maintenanceMode", !settings.maintenanceMode)} 
-            />
-          </div>
-        </SettingsSection>
-
-      </div>
+        ) : null}
+      </SettingsSection>
     </div>
   );
 }

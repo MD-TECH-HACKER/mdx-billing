@@ -66,6 +66,20 @@ export function ensureCoreBusinessSchema() {
           if (e.code !== 'ER_DUP_KEYNAME') console.error(e);
         }
       }
+
+      const shopAlters = [
+        "ALTER TABLE shops ADD COLUMN status VARCHAR(50) NOT NULL DEFAULT 'active'",
+        "ALTER TABLE shops ADD COLUMN suspended_at DATETIME NULL",
+        "ALTER TABLE shops ADD COLUMN suspended_by VARCHAR(36) NULL",
+        "ALTER TABLE shops ADD COLUMN timezone VARCHAR(100) DEFAULT 'Asia/Kolkata'",
+      ];
+      for (const alter of shopAlters) {
+        try {
+          await sql(alter);
+        } catch (e) {
+          if (e.code !== 'ER_DUP_FIELDNAME') throw e;
+        }
+      }
     })();
   }
   return coreSchemaPromise;

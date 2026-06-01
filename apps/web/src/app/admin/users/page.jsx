@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, Search, User, MoreHorizontal, ShieldCheck } from 'lucide-react';
+import { Loader2, Search, User, ShieldCheck } from 'lucide-react';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [openActionId, setOpenActionId] = useState(null);
   const [modalMessage, setModalMessage] = useState(null);
   const [selectedUserDetails, setSelectedUserDetails] = useState(null);
 
@@ -114,7 +113,7 @@ export default function AdminUsers() {
               <div>
                 <div style={{ fontSize: "12px", color: "var(--text-dim)", textTransform: "uppercase", fontWeight: 600, letterSpacing: "0.05em", marginBottom: "4px" }}>Platform Role</div>
                 <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--text)" }}>
-                  {selectedUserDetails.email.toLowerCase() === "m.dharaaneesh123@gmail.com" ? "Platform Owner" : "Standard User"}
+                  {selectedUserDetails.isPlatformAdmin ? "Platform Admin" : "Standard User"}
                 </div>
               </div>
               <div>
@@ -195,7 +194,7 @@ export default function AdminUsers() {
                   </tr>
                 ) : (
                   filteredUsers.map(user => {
-                    const isOwner = user.email.toLowerCase() === "m.dharaaneesh123@gmail.com"; // Hardcoded visual check for primary owner
+                    const isOwner = user.isPlatformAdmin === true;
                     return (
                       <tr key={user.id} style={{ borderBottom: "1px solid var(--border, #E5E7EB)", transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elev, #F9FAFB)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                         <td style={{ padding: "16px 24px" }}>
@@ -216,7 +215,7 @@ export default function AdminUsers() {
                         <td style={{ padding: "16px 24px" }}>
                           {isOwner ? (
                             <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 12px", borderRadius: "20px", background: "rgba(249, 115, 22, 0.1)", color: "#F97316", fontSize: "12px", fontWeight: 600, border: "1px solid rgba(249, 115, 22, 0.2)" }}>
-                              <ShieldCheck size={14} /> Platform Owner
+                              <ShieldCheck size={14} /> Platform Admin
                             </span>
                           ) : user.banned ? (
                             <span style={{ padding: "4px 12px", borderRadius: "20px", background: "rgba(220, 38, 38, 0.1)", color: "#DC2626", fontSize: "12px", fontWeight: 600, border: "1px solid rgba(220, 38, 38, 0.2)" }}>
@@ -230,24 +229,23 @@ export default function AdminUsers() {
                         </td>
                         <td style={{ padding: "16px 24px", textAlign: "right", fontSize: "14px", fontWeight: 500, color: "var(--text)" }}>{user.shop_count || 0}</td>
                         <td style={{ padding: "16px 24px", textAlign: "right", fontSize: "14px", fontWeight: 500, color: "var(--text)" }}>{user.sales_count || 0}</td>
-                        <td style={{ padding: "16px 24px", textAlign: "center", position: "relative" }}>
-                          <button 
-                            onClick={() => setOpenActionId(openActionId === user.id ? null : user.id)}
-                            style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--text-dim)", padding: "8px", borderRadius: "8px", transition: "all 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elev, #F3F4F6)"; e.currentTarget.style.color = "var(--text)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-dim)"; }}>
-                            <MoreHorizontal size={20} />
-                          </button>
-                          {openActionId === user.id && (
-                            <div style={{ position: "absolute", right: "24px", top: "100%", zIndex: 10, background: "var(--bg-surface, #ffffff)", border: "1px solid var(--border, #E5E7EB)", borderRadius: "8px", boxShadow: "0 4px 6px rgba(0,0,0,0.1)", minWidth: "150px", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-                              {!isOwner && (
-                                <button style={{ width: "100%", padding: "10px 16px", background: "transparent", border: "none", borderBottom: "1px solid var(--border, #E5E7EB)", textAlign: "left", color: user.banned ? "#16A34A" : "#DC2626", cursor: "pointer", fontSize: "14px", fontWeight: 500 }} onClick={() => { handleBan(user); setOpenActionId(null); }}>
-                                  {user.banned ? "Unban User" : "Ban User"}
-                                </button>
-                              )}
-                              <button style={{ width: "100%", padding: "10px 16px", background: "transparent", border: "none", textAlign: "left", color: "var(--text, #111827)", cursor: "pointer", fontSize: "14px", fontWeight: 500 }} onClick={() => { setSelectedUserDetails(user); setOpenActionId(null); }}>
-                                View Details
+                        <td style={{ padding: "16px 24px", textAlign: "center" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", flexWrap: "wrap" }}>
+                            {!isOwner ? (
+                              <button
+                                style={{ padding: "8px 12px", background: user.banned ? "rgba(22, 163, 74, 0.1)" : "rgba(220, 38, 38, 0.1)", border: user.banned ? "1px solid rgba(22, 163, 74, 0.25)" : "1px solid rgba(220, 38, 38, 0.25)", borderRadius: "8px", color: user.banned ? "#16A34A" : "#DC2626", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}
+                                onClick={() => handleBan(user)}
+                              >
+                                {user.banned ? "Unban User" : "Ban User"}
                               </button>
-                            </div>
-                          )}
+                            ) : null}
+                            <button
+                              style={{ padding: "8px 12px", background: "var(--bg-elev, #F3F4F6)", border: "1px solid var(--border, #E5E7EB)", borderRadius: "8px", color: "var(--text, #111827)", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}
+                              onClick={() => setSelectedUserDetails(user)}
+                            >
+                              View Details
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

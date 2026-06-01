@@ -42,17 +42,27 @@ function lineId() {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+function readProductId(item) {
+  return item?.product_id ?? item?.productId ?? item?.id ?? null;
+}
+
+function readSellingPrice(item) {
+  return item?.selling_price ?? item?.sellingPrice ?? item?.price ?? item?.unitPrice ?? 0;
+}
+
 function productLine(item, quotedUnitPrice = null) {
+  const productId = readProductId(item);
+  const snapshotPrice = Number(readSellingPrice(item)) || 0;
   return {
     id: lineId(),
     type: "product",
-    productId: String(item.product_id),
-    product: item,
+    productId: String(productId),
+    product: { ...item, product_id: productId, selling_price: snapshotPrice },
     quantity: Number(item.quantity) || 1,
-    selectedUnit: item.primary_unit || "piece",
+    selectedUnit: item.primary_unit || item.primaryUnit || "piece",
     discount: "",
-    taxRate: String(item.tax_rate || ""),
-    quotedUnitPrice,
+    taxRate: String(item.tax_rate ?? item.taxRate ?? ""),
+    quotedUnitPrice: quotedUnitPrice ?? (snapshotPrice > 0 ? snapshotPrice : null),
   };
 }
 
@@ -60,14 +70,14 @@ function cartSignature(cart) {
   return cart
     .map((item) =>
       [
-        item.product_id,
+        readProductId(item),
         item.quantity,
-        item.selling_price,
-        item.primary_unit,
-        item.secondary_unit,
-        item.conversion_rate,
+        readSellingPrice(item),
+        item.primary_unit || item.primaryUnit,
+        item.secondary_unit || item.secondaryUnit,
+        item.conversion_rate || item.conversionRate,
         item.stock,
-        item.stock_base_unit,
+        item.stock_base_unit || item.stockBaseUnit,
       ].join(":"),
     )
     .join("|");

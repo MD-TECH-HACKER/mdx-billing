@@ -2,6 +2,7 @@
 import {
   ActivityIndicator,
   BackHandler,
+  Image,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -66,7 +67,7 @@ export default function Index() {
         <View style={styles.loader}>
           <View style={styles.loaderCard}>
             <View style={styles.logo}>
-              <Text style={styles.logoText}>M</Text>
+              <Image source={require("../../assets/images/icon.png")} style={styles.logoImage} />
             </View>
             <Text style={styles.loaderTitle}>Loading MDX Billing</Text>
             <ActivityIndicator color="#a78bfa" style={styles.spinner} />
@@ -112,17 +113,17 @@ const styles = StyleSheet.create({
   },
   logo: {
     alignItems: "center",
-    backgroundColor: "#8b5cf6",
-    borderRadius: 18,
-    height: 56,
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    height: 64,
     justifyContent: "center",
     marginBottom: 12,
-    width: 56,
+    overflow: "hidden",
+    width: 64,
   },
-  logoText: {
-    color: "#ffffff",
-    fontSize: 24,
-    fontWeight: "800",
+  logoImage: {
+    height: 64,
+    width: 64,
   },
   loaderTitle: {
     color: "#ffffff",

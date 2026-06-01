@@ -1,9 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  Loader2, Search, Store, MoreHorizontal, Filter, AlertTriangle, 
-  CheckCircle2, Ban, X, ArrowUpRight, TrendingUp, IndianRupee, MapPin, 
+  Loader2, Search, Store, Filter, AlertTriangle,
+  CheckCircle2, Ban, X, TrendingUp, IndianRupee, MapPin,
   Calendar, Eye
 } from 'lucide-react';
+
+function shopStatus(shop) {
+  return String(shop?.status || "active").toLowerCase() === "suspended" ? "suspended" : "active";
+}
+
+function isShopSuspended(shop) {
+  return shopStatus(shop) === "suspended";
+}
 
 export default function AdminShops() {
   const [shops, setShops] = useState([]);
@@ -12,32 +20,62 @@ export default function AdminShops() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedShop, setSelectedShop] = useState(null);
   const [showRawData, setShowRawData] = useState(false);
+  const [savingShopId, setSavingShopId] = useState(null);
+  const [notice, setNotice] = useState(null);
+
+  async function loadShops() {
+    try {
+      const res = await fetch('/api/admin/shops');
+      const data = await res.json();
+      if (data.shops) setShops(data.shops);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    fetch('/api/admin/shops')
-      .then(res => res.json())
-      .then(data => {
-        if(data.shops) setShops(data.shops);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoading(false);
-      });
+    loadShops();
   }, []);
+
+  const handleShopStatus = async (shop) => {
+    const suspended = isShopSuspended(shop);
+    const action = suspended ? "activate" : "suspend";
+    setSavingShopId(shop.shop_id);
+    setNotice(null);
+    try {
+      const res = await fetch('/api/admin/shops', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shopId: shop.shop_id, action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setNotice(data.error || `Failed to ${action} shop`);
+        return;
+      }
+      setShops((current) => current.map((entry) => entry.shop_id === data.shop.shop_id ? data.shop : entry));
+      setSelectedShop(data.shop);
+      setNotice(suspended ? "Shop reactivated." : "Shop suspended.");
+    } catch (err) {
+      console.error(err);
+      setNotice("Error processing shop action");
+    } finally {
+      setSavingShopId(null);
+    }
+  };
 
   const filteredShops = shops.filter(s => {
     const matchesSearch = (s.shop_name || "").toLowerCase().includes(search.toLowerCase()) || 
                           (s.owner_email || "").toLowerCase().includes(search.toLowerCase());
-    
-    // Mock status logic since actual db might not have status column yet
-    const isSuspended = (s.shop_name || "").toLowerCase().includes("suspended");
-    const status = isSuspended ? "suspended" : "active";
-    
+
+    const status = shopStatus(s);
     const matchesStatus = statusFilter === "all" || status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
+  const selectedShopSuspended = isShopSuspended(selectedShop);
 
   return (
     <div style={{ animation: "fadeIn 0.5s ease" }}>
@@ -104,7 +142,17 @@ export default function AdminShops() {
                   <span style={{ color: "var(--text-dim)", display: "flex", alignItems: "center", gap: "8px" }}><Calendar size={16}/> Created On</span>
                   <span style={{ fontWeight: 500, color: "var(--text)" }}>{new Date(selectedShop.created_at).toLocaleDateString()}</span>
                 </div>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "12px", background: "var(--bg-elev)", borderRadius: "8px", fontSize: "14px" }}>
+                  <span style={{ color: "var(--text-dim)", display: "flex", alignItems: "center", gap: "8px" }}><AlertTriangle size={16}/> Status</span>
+                  <span style={{ fontWeight: 700, color: selectedShopSuspended ? "#DC2626" : "#10B981" }}>{selectedShopSuspended ? "Suspended" : "Active"}</span>
+                </div>
               </div>
+
+              {notice ? (
+                <div style={{ marginBottom: "16px", padding: "12px", borderRadius: "8px", background: selectedShopSuspended ? "rgba(220, 38, 38, 0.08)" : "rgba(16, 185, 129, 0.08)", color: selectedShopSuspended ? "#DC2626" : "#047857", fontSize: "14px", fontWeight: 600 }}>
+                  {notice}
+                </div>
+              ) : null}
 
               <div style={{ display: "flex", gap: "12px" }}>
                 <button 
@@ -112,8 +160,13 @@ export default function AdminShops() {
                   style={{ flex: 1, padding: "12px", background: "var(--bg-elev)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--text)", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", cursor: "pointer" }}>
                   <Eye size={18} /> View Raw Data
                 </button>
-                <button style={{ flex: 1, padding: "12px", background: "rgba(220, 38, 38, 0.1)", border: "1px solid rgba(220, 38, 38, 0.3)", borderRadius: "8px", color: "#DC2626", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", cursor: "pointer" }}>
-                  <Ban size={18} /> Suspend Shop
+                <button
+                  disabled={savingShopId === selectedShop.shop_id}
+                  onClick={() => handleShopStatus(selectedShop)}
+                  style={{ flex: 1, padding: "12px", background: selectedShopSuspended ? "rgba(16, 185, 129, 0.1)" : "rgba(220, 38, 38, 0.1)", border: selectedShopSuspended ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid rgba(220, 38, 38, 0.3)", borderRadius: "8px", color: selectedShopSuspended ? "#047857" : "#DC2626", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", cursor: savingShopId === selectedShop.shop_id ? "wait" : "pointer", opacity: savingShopId === selectedShop.shop_id ? 0.7 : 1 }}
+                >
+                  {savingShopId === selectedShop.shop_id ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : selectedShopSuspended ? <CheckCircle2 size={18} /> : <Ban size={18} />}
+                  {selectedShopSuspended ? "Reactivate Shop" : "Suspend Shop"}
                 </button>
               </div>
 
@@ -225,7 +278,7 @@ export default function AdminShops() {
                   </tr>
                 ) : (
                   filteredShops.map(shop => {
-                    const isSuspended = (shop.shop_name || "").toLowerCase().includes("suspended");
+                    const isSuspended = isShopSuspended(shop);
                     return (
                       <tr key={shop.shop_id} style={{ borderBottom: "1px solid var(--border, #E5E7EB)", transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elev, #F9FAFB)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                         <td style={{ padding: "16px 24px" }}>
@@ -268,7 +321,7 @@ export default function AdminShops() {
                         </td>
                         <td style={{ padding: "16px 24px", textAlign: "center" }}>
                           <button 
-                            onClick={() => setSelectedShop(shop)}
+                            onClick={() => { setSelectedShop(shop); setNotice(null); setShowRawData(false); }}
                             style={{ background: "var(--bg-elev)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--text)", padding: "8px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: 600, transition: "all 0.2s" }} 
                             onMouseEnter={(e) => { e.currentTarget.style.background = "#F97316"; e.currentTarget.style.color = "white"; e.currentTarget.style.borderColor = "#F97316"; }} 
                             onMouseLeave={(e) => { e.currentTarget.style.background = "var(--bg-elev)"; e.currentTarget.style.color = "var(--text)"; e.currentTarget.style.borderColor = "var(--border)"; }}

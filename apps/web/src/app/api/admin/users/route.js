@@ -19,7 +19,12 @@ export async function GET() {
       LIMIT 200
     `;
 
-    return Response.json({ users: detailedUsers });
+    return Response.json({
+      users: detailedUsers.map((user) => ({
+        ...user,
+        isPlatformAdmin: isAdmin(user),
+      })),
+    });
   } catch (err) {
     console.error("GET /api/admin/users error:", err);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });

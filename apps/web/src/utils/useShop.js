@@ -104,6 +104,7 @@ export default function useShop({ enabled = true } = {}) {
         if (typeof patch.taxPercent === "number")
           next.tax_percent = patch.taxPercent;
         if (typeof patch.currency === "string") next.currency = patch.currency;
+        if (typeof patch.timezone === "string") next.timezone = patch.timezone;
         if (typeof patch.thankYouMessage === "string")
           next.thank_you_message = patch.thankYouMessage;
         if (typeof patch.theme === "string") next.theme = patch.theme;
