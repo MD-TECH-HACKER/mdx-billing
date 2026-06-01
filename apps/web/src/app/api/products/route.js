@@ -146,16 +146,18 @@ export async function POST(request) {
          ${categoryNameSnapshot}, ${categoryId}, ${categoryNameSnapshot}, ${sku}, ${primaryUnit}, ${conversionRate ? secondaryUnit : null}, ${conversionRate},
          ${hsnSac}, ${taxRate}, ${taxRate}, ${taxMode}, ${gstExempt}, ${cessRate}, ${reverseCharge}, ${productStatus},
          ${supplierId}, NOW())
-      RETURNING *
     `;
+    
+    const productId = created[0].insertId;
+    const newProductRows = await sql`SELECT * FROM products WHERE product_id = ${productId}`;
+    const newProduct = newProductRows[0];
     if (conversionRate) {
       await sql`
         INSERT INTO unit_conversions
           (shop_id, product_id, from_unit, to_unit, conversion_rate)
         VALUES
-          (${context.shopId}, ${created[0].product_id}, ${primaryUnit}, ${secondaryUnit}, ${conversionRate})
-        ON CONFLICT (product_id, from_unit, to_unit)
-        DO UPDATE SET conversion_rate = EXCLUDED.conversion_rate, active = TRUE, updated_at = NOW()
+          (${context.shopId}, ${productId}, ${primaryUnit}, ${secondaryUnit}, ${conversionRate})
+        ON DUPLICATE KEY UPDATE conversion_rate = VALUES(conversion_rate), active = TRUE, updated_at = NOW()
       `;
     }
     let openingBatchId = null;
@@ -176,14 +178,13 @@ export async function POST(request) {
            cost_price, cost_price_base_unit, selling_price, supplier_id, supplier_name_snapshot,
            purchase_invoice_no, notes, source, created_by)
         VALUES
-          (${created[0].product_id}, ${context.shopId}, ${context.shopOwnerId}, ${title}, NOW(),
+          (${productId}, ${context.shopId}, ${context.shopOwnerId}, ${title}, NOW(),
            ${openingStock}, ${openingStock}, ${openingStockBaseUnit}, ${openingStockBaseUnit},
            ${openingStockUnit}, ${primaryUnit}, ${conversionRate ? secondaryUnit : null}, ${conversionRate},
            ${costPrice}, ${costPriceBaseUnit}, ${sellingPrice}, ${supplierId}, ${supplierRows[0]?.name || null},
            NULL, 'Opening stock batch', 'opening_stock', ${context.userId})
-        RETURNING batch_id
       `;
-      openingBatchId = batchRows[0]?.batch_id || null;
+      openingBatchId = batchRows[0]?.insertId || null;
     }
     await sql`
       INSERT INTO stock_movements
@@ -191,7 +192,7 @@ export async function POST(request) {
          quantity_base_unit, display_quantity, unit, batch_id, old_stock_base_unit, new_stock_base_unit,
          cost_price_snapshot, selling_price_snapshot, movement_date, reason, owner_id, created_by)
       VALUES
-        (${context.shopId}, ${created[0].product_id}, ${title}, 'opening_stock', ${openingStockBaseUnit},
+        (${context.shopId}, ${productId}, ${title}, 'opening_stock', ${openingStockBaseUnit},
          ${openingStockBaseUnit}, ${openingStock}, ${openingStockUnit}, ${openingBatchId}, 0, ${openingStockBaseUnit},
          ${costPrice}, ${sellingPrice}, NOW(), 'Opening stock', ${context.shopOwnerId}, ${context.userId})
     `;
@@ -199,11 +200,11 @@ export async function POST(request) {
       context,
       "product.create",
       "product",
-      created[0].product_id,
+      productId,
       { title, openingStockBaseUnit, openingStockUnit },
     );
 
-    return Response.json({ product: created[0] }, { status: 201 });
+    return Response.json({ product: newProduct }, { status: 201 });
   } catch (error) {
     if (error instanceof AccessError) return accessErrorResponse(error);
     console.error("POST /api/products", error);

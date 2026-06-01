@@ -16,24 +16,24 @@ describe("stock movement route contracts", () => {
   test("sales movements preserve each sold line selected unit", () => {
     const salesRoute = read("../sales/route.js");
 
-    expect(salesRoute).toContain("sale_lines AS (");
-    expect(salesRoute).toContain('item."selectedUnit" AS unit');
+    expect(salesRoute).toContain("'sale_stock_out'");
+    expect(salesRoute).toContain("${line.quantity}, ${line.selectedUnit}");
     expect(salesRoute).not.toContain("d.quantity_base_unit, 'base'");
   });
 
   test("purchase movements preserve each inward line selected unit", () => {
     const purchasesRoute = read("../purchases/route.js");
 
-    expect(purchasesRoute).toContain("purchase_lines AS (");
-    expect(purchasesRoute).toContain('item."selectedUnit" AS unit');
+    expect(purchasesRoute).toContain("'purchase_stock_in'");
+    expect(purchasesRoute).toContain("${line.quantity}, ${line.selectedUnit}");
     expect(purchasesRoute).not.toContain("received.quantity_base_unit, 'base'");
   });
 
   test("cancelled sale return movements restore the original selected unit", () => {
     const saleDetailRoute = read("../sales/[id]/route.js");
 
-    expect(saleDetailRoute).toContain("return_lines AS (");
-    expect(saleDetailRoute).toContain('item."selectedUnit" AS unit');
+    expect(saleDetailRoute).toContain("'sale_cancel_return'");
+    expect(saleDetailRoute).toContain("${item.quantity}, ${item.selectedUnit}");
     expect(saleDetailRoute).not.toContain("quantity_base_unit, 'base'");
   });
 });

@@ -49,9 +49,9 @@ export async function POST(request) {
     ];
     let productMap = {};
     if (productIds.length) {
-      const placeholders = productIds.map((_, index) => `$${index + 2}`).join(",");
+      const placeholders = productIds.map(() => "?").join(",");
       const products = await sql(
-        `SELECT * FROM products WHERE shop_id = $1 AND product_id IN (${placeholders})`,
+        `SELECT * FROM products WHERE shop_id = ? AND product_id IN (${placeholders})`,
         [context.shopId, ...productIds],
       );
       productMap = Object.fromEntries(products.map((product) => [product.product_id, product]));

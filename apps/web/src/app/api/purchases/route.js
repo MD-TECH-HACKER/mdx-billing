@@ -65,9 +65,9 @@ export async function POST(request) {
       supplierId = candidate;
       supplierName = supplier[0].name;
     }
-    const placeholders = productIds.map((_, index) => `$${index + 2}`).join(",");
+    const placeholders = productIds.map(() => "?").join(",");
     const products = await sql(
-      `SELECT * FROM products WHERE shop_id = $1 AND product_id IN (${placeholders})`,
+      `SELECT * FROM products WHERE shop_id = ? AND product_id IN (${placeholders})`,
       [context.shopId, ...productIds],
     );
     const productMap = Object.fromEntries(products.map((product) => [product.product_id, product]));

@@ -32,7 +32,7 @@ export async function GET(request) {
         COALESCE(SUM(CASE WHEN s.sale_status IS NULL OR s.sale_status = 'completed' THEN s.total_amount - COALESCE(s.paid_amount, 0) ELSE 0 END), 0) AS total_due,
         COALESCE(c.opening_balance, 0) + COALESCE(SUM(CASE WHEN s.sale_status IS NULL OR s.sale_status = 'completed' THEN s.total_amount - COALESCE(s.paid_amount, 0) ELSE 0 END), 0) AS credit_balance,
         MAX(CASE WHEN s.sale_status IS NULL OR s.sale_status = 'completed' THEN s.created_at END) AS last_purchase_date,
-        COUNT(s.sale_id) FILTER (WHERE s.sale_status IS NULL OR s.sale_status = 'completed') AS invoice_count,
+        SUM(CASE WHEN s.sale_id IS NOT NULL AND (s.sale_status IS NULL OR s.sale_status = 'completed') THEN 1 ELSE 0 END) AS invoice_count,
         (
           SELECT COALESCE(JSON_ARRAYAGG(JSON_OBJECT(
             'paymentId', pay.payment_id,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useAuth from "@/utils/useAuth";
 import { Store } from "lucide-react";
 import Turnstile from "@/components/Turnstile";
@@ -10,10 +10,32 @@ function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileEnabled, setTurnstileEnabled] = useState(false);
+  const [securityReady, setSecurityReady] = useState(false);
 
   const { signUpWithCredentials, signInWithGoogle } = useAuth();
 
+  useEffect(() => {
+    let active = true;
+    fetch("/api/security/turnstile")
+      .then((response) => response.json())
+      .then((data) => {
+        if (active) setTurnstileEnabled(data.enabled !== false);
+      })
+      .catch(() => {
+        if (active) setTurnstileEnabled(true);
+      })
+      .finally(() => {
+        if (active) setSecurityReady(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const verifySecurity = async () => {
+    if (!securityReady) throw new Error("Security settings are loading. Please try again.");
+    if (!turnstileEnabled) return;
     const response = await fetch("/api/security/turnstile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -97,12 +119,14 @@ function SignUpPage() {
           </p>
         </div>
 
-        <div className="mb-4">
-          <Turnstile
-            onToken={setTurnstileToken}
-            onError={(message) => setError(message)}
-          />
-        </div>
+        {securityReady && turnstileEnabled ? (
+          <div className="mb-4">
+            <Turnstile
+              onToken={setTurnstileToken}
+              onError={(message) => setError(message)}
+            />
+          </div>
+        ) : null}
         {error ? (
           <div className="mb-4 rounded-2xl t-danger-bg px-4 py-3 text-sm">
             {error}
@@ -111,7 +135,7 @@ function SignUpPage() {
 
         <button
           onClick={handleGoogle}
-          disabled={googleLoading}
+          disabled={googleLoading || !securityReady}
           className="w-full t-btn rounded-2xl px-4 py-3.5 font-semibold flex items-center justify-center gap-3 transition disabled:opacity-60"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">

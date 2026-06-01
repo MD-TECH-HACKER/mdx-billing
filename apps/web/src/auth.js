@@ -352,6 +352,17 @@ export const { auth } = CreateAuth({
       })],
   adapter,
   session: { strategy: "jwt" },
+  callbacks: {
+    async signIn({ user }) {
+      if (user && user.email) {
+        const dbUser = await adapter.getUserByEmail(user.email);
+        if (dbUser && dbUser.banned) {
+          throw new Error("Your account has been banned.");
+        }
+      }
+      return true;
+    }
+  },
   pages: {
     signIn: '/account/signin',
     signOut: '/account/logout',

@@ -7,6 +7,28 @@ export default function AdminUsers() {
   const [search, setSearch] = useState("");
   const [openActionId, setOpenActionId] = useState(null);
   const [modalMessage, setModalMessage] = useState(null);
+  const [selectedUserDetails, setSelectedUserDetails] = useState(null);
+
+  const handleBan = async (user) => {
+    try {
+      const action = user.banned ? "unban" : "ban";
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action })
+      });
+      if (!res.ok) {
+        setModalMessage(`Failed to ${action} user`);
+        return;
+      }
+      const data = await res.json();
+      setUsers(users.map(u => u.id === user.id ? { ...u, banned: data.banned } : u));
+      setModalMessage(`User ${action === 'ban' ? 'banned' : 'unbanned'} successfully.`);
+    } catch (err) {
+      console.error(err);
+      setModalMessage("Error processing request");
+    }
+  };
 
   useEffect(() => {
     fetch('/api/admin/users')
@@ -48,6 +70,62 @@ export default function AdminUsers() {
               style={{ width: "100%", padding: "12px", background: "#F97316", color: "white", border: "none", borderRadius: "8px", fontWeight: 600, cursor: "pointer" }}>
               OK
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* User Details Modal */}
+      {selectedUserDetails && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.5)", zIndex: 1000,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          backdropFilter: "blur(4px)", animation: "fadeIn 0.2s ease"
+        }}>
+          <div style={{
+            background: "var(--bg-surface, #ffffff)", width: "100%", maxWidth: "500px",
+            borderRadius: "16px", padding: "32px", boxShadow: "0 25px 50px rgba(0,0,0,0.25)",
+            animation: "slideUp 0.3s ease", position: "relative"
+          }}>
+            <button onClick={() => setSelectedUserDetails(null)} style={{ position: "absolute", top: "16px", right: "16px", background: "transparent", border: "none", cursor: "pointer", fontSize: "20px", color: "var(--text-dim)" }}>×</button>
+            <div style={{ display: "flex", alignItems: "center", gap: "20px", marginBottom: "24px" }}>
+              {selectedUserDetails.image ? (
+                <img src={selectedUserDetails.image} alt="" style={{ width: "80px", height: "80px", borderRadius: "50%", objectFit: "cover", border: "1px solid var(--border)" }} />
+              ) : (
+                <div style={{ width: "80px", height: "80px", borderRadius: "50%", background: "var(--bg-elev)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-dim)", border: "1px solid var(--border)" }}>
+                  <User size={40} />
+                </div>
+              )}
+              <div>
+                <h3 style={{ margin: "0 0 4px", fontSize: "22px", fontWeight: 700, color: "var(--text)" }}>{selectedUserDetails.display_name || selectedUserDetails.name || "Unknown"}</h3>
+                <p style={{ margin: "0 0 8px", color: "var(--text-dim)", fontSize: "14px" }}>{selectedUserDetails.email}</p>
+                {selectedUserDetails.banned && (
+                  <span style={{ padding: "4px 10px", borderRadius: "20px", background: "rgba(220, 38, 38, 0.1)", color: "#DC2626", fontSize: "12px", fontWeight: 600 }}>
+                    BANNED
+                  </span>
+                )}
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", background: "var(--bg-elev)", padding: "20px", borderRadius: "12px" }}>
+              <div>
+                <div style={{ fontSize: "12px", color: "var(--text-dim)", textTransform: "uppercase", fontWeight: 600, letterSpacing: "0.05em", marginBottom: "4px" }}>User ID</div>
+                <div style={{ fontSize: "14px", fontWeight: 500, fontFamily: "monospace", color: "var(--text)", wordBreak: "break-all" }}>{selectedUserDetails.id}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "12px", color: "var(--text-dim)", textTransform: "uppercase", fontWeight: 600, letterSpacing: "0.05em", marginBottom: "4px" }}>Platform Role</div>
+                <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--text)" }}>
+                  {selectedUserDetails.email.toLowerCase() === "m.dharaaneesh123@gmail.com" ? "Platform Owner" : "Standard User"}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: "12px", color: "var(--text-dim)", textTransform: "uppercase", fontWeight: 600, letterSpacing: "0.05em", marginBottom: "4px" }}>Shops Created</div>
+                <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--text)" }}>{selectedUserDetails.shop_count || 0}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "12px", color: "var(--text-dim)", textTransform: "uppercase", fontWeight: 600, letterSpacing: "0.05em", marginBottom: "4px" }}>Total Sales</div>
+                <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--text)" }}>{selectedUserDetails.sales_count || 0}</div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -140,6 +218,10 @@ export default function AdminUsers() {
                             <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 12px", borderRadius: "20px", background: "rgba(249, 115, 22, 0.1)", color: "#F97316", fontSize: "12px", fontWeight: 600, border: "1px solid rgba(249, 115, 22, 0.2)" }}>
                               <ShieldCheck size={14} /> Platform Owner
                             </span>
+                          ) : user.banned ? (
+                            <span style={{ padding: "4px 12px", borderRadius: "20px", background: "rgba(220, 38, 38, 0.1)", color: "#DC2626", fontSize: "12px", fontWeight: 600, border: "1px solid rgba(220, 38, 38, 0.2)" }}>
+                              Banned
+                            </span>
                           ) : (
                             <span style={{ padding: "4px 12px", borderRadius: "20px", background: "var(--bg-elev, #F3F4F6)", color: "var(--text-dim, #6B7280)", fontSize: "12px", fontWeight: 500, border: "1px solid var(--border, #E5E7EB)" }}>
                               Standard User
@@ -157,11 +239,11 @@ export default function AdminUsers() {
                           {openActionId === user.id && (
                             <div style={{ position: "absolute", right: "24px", top: "100%", zIndex: 10, background: "var(--bg-surface, #ffffff)", border: "1px solid var(--border, #E5E7EB)", borderRadius: "8px", boxShadow: "0 4px 6px rgba(0,0,0,0.1)", minWidth: "150px", overflow: "hidden", display: "flex", flexDirection: "column" }}>
                               {!isOwner && (
-                                <button style={{ width: "100%", padding: "10px 16px", background: "transparent", border: "none", borderBottom: "1px solid var(--border, #E5E7EB)", textAlign: "left", color: "#DC2626", cursor: "pointer", fontSize: "14px", fontWeight: 500 }} onClick={() => { setModalMessage("Ban user functionality coming soon"); setOpenActionId(null); }}>
-                                  Ban User
+                                <button style={{ width: "100%", padding: "10px 16px", background: "transparent", border: "none", borderBottom: "1px solid var(--border, #E5E7EB)", textAlign: "left", color: user.banned ? "#16A34A" : "#DC2626", cursor: "pointer", fontSize: "14px", fontWeight: 500 }} onClick={() => { handleBan(user); setOpenActionId(null); }}>
+                                  {user.banned ? "Unban User" : "Ban User"}
                                 </button>
                               )}
-                              <button style={{ width: "100%", padding: "10px 16px", background: "transparent", border: "none", textAlign: "left", color: "var(--text, #111827)", cursor: "pointer", fontSize: "14px", fontWeight: 500 }} onClick={() => { setModalMessage("View Details coming soon"); setOpenActionId(null); }}>
+                              <button style={{ width: "100%", padding: "10px 16px", background: "transparent", border: "none", textAlign: "left", color: "var(--text, #111827)", cursor: "pointer", fontSize: "14px", fontWeight: 500 }} onClick={() => { setSelectedUserDetails(user); setOpenActionId(null); }}>
                                 View Details
                               </button>
                             </div>

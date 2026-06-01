@@ -47,12 +47,12 @@ export async function GET(request, { params }) {
       ? "*"
       : "product_id, shop_id, image_url, title, description, selling_price, stock, stock_base_unit, opening_stock_base_unit, sold_base_unit, low_stock_base_unit, category, category_id, category_name_snapshot, sku, primary_unit, secondary_unit, conversion_rate, hsn_sac, tax_rate, gst_rate, tax_mode, gst_exempt, cess_rate, reverse_charge, product_status, product_created_at, supplier_id, created_at, updated_at";
     const rows = await sql(
-      `SELECT ${columns} FROM products WHERE product_id = $1 AND shop_id = $2 LIMIT 1`,
+      `SELECT ${columns} FROM products WHERE product_id = ? AND shop_id = ? LIMIT 1`,
       [id, context.shopId],
     );
     if (!rows[0]) return Response.json({ error: "Not found" }, { status: 404 });
-    const [batches, movements] = await sql.transaction([
-      sql`
+    const [batches, movements] = await sql.withTransaction(async (tx) => {
+      const batches = await tx`
         SELECT batch_id, product_name_snapshot, purchase_date, quantity_purchased,
           quantity_remaining, quantity_purchased_base_unit, quantity_remaining_base_unit,
           unit, cost_price, cost_price_base_unit, selling_price, supplier_id,
@@ -61,8 +61,8 @@ export async function GET(request, { params }) {
         WHERE product_id = ${id} AND shop_id = ${context.shopId}
         ORDER BY purchase_date DESC, batch_id DESC
         LIMIT 100
-      `,
-      sql`
+      `;
+      const movements = await tx`
         SELECT movement_id, movement_type, quantity_change, quantity_base_unit,
           display_quantity, unit, batch_id, old_stock_base_unit, new_stock_base_unit,
           cost_price_snapshot, selling_price_snapshot, reason, related_sale_id,
@@ -71,8 +71,9 @@ export async function GET(request, { params }) {
         WHERE product_id = ${id} AND shop_id = ${context.shopId}
         ORDER BY created_at DESC
         LIMIT 100
-      `,
-    ]);
+      `;
+      return [batches, movements];
+    });
     return Response.json({ product: rows[0], batches, stockMovements: movements });
   } catch (error) {
     if (error instanceof AccessError) return accessErrorResponse(error);
@@ -187,8 +188,8 @@ export async function PUT(request, { params }) {
 
     const values = keys.map((key) => fields[key]);
     values.push(id, context.shopId);
-    const setClauses = keys.map((key, index) => `${key} = $${index + 1}`);
-    const query = `UPDATE products SET ${setClauses.join(", ")}, updated_at = NOW() WHERE product_id = $${keys.length + 1} AND shop_id = $${keys.length + 2}`;
+    const setClauses = keys.map((key) => `${key} = ?`);
+    const query = `UPDATE products SET ${setClauses.join(", ")}, updated_at = NOW() WHERE product_id = ? AND shop_id = ?`;
     await sql(query, values);
     const result = await sql`SELECT * FROM products WHERE product_id = ${id}`;
     const product = result[0];
@@ -205,8 +206,7 @@ export async function PUT(request, { params }) {
             (shop_id, product_id, from_unit, to_unit, conversion_rate)
           VALUES
             (${context.shopId}, ${id}, ${nextUnits.primary_unit}, ${nextUnits.secondary_unit}, ${nextUnits.conversion_rate})
-          ON CONFLICT (product_id, from_unit, to_unit)
-          DO UPDATE SET conversion_rate = EXCLUDED.conversion_rate, active = TRUE, updated_at = NOW()
+          ON DUPLICATE KEY UPDATE conversion_rate = VALUES(conversion_rate), active = TRUE, updated_at = NOW()
         `;
       }
     }

@@ -48,27 +48,28 @@ export async function GET(request) {
     const columns = canAccess(context.role, "analytics.profit")
       ? "*"
       : "sale_id, shop_id, customer_id, receipt_number, buyer_name, buyer_phone, customer_email, customer_gstin, billing_address, place_of_supply, customer_state_code, invoice_type, items, total_amount, total_quantity, tax_amount, discount_amount, taxable_amount, cgst_amount, sgst_amount, igst_amount, paid_amount, due_date, payment_status, payment_method, notes, sale_status, currency_snapshot, receipt_email_sent, receipt_email_sent_at, receipt_email_error, email_message_id, created_at, updated_at";
-    let query = `SELECT ${columns} FROM sales WHERE shop_id = $1`;
+    let query = `SELECT ${columns} FROM sales WHERE shop_id = ?`;
     const values = [context.shopId];
 
     if (search) {
-      values.push(`%${search.toLowerCase()}%`);
-      query += ` AND (LOWER(COALESCE(buyer_name,'')) LIKE $${values.length} OR LOWER(receipt_number) LIKE $${values.length})`;
+      const searchTerm = `%${search.toLowerCase()}%`;
+      values.push(searchTerm, searchTerm);
+      query += ` AND (LOWER(COALESCE(buyer_name,'')) LIKE ? OR LOWER(receipt_number) LIKE ?)`;
     }
     if (fromDate) {
       values.push(fromDate);
-      query += ` AND created_at >= $${values.length}`;
+      query += ` AND created_at >= ?`;
     }
     if (toDate) {
       values.push(`${toDate}T23:59:59.999Z`);
-      query += ` AND created_at <= $${values.length}`;
+      query += ` AND created_at <= ?`;
     }
     if (status && status !== "all") {
       if (status === "cancelled") {
         query += " AND sale_status = 'cancelled'";
       } else {
         values.push(status);
-        query += ` AND payment_status = $${values.length} AND (sale_status IS NULL OR sale_status = 'completed')`;
+        query += ` AND payment_status = ? AND (sale_status IS NULL OR sale_status = 'completed')`;
       }
     }
 
@@ -140,9 +141,8 @@ async function resolveCustomer(context, body, buyerName, buyerPhone, customerEma
   const created = await sql`
     INSERT INTO customers (shop_id, name, phone, email)
     VALUES (${context.shopId}, ${buyerName || "Walk-in Customer"}, ${buyerPhone}, ${customerEmail || null})
-    RETURNING customer_id, name, phone, email
   `;
-  return created[0];
+  return { customer_id: created[0].insertId, name: buyerName || "Walk-in Customer", phone: buyerPhone, email: customerEmail || null };
 }
 
 export async function POST(request) {
@@ -209,16 +209,16 @@ export async function POST(request) {
     let productMap = {};
     let productBatches = {};
     if (productIds.length) {
-      const placeholders = productIds.map((_, index) => `$${index + 2}`).join(",");
+      const placeholders = productIds.map(() => "?").join(",");
       const products = await sql(
-        `SELECT * FROM products WHERE shop_id = $1 AND product_id IN (${placeholders})`,
+        `SELECT * FROM products WHERE shop_id = ? AND product_id IN (${placeholders})`,
         [context.shopId, ...productIds],
       );
       productMap = Object.fromEntries(products.map((product) => [product.product_id, product]));
-      const batchPlaceholders = productIds.map((_, index) => `$${index + 2}`).join(",");
+      const batchPlaceholders = productIds.map(() => "?").join(",");
       const batches = await sql(
         `SELECT * FROM product_batches
-         WHERE shop_id = $1 AND product_id IN (${batchPlaceholders})
+         WHERE shop_id = ? AND product_id IN (${batchPlaceholders})
            AND quantity_remaining_base_unit > 0
          ORDER BY purchase_date ASC, batch_id ASC`,
         [context.shopId, ...productIds],

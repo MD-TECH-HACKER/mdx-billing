@@ -23,19 +23,19 @@ export async function GET(request, { params }) {
         s.due_date, s.payment_status, s.payment_method, s.notes,
         s.sale_status, s.currency_snapshot, s.tax_percent_snapshot,
         s.shop_snapshot, s.created_at, s.updated_at,
-        COALESCE(s.shop_snapshot->>'shop_name', sh.shop_name) AS shop_name,
-        COALESCE(s.shop_snapshot->>'shop_description', sh.shop_description) AS shop_description,
-        COALESCE(s.shop_snapshot->>'shop_logo', sh.shop_logo) AS shop_logo,
-        COALESCE(s.shop_snapshot->>'address', sh.address) AS address,
-        COALESCE(s.shop_snapshot->>'phone', sh.phone) AS phone,
-        COALESCE(s.shop_snapshot->>'email', sh.email) AS email,
-        COALESCE(s.shop_snapshot->>'gstin', sh.gstin) AS gstin,
+        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.shop_name')), sh.shop_name) AS shop_name,
+        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.shop_description')), sh.shop_description) AS shop_description,
+        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.shop_logo')), sh.shop_logo) AS shop_logo,
+        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.address')), sh.address) AS address,
+        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.phone')), sh.phone) AS phone,
+        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.email')), sh.email) AS email,
+        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.gstin')), sh.gstin) AS gstin,
         COALESCE(s.currency_snapshot, sh.currency) AS currency,
-        COALESCE(s.shop_snapshot->>'thank_you_message', sh.thank_you_message) AS thank_you_message,
-        COALESCE(s.shop_snapshot->>'default_terms', sh.default_terms) AS default_terms,
-        COALESCE(s.shop_snapshot->>'receipt_size', sh.receipt_size, 'a4') AS receipt_size,
-        COALESCE(s.shop_snapshot->>'print_mode', sh.print_mode, 'color') AS print_mode,
-        COALESCE(s.shop_snapshot->>'default_invoice_type', sh.default_invoice_type, 'tax_invoice') AS invoice_type
+        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.thank_you_message')), sh.thank_you_message) AS thank_you_message,
+        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.default_terms')), sh.default_terms) AS default_terms,
+        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.receipt_size')), sh.receipt_size, 'a4') AS receipt_size,
+        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.print_mode')), sh.print_mode, 'color') AS print_mode,
+        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.default_invoice_type')), sh.default_invoice_type, 'tax_invoice') AS invoice_type
       FROM sales s
       JOIN shops sh ON sh.shop_id = s.shop_id
       WHERE s.sale_id = ${id}

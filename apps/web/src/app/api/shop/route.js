@@ -159,14 +159,10 @@ export async function PUT(request) {
 
     const values = keys.map((key) => fields[key]);
     values.push(context.shopId);
-    const setClauses = keys.map((key, index) =>
-      key === "custom_units"
-        ? `${key} = $${index + 1}::jsonb`
-        : `${key} = $${index + 1}`,
-    );
-    const query = `UPDATE shops SET ${setClauses.join(", ")}, updated_at = NOW() WHERE shop_id = $${values.length}`;
+    const setClauses = keys.map((key) => `${key} = ?`);
+    const query = `UPDATE shops SET ${setClauses.join(", ")}, updated_at = NOW() WHERE shop_id = ?`;
     await sql(query, values);
-    const result = await sql(`SELECT * FROM shops WHERE shop_id = $1`, [context.shopId]);
+    const result = await sql(`SELECT * FROM shops WHERE shop_id = ?`, [context.shopId]);
 
     if (!result[0]) {
       return Response.json({ error: "Not found" }, { status: 404 });

@@ -67,10 +67,6 @@ export default async function sql(strings, ...values) {
   return executeQuery(pool, strings, values);
 }
 
-/**
- * Execute a sequence of queries in a database transaction.
- * The callback receives a bound `txSql` function.
- */
 export async function withTransaction(callback) {
   const connection = await pool.getConnection();
   await connection.beginTransaction();
@@ -90,5 +86,13 @@ export async function withTransaction(callback) {
     connection.release();
   }
 }
+
+sql.withTransaction = withTransaction;
+sql.transaction = async (queries) => {
+  // Fallback for array-based transactions. Note: since our `sql` function executes immediately,
+  // these queries will execute concurrently outside a real ACID transaction lock. 
+  // For true transactions, use `sql.withTransaction`.
+  return Promise.all(queries);
+};
 
 export { pool };

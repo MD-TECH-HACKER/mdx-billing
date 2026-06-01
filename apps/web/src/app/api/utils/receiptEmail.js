@@ -23,16 +23,16 @@ function shopFromSale(sale) {
 export async function loadReceiptForEmail(context, saleId) {
   const rows = await sql`
     SELECT s.*,
-      COALESCE(s.shop_snapshot->>'shop_name', sh.shop_name) AS shop_name,
-      COALESCE(s.shop_snapshot->>'shop_description', sh.shop_description) AS shop_description,
-      COALESCE(s.shop_snapshot->>'shop_logo', sh.shop_logo) AS shop_logo,
-      COALESCE(s.shop_snapshot->>'address', sh.address) AS address,
-      COALESCE(s.shop_snapshot->>'phone', sh.phone) AS phone,
-      COALESCE(s.shop_snapshot->>'email', sh.email) AS email,
-      COALESCE(s.shop_snapshot->>'gstin', sh.gstin) AS gstin,
+      COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.shop_name')), sh.shop_name) AS shop_name,
+      COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.shop_description')), sh.shop_description) AS shop_description,
+      COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.shop_logo')), sh.shop_logo) AS shop_logo,
+      COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.address')), sh.address) AS address,
+      COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.phone')), sh.phone) AS phone,
+      COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.email')), sh.email) AS email,
+      COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.gstin')), sh.gstin) AS gstin,
       COALESCE(s.currency_snapshot, sh.currency) AS currency,
-      COALESCE(s.shop_snapshot->>'thank_you_message', sh.thank_you_message) AS thank_you_message,
-      COALESCE(s.shop_snapshot->>'default_terms', sh.default_terms) AS default_terms
+      COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.thank_you_message')), sh.thank_you_message) AS thank_you_message,
+      COALESCE(JSON_UNQUOTE(JSON_EXTRACT(s.shop_snapshot, '$.default_terms')), sh.default_terms) AS default_terms
     FROM sales s
     JOIN shops sh ON sh.shop_id = s.shop_id
     WHERE s.sale_id = ${saleId} AND s.shop_id = ${context.shopId}

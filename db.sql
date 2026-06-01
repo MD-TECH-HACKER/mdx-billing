@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS auth_users (
   display_name TEXT,
   email VARCHAR(255) UNIQUE,
   emailVerified DATETIME,
-  image TEXT
+  image TEXT,
+  banned BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS auth_accounts (

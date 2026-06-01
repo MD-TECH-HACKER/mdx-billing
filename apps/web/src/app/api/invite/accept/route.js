@@ -127,34 +127,34 @@ export async function POST(request) {
       return Response.json({ error: "You already have active access to this shop." }, { status: 409 });
     }
 
-    const membershipRows = await sql.transaction([
-      sql`
-        INSERT INTO shop_memberships (shop_id, user_id, role, status, invited_by)
-        SELECT shop_id, ${userId}, role, 'active', invited_by
-        FROM team_invitations
-        WHERE invite_id = ${invite.invite_id}
-          AND token = ${token}
-          AND status = 'pending'
-          AND expires_at > NOW()
-        ON CONFLICT (shop_id, user_id)
-        DO UPDATE SET role = EXCLUDED.role, status = 'active', updated_at = NOW()
-        RETURNING membership_id, shop_id, user_id, role, status
-      `,
-      sql`
-        UPDATE team_invitations
-        SET status = 'accepted',
-            accepted_by = ${userId},
-            accepted_at = NOW(),
-            updated_at = NOW()
-        WHERE invite_id = ${invite.invite_id}
-          AND token = ${token}
-          AND status = 'pending'
-        RETURNING invite_id
-      `,
-    ]);
-    const member = membershipRows[0]?.[0];
+    await sql`
+      UPDATE team_invitations
+      SET status = 'accepted',
+          accepted_by = ${userId},
+          accepted_at = NOW(),
+          updated_at = NOW()
+      WHERE invite_id = ${invite.invite_id}
+        AND token = ${token}
+        AND status = 'pending'
+    `;
+
+    await sql`
+      INSERT INTO shop_memberships (shop_id, user_id, role, status, invited_by)
+      SELECT shop_id, ${userId}, role, 'active', invited_by
+      FROM team_invitations
+      WHERE invite_id = ${invite.invite_id}
+      ON DUPLICATE KEY UPDATE role = VALUES(role), status = 'active', updated_at = NOW()
+    `;
+
+    const membershipRows = await sql`
+      SELECT membership_id, shop_id, user_id, role, status
+      FROM shop_memberships
+      WHERE shop_id = ${invite.shop_id} AND user_id = ${userId}
+    `;
+    
+    const member = membershipRows[0];
     if (!member) {
-      return Response.json({ error: "Invitation is expired or no longer pending" }, { status: 400 });
+      return Response.json({ error: "Failed to complete invitation" }, { status: 400 });
     }
 
     await writeAuditEvent(

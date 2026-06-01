@@ -1,4 +1,13 @@
-import { verifyTurnstileToken } from "@/app/api/utils/turnstile";
+import { getTurnstileConfig, verifyTurnstileToken } from "@/app/api/utils/turnstile";
+
+export async function GET() {
+  try {
+    return Response.json(await getTurnstileConfig());
+  } catch (error) {
+    console.error("GET /api/security/turnstile", error);
+    return Response.json({ enabled: true, configured: false, settingEnabled: true });
+  }
+}
 
 export async function POST(request) {
   try {

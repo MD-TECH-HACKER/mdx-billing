@@ -1,0 +1,7 @@
+
+> dev
+> react-router dev --host 0.0.0.0
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m8080[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://10.0.0.4:[1m8080[22m/[39m
+🚧 Dev server started

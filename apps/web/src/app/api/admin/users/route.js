@@ -11,7 +11,7 @@ export async function GET() {
 
     const detailedUsers = await sql`
       SELECT 
-        u.id, u.name, u.email, u.image, u.display_name,
+        u.id, u.name, u.email, u.image, u.display_name, u.banned,
         (SELECT COUNT(*) FROM shops WHERE owner_id = u.id) as shop_count,
         (SELECT COUNT(*) FROM sales WHERE owner_id = u.id) as sales_count
       FROM auth_users u
