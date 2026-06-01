@@ -110,7 +110,7 @@ export async function POST(request) {
     const terms = String(body.terms || context.shop.default_terms || "").trim().slice(0, 800) || null;
     const validUntil = String(body.validUntil || "").slice(0, 10) || null;
 
-    const created = await sql`
+    const insertResult = await sql`
       INSERT INTO estimates
         (shop_id, owner_id, estimate_number, customer_name, customer_phone, customer_email,
          customer_gstin, billing_address, place_of_supply, valid_until, items,
@@ -121,11 +121,12 @@ export async function POST(request) {
          ${String(body.customerGstin || "").trim().toUpperCase().slice(0, 20) || null},
          ${String(body.billingAddress || "").trim().slice(0, 500) || null},
          ${String(body.placeOfSupply || "").trim().slice(0, 100) || null},
-         ${validUntil}, ${JSON.stringify(lineItems)}::jsonb,
+         ${validUntil}, ${JSON.stringify(lineItems)},
          ${subtotal}, ${discountAmount}, ${taxableAmount}, ${taxAmount}, ${cgstAmount}, ${sgstAmount},
          ${igstAmount}, ${totalAmount}, ${notes}, ${terms}, 'draft', ${context.userId})
-      RETURNING *
     `;
+    const estimateId = insertResult[0].insertId;
+    const created = await sql`SELECT * FROM estimates WHERE estimate_id = ${estimateId}`;
     await writeAuditEvent(context, "estimate.create", "estimate", created[0].estimate_id, {
       estimateNumber,
       totalAmount,

@@ -55,6 +55,9 @@ export async function PUT(request) {
     `;
     const result = await sql`SELECT id, name, email, image, display_name FROM auth_users WHERE id = ${session.user.id}`;
     const u = result[0];
+    if (!u) {
+      return Response.json({ error: "User not found" }, { status: 404 });
+    }
     return Response.json({
       profile: {
         id: u.id,

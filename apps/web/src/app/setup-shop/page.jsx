@@ -125,27 +125,23 @@ export default function SetupShopPage() {
 
   return (
     <div className="min-h-screen w-full relative overflow-hidden flex items-center justify-center px-4 py-10 font-inter">
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0f0c29] via-[#302b63] to-[#24243e]" />
-        <div className="absolute top-0 left-0 w-[500px] h-[500px] rounded-full bg-violet-600/40 blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-fuchsia-500/30 blur-3xl" />
-      </div>
+      <div className="prism-bg" />
 
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-lg rounded-3xl bg-white/10 backdrop-blur-2xl border border-white/20 p-6 md:p-8 shadow-2xl"
+        className="w-full max-w-lg p-6 md:p-8 t-card relative z-10"
       >
         <div className="text-center mb-6">
           <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-xl mb-4">
             <Store className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-white text-2xl font-bold font-poppins">
+          <h1 className="t-text text-2xl font-bold font-poppins">
             {isNewShop ? "Create a new shop" : "Setup your shop"}
           </h1>
-          <p className="text-white/60 text-sm mt-1">
+          <p className="t-muted text-sm mt-1">
             {isNewShop ? "Add another shop to your account" : "Just a few details to get you started"}
           </p>
-          <div className="mt-3 inline-flex items-center gap-1.5 text-xs text-white/60 bg-white/10 border border-white/15 px-2.5 py-1 rounded-full">
+          <div className="mt-3 inline-flex items-center gap-1.5 text-xs t-dim t-elev t-border border px-2.5 py-1 rounded-full">
             <IndianRupee className="w-3 h-3" />
             Default currency is INR — change anytime in Settings
           </div>
@@ -154,7 +150,7 @@ export default function SetupShopPage() {
         <div className="space-y-4">
           <div className="flex flex-col items-center">
             <label className="cursor-pointer group">
-              <div className="w-24 h-24 rounded-2xl bg-white/10 border-2 border-dashed border-white/30 flex items-center justify-center overflow-hidden hover:border-violet-400 transition">
+              <div className="w-24 h-24 rounded-2xl t-elev border-2 border-dashed t-border flex items-center justify-center overflow-hidden hover:border-[var(--accent)] transition">
                 {shopLogo ? (
                   <img
                     src={shopLogo}
@@ -162,7 +158,7 @@ export default function SetupShopPage() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <Upload className="w-6 h-6 text-white/50 group-hover:text-violet-300" />
+                  <Upload className="w-6 h-6 t-dim group-hover:text-[var(--accent)]" />
                 )}
               </div>
               <input
@@ -172,39 +168,39 @@ export default function SetupShopPage() {
                 onChange={handleLogo}
               />
             </label>
-            <span className="text-white/50 text-xs mt-2">
+            <span className="t-dim text-xs mt-2">
               {uploading ? "Uploading..." : "Optional shop logo"}
             </span>
           </div>
 
           <div>
-            <label className="block text-white/80 text-xs mb-1.5">
+            <label className="block t-text text-xs mb-1.5">
               Your name *
             </label>
             <input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               maxLength={80}
-              className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-violet-400"
+              className="w-full px-4 py-3 t-input"
               placeholder="How should we call you?"
             />
           </div>
 
           <div>
-            <label className="block text-white/80 text-xs mb-1.5">
+            <label className="block t-text text-xs mb-1.5">
               Shop name *
             </label>
             <input
               value={shopName}
               onChange={(e) => setShopName(e.target.value)}
               maxLength={100}
-              className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-violet-400"
+              className="w-full px-4 py-3 t-input"
               placeholder="My Awesome Shop"
             />
           </div>
 
           <div>
-            <label className="block text-white/80 text-xs mb-1.5">
+            <label className="block t-text text-xs mb-1.5">
               Shop description
             </label>
             <textarea
@@ -212,40 +208,40 @@ export default function SetupShopPage() {
               onChange={(e) => setShopDescription(e.target.value)}
               maxLength={500}
               rows={2}
-              className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-violet-400 resize-none"
+              className="w-full px-4 py-3 t-input resize-none"
               placeholder="What's your shop about?"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-white/80 text-xs mb-1.5">
+              <label className="block t-text text-xs mb-1.5">
                 Address
               </label>
               <input
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 maxLength={300}
-                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-violet-400"
+                className="w-full px-4 py-3 t-input"
                 placeholder="Optional"
               />
             </div>
             <div>
-              <label className="block text-white/80 text-xs mb-1.5">
+              <label className="block t-text text-xs mb-1.5">
                 Phone
               </label>
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 maxLength={50}
-                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-violet-400"
+                className="w-full px-4 py-3 t-input"
                 placeholder="Optional"
               />
             </div>
           </div>
 
           {error ? (
-            <div className="rounded-xl bg-red-500/20 border border-red-400/40 text-red-100 text-sm px-4 py-3">
+            <div className="rounded-xl t-danger-bg px-4 py-3 text-sm">
               {error}
             </div>
           ) : null}
@@ -253,7 +249,7 @@ export default function SetupShopPage() {
           <button
             type="submit"
             disabled={saving}
-            className="w-full bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:opacity-90 text-white rounded-2xl px-4 py-3.5 font-semibold flex items-center justify-center gap-2 transition shadow-lg disabled:opacity-60"
+            className="w-full t-btn-primary rounded-2xl px-4 py-3.5 font-semibold flex items-center justify-center gap-2 transition disabled:opacity-60"
           >
             {saving ? "Saving..." : "Continue to Dashboard"}
             <ArrowRight className="w-4 h-4" />

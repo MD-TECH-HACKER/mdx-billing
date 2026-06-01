@@ -69,15 +69,10 @@ export default function WelcomePage() {
   };
 
   return (
-    <div
-      className="min-h-screen w-full relative font-inter"
-      style={{
-        background:
-          "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)",
-      }}
-    >
+    <div className="min-h-screen w-full relative font-inter">
+      <div className="prism-bg" />
       {/* Floating glows */}
-      <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
+      <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden hidden" data-theme-only="glass">
         <div className="absolute top-0 -left-32 w-[600px] h-[600px] rounded-full bg-violet-600/30 blur-3xl animate-pulse" />
         <div className="absolute -top-20 right-0 w-[500px] h-[500px] rounded-full bg-fuchsia-500/25 blur-3xl" />
         <div className="absolute bottom-0 left-1/3 w-[700px] h-[700px] rounded-full bg-blue-500/20 blur-3xl" />
@@ -85,9 +80,9 @@ export default function WelcomePage() {
 
       {/* Top nav */}
       <header className="relative z-10 px-4 md:px-8 py-5 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-white">
+        <div className="flex items-center gap-2 t-text">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg">
-            <ShoppingBag className="w-5 h-5" />
+            <ShoppingBag className="w-5 h-5 text-white" />
           </div>
           <span className="font-poppins font-bold text-lg">MDX Billing</span>
         </div>
@@ -95,14 +90,14 @@ export default function WelcomePage() {
           <button
             onClick={goSignIn}
             disabled={loading || checking}
-            className="hidden sm:inline-flex text-white/80 hover:text-white text-sm font-medium px-3 py-2"
+            className="hidden sm:inline-flex t-muted hover:t-text text-sm font-medium px-3 py-2"
           >
             Sign in
           </button>
           <button
             onClick={goSignUp}
             disabled={loading || checking}
-            className="bg-white text-gray-900 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-gray-100 transition disabled:opacity-60"
+            className="t-btn px-4 py-2 text-sm font-semibold transition disabled:opacity-60"
           >
             Get started
           </button>
@@ -112,19 +107,19 @@ export default function WelcomePage() {
       {/* Hero */}
       <section className="relative z-10 px-4 md:px-8 pt-6 md:pt-12 pb-16">
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-10 md:gap-8 items-center">
-          <div className="text-white space-y-6 text-center md:text-left">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-md text-xs font-medium">
-              <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+          <div className="t-text space-y-6 text-center md:text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full t-elev border t-border backdrop-blur-md text-xs font-medium">
+              <Sparkles className="w-3.5 h-3.5 text-yellow-500" />
               Premium Shop Billing · ₹ INR ready
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold font-poppins leading-[1.05]">
-              <span className="bg-gradient-to-r from-white via-pink-200 to-violet-300 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[var(--accent)] to-fuchsia-500 bg-clip-text text-transparent">
                 Bill faster.
               </span>
               <br />
-              <span className="text-white/95">Grow smarter.</span>
+              <span className="t-text">Grow smarter.</span>
             </h1>
-            <p className="text-white/70 text-base md:text-lg max-w-md mx-auto md:mx-0 leading-relaxed">
+            <p className="t-muted text-base md:text-lg max-w-md mx-auto md:mx-0 leading-relaxed">
               The all-in-one billing app for modern shops. Manage inventory,
               generate printable receipts, and track real profit — all in one
               beautiful place.
@@ -134,7 +129,7 @@ export default function WelcomePage() {
               <button
                 onClick={goSignUp}
                 disabled={loading || checking}
-                className="bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 text-white rounded-2xl px-6 py-3.5 font-semibold flex items-center gap-2 shadow-xl disabled:opacity-60"
+                className="t-btn-primary rounded-2xl px-6 py-3.5 font-semibold flex items-center gap-2 shadow-xl disabled:opacity-60"
               >
                 Start free
                 <ArrowRight className="w-4 h-4" />
@@ -142,7 +137,7 @@ export default function WelcomePage() {
               <button
                 onClick={goGoogle}
                 disabled={loading || checking || googleLoading}
-                className="bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur text-white rounded-2xl px-6 py-3.5 font-semibold flex items-center gap-2 disabled:opacity-60"
+                className="t-btn rounded-2xl px-6 py-3.5 font-semibold flex items-center gap-2 disabled:opacity-60"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path
@@ -166,16 +161,16 @@ export default function WelcomePage() {
               </button>
             </div>
 
-            <div className="flex flex-wrap gap-x-5 gap-y-2 justify-center md:justify-start pt-3 text-white/60 text-xs">
+            <div className="flex flex-wrap gap-x-5 gap-y-2 justify-center md:justify-start pt-3 t-dim text-xs">
               <span className="flex items-center gap-1.5">
-                <Check className="w-3.5 h-3.5 text-emerald-300" /> Free to start
+                <Check className="w-3.5 h-3.5 text-emerald-500" /> Free to start
               </span>
               <span className="flex items-center gap-1.5">
-                <Check className="w-3.5 h-3.5 text-emerald-300" /> No credit
+                <Check className="w-3.5 h-3.5 text-emerald-500" /> No credit
                 card
               </span>
               <span className="flex items-center gap-1.5">
-                <Check className="w-3.5 h-3.5 text-emerald-300" /> Your data,
+                <Check className="w-3.5 h-3.5 text-emerald-500" /> Your data,
                 isolated
               </span>
             </div>
@@ -200,10 +195,10 @@ export default function WelcomePage() {
       {/* Features */}
       <section className="relative z-10 px-4 md:px-8 py-12">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-white text-2xl md:text-3xl font-bold font-poppins text-center mb-2">
+          <h2 className="t-text text-2xl md:text-3xl font-bold font-poppins text-center mb-2">
             Everything your shop needs
           </h2>
-          <p className="text-white/60 text-center max-w-xl mx-auto mb-10 text-sm md:text-base">
+          <p className="t-muted text-center max-w-xl mx-auto mb-10 text-sm md:text-base">
             From the first sale to your hundredth — built to keep up.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
@@ -256,13 +251,13 @@ export default function WelcomePage() {
             ].map(({ Icon, title, desc }) => (
               <div
                 key={title}
-                className="rounded-2xl bg-white/[0.08] backdrop-blur-xl border border-white/15 p-5 hover:bg-white/[0.12] transition"
+                className="rounded-2xl t-card p-5 transition"
               >
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center mb-3 shadow-lg">
+                <div className="w-10 h-10 rounded-xl bg-[var(--accent)] flex items-center justify-center mb-3 shadow-lg">
                   <Icon className="w-5 h-5 text-white" />
                 </div>
-                <h3 className="text-white font-semibold mb-1">{title}</h3>
-                <p className="text-white/60 text-sm leading-relaxed">{desc}</p>
+                <h3 className="t-text font-semibold mb-1">{title}</h3>
+                <p className="t-muted text-sm leading-relaxed">{desc}</p>
               </div>
             ))}
           </div>
@@ -271,18 +266,18 @@ export default function WelcomePage() {
 
       {/* CTA */}
       <section className="relative z-10 px-4 md:px-8 pb-20">
-        <div className="max-w-4xl mx-auto rounded-3xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 border border-white/20 backdrop-blur-xl p-8 md:p-12 text-center">
-          <h2 className="text-white text-2xl md:text-3xl font-bold font-poppins mb-3">
+        <div className="max-w-4xl mx-auto rounded-3xl t-card p-8 md:p-12 text-center">
+          <h2 className="t-text text-2xl md:text-3xl font-bold font-poppins mb-3">
             Ready to run your shop better?
           </h2>
-          <p className="text-white/70 max-w-xl mx-auto mb-6 text-sm md:text-base">
+          <p className="t-muted max-w-xl mx-auto mb-6 text-sm md:text-base">
             Sign up free and have your shop set up in under a minute.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <button
               onClick={goSignUp}
               disabled={loading || checking}
-              className="bg-white text-gray-900 hover:bg-gray-100 px-6 py-3.5 rounded-2xl font-semibold flex items-center gap-2 shadow-xl disabled:opacity-60"
+              className="t-btn-primary px-6 py-3.5 font-semibold flex items-center gap-2 shadow-xl disabled:opacity-60"
             >
               Create account
               <ArrowRight className="w-4 h-4" />
@@ -290,7 +285,7 @@ export default function WelcomePage() {
             <button
               onClick={goSignIn}
               disabled={loading || checking}
-              className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-6 py-3.5 rounded-2xl font-semibold disabled:opacity-60"
+              className="t-btn px-6 py-3.5 font-semibold disabled:opacity-60"
             >
               I already have an account
             </button>
@@ -298,7 +293,7 @@ export default function WelcomePage() {
         </div>
       </section>
 
-      <footer className="relative z-10 px-4 md:px-8 pb-10 text-center text-white/40 text-xs">
+      <footer className="relative z-10 px-4 md:px-8 pb-10 text-center t-dim2 text-xs">
         © {new Date().getFullYear()} MDX Billing · Built for shop owners
       </footer>
     </div>

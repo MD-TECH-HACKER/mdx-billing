@@ -27,13 +27,13 @@ export async function PUT(request, { params }) {
     const address = (body.address || "").toString().trim().slice(0, 400) || null;
     const openingBalance = Number(body.openingBalance) || 0;
     const notes = (body.notes || "").toString().trim().slice(0, 500) || null;
-    const rows = await sql`
+    await sql`
       UPDATE customers
       SET name = ${name}, phone = ${phone}, email = ${email}, gstin = ${gstin},
           address = ${address}, opening_balance = ${openingBalance}, notes = ${notes}, updated_at = NOW()
       WHERE customer_id = ${id} AND shop_id = ${context.shopId} AND is_deleted = FALSE
-      RETURNING *
     `;
+    const rows = await sql`SELECT * FROM customers WHERE customer_id = ${id} AND shop_id = ${context.shopId} AND is_deleted = FALSE`;
     if (!rows[0]) return Response.json({ error: "Not found" }, { status: 404 });
     await writeAuditEvent(context, "customer.update", "customer", id);
     return Response.json({ customer: rows[0] });
@@ -50,29 +50,17 @@ export async function DELETE(request, { params }) {
     await ensureBusinessFeatureSchema();
     const id = customerId(params.id);
     if (!id) return Response.json({ error: "Invalid id" }, { status: 400 });
-    const rows = await sql`
-      WITH transacted AS (
-        SELECT EXISTS (
-          SELECT 1 FROM sales WHERE customer_id = ${id} AND shop_id = ${context.shopId}
-        ) AS has_transactions
-      ),
-      archived AS (
-        UPDATE customers SET is_deleted = TRUE, updated_at = NOW()
-        WHERE customer_id = ${id} AND shop_id = ${context.shopId}
-          AND (SELECT has_transactions FROM transacted)
-        RETURNING customer_id, TRUE AS archived
-      ),
-      removed AS (
-        DELETE FROM customers
-        WHERE customer_id = ${id} AND shop_id = ${context.shopId}
-          AND NOT (SELECT has_transactions FROM transacted)
-        RETURNING customer_id, FALSE AS archived
-      )
-      SELECT * FROM archived UNION ALL SELECT * FROM removed
-    `;
-    if (!rows[0]) return Response.json({ error: "Not found" }, { status: 404 });
-    await writeAuditEvent(context, rows[0].archived ? "customer.archive" : "customer.delete", "customer", id);
-    return Response.json({ ok: true, archived: rows[0].archived });
+    const checkTx = await sql`SELECT EXISTS (SELECT 1 FROM sales WHERE customer_id = ${id} AND shop_id = ${context.shopId}) AS has_transactions`;
+    const hasTransactions = Boolean(checkTx[0]?.has_transactions);
+    
+    if (hasTransactions) {
+      await sql`UPDATE customers SET is_deleted = TRUE, updated_at = NOW() WHERE customer_id = ${id} AND shop_id = ${context.shopId}`;
+    } else {
+      await sql`DELETE FROM customers WHERE customer_id = ${id} AND shop_id = ${context.shopId}`;
+    }
+    
+    await writeAuditEvent(context, hasTransactions ? "customer.archive" : "customer.delete", "customer", id);
+    return Response.json({ ok: true, archived: hasTransactions });
   } catch (error) {
     if (error instanceof AccessError) return accessErrorResponse(error);
     console.error("DELETE /api/customers/[id]", error);

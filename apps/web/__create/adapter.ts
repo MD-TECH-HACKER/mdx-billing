@@ -5,9 +5,10 @@ import type {
   VerificationToken,
 } from '@auth/core/adapters';
 import type { ProviderType } from '@auth/core/providers';
-import type { Pool } from '@neondatabase/serverless';
+import type { Pool } from 'mysql2/promise';
+import crypto from 'crypto';
 
-interface NeonUser extends AdapterUser {
+interface MySQLUser extends AdapterUser {
   accounts: {
     provider: string;
     provider_account_id: string;
@@ -15,10 +16,10 @@ interface NeonUser extends AdapterUser {
   }[];
 }
 
-interface NeonAdapter extends Adapter {
+interface MySQLAdapter extends Adapter {
   createUser(data: AdapterUser): Promise<AdapterUser>;
   getUser(userId: string): Promise<AdapterUser | null>;
-  getUserByEmail(email: string): Promise<NeonUser | null>;
+  getUserByEmail(email: string): Promise<MySQLUser | null>;
   getUserByAccount(data: {
     provider: string;
     providerAccountId: string;
@@ -39,147 +40,115 @@ interface NeonAdapter extends Adapter {
   }): Promise<void>;
 }
 
-export default function NeonAdapter(client: Pool): NeonAdapter {
+export default function MySQLAdapter(client: Pool): MySQLAdapter {
+  const query = async (sql: string, params: any[] = []) => {
+    try {
+      const [rows] = await client.execute(sql, params);
+      return {
+        rowCount: (rows as any[]).length || 0,
+        rows: (Array.isArray(rows) ? rows : [rows]) as any[],
+        insertId: (rows as any).insertId,
+      };
+    } catch (e) {
+      console.error('ADAPTER SQL ERROR:', e, sql, params);
+      throw e;
+    }
+  };
+
   return {
-    async createVerificationToken(
-      verificationToken: VerificationToken
-    ): Promise<VerificationToken> {
+    async createVerificationToken(verificationToken: VerificationToken): Promise<VerificationToken> {
       const { identifier, expires, token } = verificationToken;
       const sql = `
-        INSERT INTO auth_verification_token ( identifier, expires, token )
-        VALUES ($1, $2, $3)
-        `;
-      await client.query(sql, [identifier, expires, token]);
+        INSERT INTO auth_verification_token (identifier, expires, token)
+        VALUES (?, ?, ?)
+      `;
+      await query(sql, [identifier, expires, token]);
       return verificationToken;
     },
-    async useVerificationToken({
-      identifier,
-      token,
-    }: {
-      identifier: string;
-      token: string;
-    }): Promise<VerificationToken | null> {
-      const sql = `delete from auth_verification_token
-      where identifier = $1 and token = $2
-      RETURNING identifier, expires, token `;
-      const result = await client.query(sql, [identifier, token]);
-      return result.rowCount !== 0 ? result.rows[0] : null;
+    async useVerificationToken({ identifier, token }: { identifier: string; token: string }): Promise<VerificationToken | null> {
+      const selectSql = `SELECT identifier, expires, token FROM auth_verification_token WHERE identifier = ? AND token = ?`;
+      const result = await query(selectSql, [identifier, token]);
+      if (result.rowCount === 0) return null;
+      const tokenData = result.rows[0];
+
+      const deleteSql = `DELETE FROM auth_verification_token WHERE identifier = ? AND token = ?`;
+      await query(deleteSql, [identifier, token]);
+      
+      return tokenData as VerificationToken;
     },
 
     async createUser(user: Omit<AdapterUser, 'id'>) {
       const { name, email, emailVerified, image } = user;
+      const id = crypto.randomUUID();
       const sql = `
-        INSERT INTO auth_users (name, email, "emailVerified", image)
-        VALUES ($1, $2, $3, $4)
-        RETURNING id, name, email, "emailVerified", image`;
-      const result = await client.query(sql, [
-        name ?? null,
-        email ?? null,
-        emailVerified ?? null,
-        image ?? null,
-      ]);
-      return result.rows[0];
+        INSERT INTO auth_users (id, name, email, \`emailVerified\`, image)
+        VALUES (?, ?, ?, ?, ?)
+      `;
+      await query(sql, [id, name ?? null, email ?? null, emailVerified ?? null, image ?? null]);
+      
+      const fetchSql = `SELECT id, name, email, \`emailVerified\`, image FROM auth_users WHERE id = ?`;
+      const fetchResult = await query(fetchSql, [id]);
+      return fetchResult.rows[0] as AdapterUser;
     },
     async getUser(id: string) {
-      const sql = 'select * from auth_users where id = $1';
-      try {
-        const result = await client.query(sql, [id]);
-        return result.rowCount === 0 ? null : result.rows[0];
-      } catch {
-        return null;
-      }
+      const sql = 'SELECT * FROM auth_users WHERE id = ?';
+      const result = await query(sql, [id]);
+      return result.rowCount === 0 ? null : (result.rows[0] as AdapterUser);
     },
-    async getUserByEmail(email) {
-      const sql = 'select * from auth_users where email = $1';
-      const result = await client.query(sql, [email]);
+    async getUserByEmail(email: string) {
+      const sql = 'SELECT * FROM auth_users WHERE email = ?';
+      const result = await query(sql, [email]);
       if (result.rowCount === 0) {
         return null;
       }
       const userData = result.rows[0];
-      const accountsData = await client.query(
-        'select * from auth_accounts where "userId" = $1',
+      const accountsData = await query(
+        'SELECT * FROM auth_accounts WHERE `userId` = ?',
         [userData.id]
       );
       return {
         ...userData,
         accounts: accountsData.rows,
-      };
+      } as MySQLUser;
     },
-    async getUserByAccount({
-      providerAccountId,
-      provider,
-    }): Promise<AdapterUser | null> {
+    async getUserByAccount({ providerAccountId, provider }) {
       const sql = `
-          select u.* from auth_users u join auth_accounts a on u.id = a."userId"
-          where
-          a.provider = $1
-          and
-          a."providerAccountId" = $2`;
+          SELECT u.* FROM auth_users u JOIN auth_accounts a ON u.id = a.\`userId\`
+          WHERE a.provider = ? AND a.\`providerAccountId\` = ?`;
 
-      const result = await client.query(sql, [provider, providerAccountId]);
-      return result.rowCount !== 0 ? result.rows[0] : null;
+      const result = await query(sql, [provider, providerAccountId]);
+      return result.rowCount !== 0 ? (result.rows[0] as AdapterUser) : null;
     },
     async updateUser(user: Partial<AdapterUser>): Promise<AdapterUser> {
-      const fetchSql = 'select * from auth_users where id = $1';
-      const query1 = await client.query(fetchSql, [user.id]);
-      const oldUser = query1.rows[0];
+      const fetchSql = 'SELECT * FROM auth_users WHERE id = ?';
+      const query1 = await query(fetchSql, [user.id]);
+      const oldUser = query1.rows[0] || {};
 
-      const newUser = {
-        ...oldUser,
-        ...user,
-      };
-
+      const newUser = { ...oldUser, ...user };
       const { id, name, email, emailVerified, image } = newUser;
+      
       const updateSql = `
-        UPDATE auth_users set
-        name = $2, email = $3, "emailVerified" = $4, image = $5
-        where id = $1
-        RETURNING name, id, email, "emailVerified", image
+        UPDATE auth_users SET
+        name = ?, email = ?, \`emailVerified\` = ?, image = ?
+        WHERE id = ?
       `;
-      const query2 = await client.query(updateSql, [
-        id ?? null,
-        name ?? null,
-        email ?? null,
-        emailVerified ?? null,
-        image ?? null,
-      ]);
-      return query2.rows[0];
+      await query(updateSql, [name ?? null, email ?? null, emailVerified ?? null, image ?? null, id]);
+      
+      const query2 = await query(fetchSql, [id]);
+      return query2.rows[0] as AdapterUser;
     },
     async linkAccount(account) {
+      const id = crypto.randomUUID();
       const sql = `
-      insert into auth_accounts
+      INSERT INTO auth_accounts
       (
-        "userId",
-        provider,
-        type,
-        "providerAccountId",
-        access_token,
-        expires_at,
-        refresh_token,
-        id_token,
-        scope,
-        session_state,
-        token_type,
-        password
+        id, \`userId\`, provider, type, \`providerAccountId\`, access_token, expires_at, refresh_token, id_token, scope, session_state, token_type, password
       )
-      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      returning
-        id,
-        "userId",
-        provider,
-        type,
-        "providerAccountId",
-        access_token,
-        expires_at,
-        refresh_token,
-        id_token,
-        scope,
-        session_state,
-        token_type,
-        password
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       const params = [
+        id,
         account.userId ?? null,
         account.provider ?? null,
         account.type ?? null,
@@ -194,95 +163,83 @@ export default function NeonAdapter(client: Pool): NeonAdapter {
         account.extraData?.password ?? null,
       ];
 
-      const result = await client.query(sql, params);
-      return result.rows[0];
+      await query(sql, params);
+      
+      const fetchSql = `SELECT * FROM auth_accounts WHERE id = ?`;
+      const result = await query(fetchSql, [id]);
+      return result.rows[0] as any;
     },
     async createSession({ sessionToken, userId, expires }) {
       if (userId === undefined) {
         throw Error('userId is undef in createSession');
       }
-      const sql = `insert into auth_sessions ("userId", expires, "sessionToken")
-      values ($1, $2, $3)
-      RETURNING id, "sessionToken", "userId", expires`;
-
-      const result = await client.query(sql, [userId, expires, sessionToken]);
-      return result.rows[0];
+      
+      const id = crypto.randomUUID();
+      const sql = `INSERT INTO auth_sessions (id, \`userId\`, expires, \`sessionToken\`) VALUES (?, ?, ?, ?)`;
+      await query(sql, [id, userId, expires, sessionToken]);
+      
+      const fetchSql = `SELECT id, \`sessionToken\`, \`userId\`, expires FROM auth_sessions WHERE id = ?`;
+      const result = await query(fetchSql, [id]);
+      return result.rows[0] as AdapterSession;
     },
 
-    async getSessionAndUser(sessionToken: string | undefined): Promise<{
-      session: AdapterSession;
-      user: AdapterUser;
-    } | null> {
+    async getSessionAndUser(sessionToken: string | undefined): Promise<{ session: AdapterSession; user: AdapterUser; } | null> {
       if (sessionToken === undefined) {
         return null;
       }
-      const result1 = await client.query(
-        `select * from auth_sessions where "sessionToken" = $1`,
+      const result1 = await query(
+        `SELECT * FROM auth_sessions WHERE \`sessionToken\` = ?`,
         [sessionToken]
       );
       if (result1.rowCount === 0) {
         return null;
       }
-      const session: AdapterSession = result1.rows[0];
+      const session = result1.rows[0] as AdapterSession;
 
-      const result2 = await client.query(
-        'select * from auth_users where id = $1',
+      const result2 = await query(
+        'SELECT * FROM auth_users WHERE id = ?',
         [session.userId]
       );
       if (result2.rowCount === 0) {
         return null;
       }
-      const user = result2.rows[0];
-      return {
-        session,
-        user,
-      };
+      const user = result2.rows[0] as AdapterUser;
+      return { session, user };
     },
-    async updateSession(
-      session: Partial<AdapterSession> & Pick<AdapterSession, 'sessionToken'>
-    ): Promise<AdapterSession | null | undefined> {
+    async updateSession(session: Partial<AdapterSession> & Pick<AdapterSession, 'sessionToken'>): Promise<AdapterSession | null | undefined> {
       const { sessionToken } = session;
-      const result1 = await client.query(
-        `select * from auth_sessions where "sessionToken" = $1`,
+      const result1 = await query(
+        `SELECT * FROM auth_sessions WHERE \`sessionToken\` = ?`,
         [sessionToken]
       );
       if (result1.rowCount === 0) {
         return null;
       }
-      const originalSession: AdapterSession = result1.rows[0];
+      const originalSession = result1.rows[0] as AdapterSession;
 
-      const newSession: AdapterSession = {
-        ...originalSession,
-        ...session,
-      };
+      const newSession = { ...originalSession, ...session };
       const sql = `
-        UPDATE auth_sessions set
-        expires = $2
-        where "sessionToken" = $1
-        `;
-      const result = await client.query(sql, [
-        newSession.sessionToken,
-        newSession.expires,
-      ]);
-      return result.rows[0];
+        UPDATE auth_sessions SET expires = ? WHERE \`sessionToken\` = ?
+      `;
+      await query(sql, [newSession.expires, newSession.sessionToken]);
+      
+      const fetchSql = `SELECT * FROM auth_sessions WHERE \`sessionToken\` = ?`;
+      const result2 = await query(fetchSql, [newSession.sessionToken]);
+      return result2.rows[0] as AdapterSession;
     },
     async deleteSession(sessionToken) {
-      const sql = `delete from auth_sessions where "sessionToken" = $1`;
-      await client.query(sql, [sessionToken]);
+      const sql = `DELETE FROM auth_sessions WHERE \`sessionToken\` = ?`;
+      await query(sql, [sessionToken]);
     },
     async unlinkAccount(partialAccount) {
       const { provider, providerAccountId } = partialAccount;
-      const sql = `delete from auth_accounts where "providerAccountId" = $1 and provider = $2`;
-      await client.query(sql, [providerAccountId, provider]);
+      const sql = `DELETE FROM auth_accounts WHERE \`providerAccountId\` = ? AND provider = ?`;
+      await query(sql, [providerAccountId, provider]);
     },
     async deleteUser(userId: string) {
-      await client.query('delete from auth_users where id = $1', [userId]);
-      await client.query('delete from auth_sessions where "userId" = $1', [
-        userId,
-      ]);
-      await client.query('delete from auth_accounts where "userId" = $1', [
-        userId,
-      ]);
+      await query('DELETE FROM auth_users WHERE id = ?', [userId]);
+      await query('DELETE FROM auth_sessions WHERE \`userId\` = ?', [userId]);
+      await query('DELETE FROM auth_accounts WHERE \`userId\` = ?', [userId]);
     },
   };
 }

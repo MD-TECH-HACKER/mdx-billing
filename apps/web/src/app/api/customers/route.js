@@ -34,18 +34,18 @@ export async function GET(request) {
         MAX(CASE WHEN s.sale_status IS NULL OR s.sale_status = 'completed' THEN s.created_at END) AS last_purchase_date,
         COUNT(s.sale_id) FILTER (WHERE s.sale_status IS NULL OR s.sale_status = 'completed') AS invoice_count,
         (
-          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+          SELECT COALESCE(JSON_ARRAYAGG(JSON_OBJECT(
             'paymentId', pay.payment_id,
             'amount', pay.amount,
             'method', pay.payment_method,
             'date', pay.payment_date
-          ) ORDER BY pay.created_at DESC), '[]'::jsonb)
-          FROM payments pay WHERE pay.customer_id = c.customer_id AND pay.shop_id = c.shop_id
+          )), '[]')
+          FROM (SELECT * FROM payments ORDER BY created_at DESC) pay WHERE pay.customer_id = c.customer_id AND pay.shop_id = c.shop_id
         ) AS payment_history
       FROM customers c
       LEFT JOIN sales s ON s.customer_id = c.customer_id AND s.shop_id = c.shop_id
       WHERE c.shop_id = ${context.shopId} AND c.is_deleted = FALSE
-        AND (${pattern}::text IS NULL OR LOWER(c.name) LIKE ${pattern} OR LOWER(COALESCE(c.phone, '')) LIKE ${pattern})
+        AND (${pattern} IS NULL OR LOWER(c.name) LIKE ${pattern} OR LOWER(COALESCE(c.phone, '')) LIKE ${pattern})
       GROUP BY c.customer_id
       ORDER BY c.name ASC
     `;
@@ -65,11 +65,12 @@ export async function POST(request) {
     if (!fields.name) {
       return Response.json({ error: "Customer name is required" }, { status: 400 });
     }
-    const rows = await sql`
+    const insertResult = await sql`
       INSERT INTO customers (shop_id, name, phone, email, gstin, address, opening_balance, notes)
       VALUES (${context.shopId}, ${fields.name}, ${fields.phone}, ${fields.email}, ${fields.gstin}, ${fields.address}, ${fields.openingBalance}, ${fields.notes})
-      RETURNING *
     `;
+    const id = insertResult[0].insertId;
+    const rows = await sql`SELECT * FROM customers WHERE customer_id = ${id}`;
     await writeAuditEvent(context, "customer.create", "customer", rows[0].customer_id, {
       name: fields.name,
     });

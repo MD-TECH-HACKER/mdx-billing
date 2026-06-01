@@ -68,7 +68,7 @@ export default function useShop({ enabled = true } = {}) {
   useEffect(() => {
     const shop = query.data?.shop;
     if (shop) {
-      applyTheme(shop.theme || "glass", shop.accent_color || "#8b5cf6");
+      applyTheme(shop.theme || "light", shop.accent_color || "#8b5cf6");
     }
   }, [query.data?.shop?.theme, query.data?.shop?.accent_color]);
 
@@ -131,12 +131,11 @@ export default function useShop({ enabled = true } = {}) {
         if (Array.isArray(patch.customUnits)) next.custom_units = patch.customUnits;
         return { ...old, role: old.role, shop: next };
       });
-      // immediate UI update for theme changes
       if (patch.theme || patch.accentColor) {
         const current = qc.getQueryData(shopQueryKey)?.shop;
         applyTheme(
-          patch.theme || current?.theme || "glass",
-          patch.accentColor || current?.accent_color || "#8b5cf6",
+          patch.theme || current?.theme || "light",
+          patch.accentColor || current?.accent_color || "#8b5cf6"
         );
       }
       return { prev, shopQueryKey };

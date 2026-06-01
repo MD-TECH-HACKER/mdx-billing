@@ -3,7 +3,7 @@ import nodeConsole from 'node:console';
 import Credentials from '@auth/core/providers/credentials';
 import Google from '@auth/core/providers/google';
 import { authHandler, initAuthConfig } from '@hono/auth-js';
-import { Pool, neonConfig } from '@neondatabase/serverless';
+import mysql from 'mysql2/promise';
 import { hash, verify } from 'argon2';
 import { Hono } from 'hono';
 import { contextStorage, getContext } from 'hono/context-storage';
@@ -13,11 +13,10 @@ import { requestId } from 'hono/request-id';
 import { createHonoServer } from 'react-router-hono-server/node';
 import { serializeError } from 'serialize-error';
 import ws from 'ws';
-import NeonAdapter from './adapter';
+import MySQLAdapter from './adapter';
 import { getHTMLForErrorPage } from './get-html-for-error-page';
 import { isAuthAction } from './is-auth-action';
 import { API_BASENAME, api } from './route-builder';
-neonConfig.webSocketConstructor = ws;
 
 const als = new AsyncLocalStorage<{ requestId: string }>();
 
@@ -34,10 +33,8 @@ for (const method of ['log', 'info', 'warn', 'error', 'debug'] as const) {
   };
 }
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-const adapter = NeonAdapter(pool);
+const pool = mysql.createPool(process.env.DATABASE_URL as string);
+const adapter = MySQLAdapter(pool as any);
 const useSecureAuthCookies = process.env.AUTH_URL
   ? process.env.AUTH_URL.startsWith('https://')
   : process.env.NODE_ENV === 'production';
@@ -93,6 +90,13 @@ if (process.env.AUTH_SECRET) {
       adapter,
       secret: process.env.AUTH_SECRET,
       basePath: '/api/auth',
+      trustHost: true,
+      logger: {
+        warn(code) {
+          if (code === 'env-url-basepath-redundant') return;
+          console.warn(`[auth][warn][${code}]`);
+        },
+      },
       pages: {
         signIn: '/account/signin',
         signOut: '/account/logout',
@@ -135,6 +139,7 @@ if (process.env.AUTH_SECRET) {
               Google({
                 clientId: process.env.GOOGLE_CLIENT_ID,
                 clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+                checks: ['pkce'],
               }),
             ]
           : []),

@@ -27,6 +27,12 @@ export async function requireAuthenticatedUser() {
     throw new AccessError(401, "Unauthorized");
   }
 
+  // Verify the user actually exists in the DB (prevents errors if DB was reset but JWT remains)
+  const rows = await sql`SELECT id FROM auth_users WHERE id = ${session.user.id} LIMIT 1`;
+  if (!rows || rows.length === 0) {
+    throw new AccessError(401, "User no longer exists");
+  }
+
   return { session, userId: session.user.id };
 }
 

@@ -12,8 +12,8 @@ export async function GET() {
     const detailedUsers = await sql`
       SELECT 
         u.id, u.name, u.email, u.image, u.display_name,
-        (SELECT COUNT(*)::int FROM shops WHERE owner_id = u.id::varchar(255) OR owner_id::varchar = u.id::varchar(255)) as shop_count,
-        (SELECT COUNT(*)::int FROM sales WHERE owner_id = u.id::varchar(255) OR owner_id::varchar = u.id::varchar(255)) as sales_count
+        (SELECT COUNT(*) FROM shops WHERE owner_id = u.id) as shop_count,
+        (SELECT COUNT(*) FROM sales WHERE owner_id = u.id) as sales_count
       FROM auth_users u
       ORDER BY u.id DESC
       LIMIT 200

@@ -147,13 +147,14 @@ export async function POST(request) {
       return Response.json({ error: "Invitation already pending. Use Resend invite." }, { status: 409 });
     }
 
-    const rows = await sql`
+    const insertResult = await sql`
       INSERT INTO team_invitations
         (shop_id, invited_email, invited_name, role, token, status, invited_by, expires_at)
       VALUES
         (${context.shopId}, ${email}, ${staffName}, ${role}, ${inviteToken()}, 'pending', ${context.userId}, ${inviteExpiresAt()})
-      RETURNING invite_id, shop_id, invited_email, invited_name, role, token, status, expires_at, created_at
     `;
+    const inviteId = insertResult[0].insertId;
+    const rows = await sql`SELECT invite_id, shop_id, invited_email, invited_name, role, token, status, expires_at, created_at FROM team_invitations WHERE invite_id = ${inviteId}`;
     const invite = rows[0];
     let emailSent = false;
     let emailError = null;
@@ -192,12 +193,12 @@ export async function PUT(request) {
       return Response.json({ error: "Valid member and role are required" }, { status: 400 });
     }
 
-    const rows = await sql`
+    await sql`
       UPDATE shop_memberships
       SET role = ${role}, status = ${status}, updated_at = NOW()
       WHERE membership_id = ${membershipId} AND shop_id = ${context.shopId}
-      RETURNING membership_id, user_id, role, status
     `;
+    const rows = await sql`SELECT membership_id, user_id, role, status FROM shop_memberships WHERE membership_id = ${membershipId} AND shop_id = ${context.shopId}`;
     if (!rows[0]) return Response.json({ error: "Not found" }, { status: 404 });
     await writeAuditEvent(context, "team.member.update", "membership", membershipId, {
       role,
@@ -220,12 +221,9 @@ export async function DELETE(request) {
       return Response.json({ error: "Member id is required" }, { status: 400 });
     }
 
-    const rows = await sql`
-      DELETE FROM shop_memberships
-      WHERE membership_id = ${membershipId} AND shop_id = ${context.shopId}
-      RETURNING membership_id
-    `;
-    if (!rows[0]) return Response.json({ error: "Not found" }, { status: 404 });
+    const check = await sql`SELECT membership_id FROM shop_memberships WHERE membership_id = ${membershipId} AND shop_id = ${context.shopId}`;
+    if (!check[0]) return Response.json({ error: "Not found" }, { status: 404 });
+    await sql`DELETE FROM shop_memberships WHERE membership_id = ${membershipId} AND shop_id = ${context.shopId}`;
     await writeAuditEvent(context, "team.member.remove", "membership", membershipId);
     return Response.json({ ok: true });
   } catch (error) {

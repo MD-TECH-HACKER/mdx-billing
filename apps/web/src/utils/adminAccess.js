@@ -13,11 +13,13 @@ export function isAdmin(userOrSession) {
 
   const email = user.email.toLowerCase();
 
-  // Primary owner email rule - from environment
-  if (typeof process !== "undefined" && process.env && process.env.OWNER_EMAIL) {
-    if (email === process.env.OWNER_EMAIL.toLowerCase()) {
-      return true;
-    }
+  // Primary owner email rule - from environment or fallback
+  const ownerEmail = (typeof process !== "undefined" && process.env && process.env.OWNER_EMAIL) 
+    ? process.env.OWNER_EMAIL 
+    : "m.dharaaneesh123@gmail.com";
+    
+  if (ownerEmail && email === ownerEmail.toLowerCase()) {
+    return true;
   }
 
   // Check additional admins via environment variables

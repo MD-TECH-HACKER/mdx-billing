@@ -15,37 +15,56 @@ export async function GET(request) {
     const shopId = context.shopId;
     const chartPeriod = normalizeChartPeriod(new URL(request.url).searchParams.get("period"));
     const salesTrendQuery = chartPeriod === "year"
-      ? sql`SELECT date_trunc('month', created_at) AS day, SUM(total_amount) AS revenue, SUM(total_profit) AS profit FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= date_trunc('year', CURRENT_DATE) GROUP BY day ORDER BY day ASC`
+      ? sql`SELECT DATE_FORMAT(created_at, '%Y-%m-01') AS day, SUM(total_amount) AS revenue, SUM(total_profit) AS profit FROM sales WHERE shop_id = ${shopId} AND created_at >= DATE_FORMAT(CURRENT_DATE(), '%Y-01-01') GROUP BY day ORDER BY day ASC`
       : chartPeriod === "quarter"
-        ? sql`SELECT date_trunc('month', created_at) AS day, SUM(total_amount) AS revenue, SUM(total_profit) AS profit FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= date_trunc('quarter', CURRENT_DATE) GROUP BY day ORDER BY day ASC`
+        ? sql`SELECT DATE_FORMAT(created_at, '%Y-%m-01') AS day, SUM(total_amount) AS revenue, SUM(total_profit) AS profit FROM sales WHERE shop_id = ${shopId} AND created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 MONTH) GROUP BY day ORDER BY day ASC`
         : chartPeriod === "month"
-          ? sql`SELECT date_trunc('day', created_at) AS day, SUM(total_amount) AS revenue, SUM(total_profit) AS profit FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= date_trunc('month', CURRENT_DATE) GROUP BY day ORDER BY day ASC`
-          : sql`SELECT date_trunc('day', created_at) AS day, SUM(total_amount) AS revenue, SUM(total_profit) AS profit FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= CURRENT_DATE - INTERVAL '6 days' GROUP BY day ORDER BY day ASC`;
-    const [products, sales, todaySales, monthSales, salesByDay, expenseSummary, expensesByCategory, purchasesMonth, customerDue, supplierDue, saleCollections] =
-      await sql.transaction([
+          ? sql`SELECT DATE(created_at) AS day, SUM(total_amount) AS revenue, SUM(total_profit) AS profit FROM sales WHERE shop_id = ${shopId} AND created_at >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') GROUP BY day ORDER BY day ASC`
+          : sql`SELECT DATE(created_at) AS day, SUM(total_amount) AS revenue, SUM(total_profit) AS profit FROM sales WHERE shop_id = ${shopId} AND created_at >= CURRENT_DATE() - INTERVAL 6 DAY GROUP BY day ORDER BY day ASC`;
+    const [products, sales, todaySales, monthSales, salesByDay] =
+      await Promise.all([
         sql`SELECT product_id, title, image_url, selling_price, cost_price, stock, stock_base_unit, sold_base_unit, low_stock_base_unit, primary_unit, secondary_unit, conversion_rate, category FROM products WHERE shop_id = ${shopId}`,
-        sql`SELECT sale_id, receipt_number, items, total_amount, total_cost, total_profit, total_quantity, created_at FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') ORDER BY created_at DESC`,
-        sql`SELECT COALESCE(SUM(total_amount),0) AS total, COALESCE(SUM(total_profit),0) AS profit, COUNT(*) AS count FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= CURRENT_DATE`,
-        sql`SELECT COALESCE(SUM(total_amount),0) AS total, COALESCE(SUM(total_profit),0) AS profit, COUNT(*) AS count FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed') AND created_at >= date_trunc('month', CURRENT_DATE)`,
+        sql`SELECT sale_id, receipt_number, items, total_amount, total_cost, total_profit, total_quantity, created_at FROM sales WHERE shop_id = ${shopId} ORDER BY created_at DESC`,
+        sql`SELECT COALESCE(SUM(total_amount),0) AS total, COALESCE(SUM(total_profit),0) AS profit, COUNT(*) AS count FROM sales WHERE shop_id = ${shopId} AND created_at >= CURRENT_DATE`,
+        sql`SELECT COALESCE(SUM(total_amount),0) AS total, COALESCE(SUM(total_profit),0) AS profit, COUNT(*) AS count FROM sales WHERE shop_id = ${shopId} AND created_at >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01')`,
         salesTrendQuery,
-        sql`SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS count FROM expenses WHERE shop_id = ${shopId} AND expense_date >= date_trunc('month', CURRENT_DATE)::date`,
-        sql`SELECT category, SUM(amount) AS total FROM expenses WHERE shop_id = ${shopId} AND expense_date >= date_trunc('month', CURRENT_DATE)::date GROUP BY category ORDER BY total DESC`,
-        sql`SELECT COALESCE(SUM(total_amount),0) AS total, COUNT(*) AS count FROM purchases WHERE shop_id = ${shopId} AND purchase_date >= date_trunc('month', CURRENT_DATE)::date`,
-        sql`SELECT COALESCE((SELECT SUM(opening_balance) FROM customers WHERE shop_id = ${shopId} AND is_deleted = FALSE), 0) +
-          COALESCE((SELECT SUM(total_amount - COALESCE(paid_amount, 0)) FROM sales WHERE shop_id = ${shopId}
-            AND (sale_status IS NULL OR sale_status = 'completed')), 0) AS total`,
-        sql`SELECT GREATEST(0,
+      ]);
+
+    let expenseSummary, expensesByCategory, purchasesMonth, customerDue, supplierDue, saleCollections;
+
+    try {
+      expenseSummary = await sql`SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS count FROM expenses WHERE shop_id = ${shopId} AND expense_date >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01')`;
+    } catch (e) { expenseSummary = [{ total: 0, count: 0 }]; }
+
+    try {
+      expensesByCategory = await sql`SELECT category, SUM(amount) AS total FROM expenses WHERE shop_id = ${shopId} AND expense_date >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') GROUP BY category ORDER BY total DESC`;
+    } catch (e) { expensesByCategory = []; }
+
+    try {
+      purchasesMonth = await sql`SELECT COALESCE(SUM(total_amount),0) AS total, COUNT(*) AS count FROM purchases WHERE shop_id = ${shopId} AND purchase_date >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01')`;
+    } catch (e) { purchasesMonth = [{ total: 0, count: 0 }]; }
+
+    try {
+      customerDue = await sql`SELECT COALESCE((SELECT SUM(opening_balance) FROM customers WHERE shop_id = ${shopId} AND is_deleted = FALSE), 0) +
+          COALESCE((SELECT SUM(total_amount - COALESCE(paid_amount, 0)) FROM sales WHERE shop_id = ${shopId}), 0) AS total`;
+    } catch (e) { customerDue = [{ total: 0 }]; }
+
+    try {
+      supplierDue = await sql`SELECT GREATEST(0,
           COALESCE((SELECT SUM(opening_balance) FROM suppliers WHERE shop_id = ${shopId} AND is_deleted = FALSE), 0) +
           COALESCE((SELECT SUM(total_amount - COALESCE(paid_amount, 0)) FROM purchases WHERE shop_id = ${shopId}), 0) -
           COALESCE((SELECT SUM(amount) FROM payments WHERE shop_id = ${shopId} AND supplier_id IS NOT NULL
             AND purchase_id IS NULL AND direction = 'paid'), 0)
-        ) AS total`,
-        sql`SELECT
+        ) AS total`;
+    } catch (e) { supplierDue = [{ total: 0 }]; }
+
+    try {
+      saleCollections = await sql`SELECT
           COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN total_amount ELSE 0 END), 0) AS cash_sales,
           COALESCE(SUM(CASE WHEN payment_status = 'credit' THEN total_amount ELSE 0 END), 0) AS credit_sales,
           COALESCE(SUM(paid_amount), 0) AS total_collected
-        FROM sales WHERE shop_id = ${shopId} AND (sale_status IS NULL OR sale_status = 'completed')`,
-      ]);
+        FROM sales WHERE shop_id = ${shopId}`;
+    } catch (e) { saleCollections = [{ cash_sales: 0, credit_sales: 0, total_collected: 0 }]; }
 
     const totalRevenue = sales.reduce((amount, sale) => amount + Number(sale.total_amount), 0);
     const totalProfit = sales.reduce((amount, sale) => amount + Number(sale.total_profit), 0);

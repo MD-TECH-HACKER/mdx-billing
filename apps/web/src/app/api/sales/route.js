@@ -370,58 +370,64 @@ export async function POST(request) {
     const productLineCount = requiredByProduct.size;
     const batchLineCount = batchRequests.length;
 
-    const saleRows = await sql`
-      WITH requested AS (
-        SELECT item."productId" AS product_id, item."quantityBaseUnit" AS quantity_base_unit,
-               item."productName" AS product_name
-        FROM jsonb_to_recordset(${stockRequests}::jsonb)
-          AS item("productId" INTEGER, "quantityBaseUnit" NUMERIC, "productName" TEXT)
-      ),
-      decremented AS (
-        UPDATE products product
-        SET
-          stock_base_unit = COALESCE(product.stock_base_unit, product.stock) - requested.quantity_base_unit,
-          stock = (COALESCE(product.stock_base_unit, product.stock) - requested.quantity_base_unit) /
-            CASE WHEN product.conversion_rate > 0 THEN product.conversion_rate ELSE 1 END,
-          sold_base_unit = COALESCE(product.sold_base_unit, 0) + requested.quantity_base_unit,
-          updated_at = NOW()
-        FROM requested
-        WHERE product.product_id = requested.product_id
-          AND product.shop_id = ${context.shopId}
-          AND COALESCE(product.stock_base_unit, product.stock) >= requested.quantity_base_unit
-        RETURNING product.product_id, requested.product_name, requested.quantity_base_unit,
-          COALESCE(product.stock_base_unit, product.stock) AS new_stock_base_unit
-      ),
-      requested_batches AS (
-        SELECT item."batchId" AS batch_id, item."productId" AS product_id,
-          item."quantityBaseUnit" AS quantity_base_unit
-        FROM jsonb_to_recordset(${batchRequestsJson}::jsonb)
-          AS item("batchId" BIGINT, "productId" INTEGER, "quantityBaseUnit" NUMERIC)
-      ),
-      decremented_batches AS (
-        UPDATE product_batches batch
-        SET
-          quantity_remaining_base_unit = batch.quantity_remaining_base_unit - requested_batches.quantity_base_unit,
-          quantity_remaining = CASE
-            WHEN batch.conversion_rate_snapshot > 0 AND batch.unit = batch.primary_unit_snapshot
-              THEN (batch.quantity_remaining_base_unit - requested_batches.quantity_base_unit) / batch.conversion_rate_snapshot
-            ELSE batch.quantity_remaining_base_unit - requested_batches.quantity_base_unit
-          END,
-          updated_at = NOW()
-        FROM requested_batches
-        WHERE batch.batch_id = requested_batches.batch_id
-          AND batch.shop_id = ${context.shopId}
-          AND batch.product_id = requested_batches.product_id
-          AND batch.quantity_remaining_base_unit >= requested_batches.quantity_base_unit
-        RETURNING batch.batch_id
-      ),
-      verified AS (
-        SELECT 1 / CASE
-          WHEN (SELECT COUNT(*) FROM decremented) = ${productLineCount}
-           AND (SELECT COUNT(*) FROM decremented_batches) = ${batchLineCount}
-          THEN 1 ELSE 0 END AS ok
-      ),
-      created_sale AS (
+    const sale = await sql.withTransaction(async (tx) => {
+      // 1. Decrement products
+      let decrementedProducts = new Map();
+      const requests = Object.values(Object.fromEntries(requiredByProduct));
+      for (const req of requests) {
+        const product = await tx`SELECT stock_base_unit, stock, conversion_rate FROM products WHERE product_id = ${req.productId} AND shop_id = ${context.shopId}`;
+        if (!product[0]) throw new Error("Product not found");
+        const currentStockBase = Number(product[0].stock_base_unit) || Number(product[0].stock) || 0;
+        if (currentStockBase < req.quantityBaseUnit) {
+           throw new Error("Insufficient stock for product " + req.productName);
+        }
+        
+        const newStockBase = currentStockBase - req.quantityBaseUnit;
+        const newStock = newStockBase / (Number(product[0].conversion_rate) || 1);
+        
+        await tx`
+          UPDATE products
+          SET stock_base_unit = ${newStockBase},
+              stock = ${newStock},
+              sold_base_unit = COALESCE(sold_base_unit, 0) + ${req.quantityBaseUnit},
+              updated_at = NOW()
+          WHERE product_id = ${req.productId} AND shop_id = ${context.shopId}
+        `;
+        decrementedProducts.set(req.productId, {
+          oldStockBase: currentStockBase,
+          newStockBase: newStockBase,
+          quantityBaseUnit: req.quantityBaseUnit
+        });
+      }
+
+      // 2. Decrement batches
+      for (const batchReq of batchRequests) {
+        const batch = await tx`SELECT quantity_remaining_base_unit, conversion_rate_snapshot, unit, primary_unit_snapshot FROM product_batches WHERE batch_id = ${batchReq.batchId} AND shop_id = ${context.shopId} AND product_id = ${batchReq.productId}`;
+        if (!batch[0]) throw new Error("Batch not found");
+        
+        const currentRemainingBase = Number(batch[0].quantity_remaining_base_unit) || 0;
+        if (currentRemainingBase < batchReq.quantityBaseUnit) {
+           throw new Error("Insufficient batch stock");
+        }
+        
+        const newRemainingBase = currentRemainingBase - batchReq.quantityBaseUnit;
+        let newRemaining = newRemainingBase;
+        if (Number(batch[0].conversion_rate_snapshot) > 0 && batch[0].unit === batch[0].primary_unit_snapshot) {
+           newRemaining = newRemainingBase / Number(batch[0].conversion_rate_snapshot);
+        }
+        
+        await tx`
+          UPDATE product_batches
+          SET quantity_remaining_base_unit = ${newRemainingBase},
+              quantity_remaining = ${newRemaining},
+              updated_at = NOW()
+          WHERE batch_id = ${batchReq.batchId} AND shop_id = ${context.shopId} AND product_id = ${batchReq.productId}
+        `;
+      }
+
+      // 3. Insert sale
+      const gstBreakdownStr = JSON.stringify({ cgstAmount, sgstAmount, igstAmount, shopStateCode, customerStateCode });
+      const [saleResult] = await tx`
         INSERT INTO sales
           (owner_id, shop_id, customer_id, receipt_number, buyer_name, buyer_phone, customer_email, items,
            total_amount, total_cost, total_profit, total_quantity, tax_amount, discount_amount,
@@ -429,76 +435,67 @@ export async function POST(request) {
            taxable_amount, cgst_amount, sgst_amount, igst_amount, gst_breakdown,
            paid_amount, due_date, payment_status, payment_method, notes, sale_status,
            currency_snapshot, tax_percent_snapshot, shop_snapshot, checkout_session_id)
-        SELECT
-          ${context.shopOwnerId}, ${context.shopId}, ${customer?.customer_id || null}, ${receiptNumber},
-          ${displayBuyerName}, ${displayBuyerPhone}, ${displayBuyerEmail}, ${linesJson}::jsonb, ${grandTotal}, ${totalCost}, ${totalProfit},
-          ${totalQuantity}, ${taxAmount}, ${invoice.discountAmount},
-          ${invoiceType}, ${customerGstin}, ${billingAddress}, ${placeOfSupply}, ${customerStateCode},
-          ${invoice.taxableAmount}, ${cgstAmount}, ${sgstAmount}, ${igstAmount},
-          ${JSON.stringify({ cgstAmount, sgstAmount, igstAmount, shopStateCode, customerStateCode })}::jsonb,
-          ${paidAmount}, ${dueDate},
-          ${paymentStatus}, ${paymentMethod}, ${notes}, 'completed', ${context.shop.currency || "INR"},
-          ${Number(context.shop.tax_percent) || 0}, ${shopSnapshot}::jsonb, ${checkoutSessionId}
-        FROM verified WHERE verified.ok = 1
-        RETURNING *
-      ),
-      sale_lines AS (
-        SELECT item."productId" AS product_id, item."productNameSnapshot" AS product_name,
-          item."quantityBaseUnit" AS quantity_base_unit, item.quantity AS display_quantity,
-          item."selectedUnit" AS unit,
-          SUM(item."quantityBaseUnit") OVER (
-            PARTITION BY item."productId" ORDER BY line.ordinality
-          ) AS cumulative_quantity_base_unit
-        FROM jsonb_array_elements(${linesJson}::jsonb) WITH ORDINALITY AS line(value, ordinality)
-        CROSS JOIN LATERAL jsonb_to_record(line.value)
-          AS item("productId" INTEGER, "productNameSnapshot" TEXT, "quantityBaseUnit" NUMERIC,
-            quantity NUMERIC, "selectedUnit" TEXT)
-        WHERE item."productId" IS NOT NULL
-      ),
-      recorded_movements AS (
-        INSERT INTO stock_movements
-          (shop_id, product_id, product_name_snapshot, movement_type, quantity_change,
-           quantity_base_unit, display_quantity, unit, old_stock_base_unit, new_stock_base_unit,
-           reason, related_sale_id, reference_type, reference_id, owner_id, created_by)
-        SELECT ${context.shopId}, line.product_id, line.product_name, 'sale_stock_out',
-          -line.quantity_base_unit, -line.quantity_base_unit, line.display_quantity, line.unit,
-          d.new_stock_base_unit + d.quantity_base_unit - (line.cumulative_quantity_base_unit - line.quantity_base_unit),
-          d.new_stock_base_unit + d.quantity_base_unit - line.cumulative_quantity_base_unit,
-          'Invoice stock out', created_sale.sale_id, 'sale', created_sale.sale_id::TEXT,
-          ${context.shopOwnerId}, ${context.userId}
-        FROM sale_lines line
-        JOIN decremented d ON d.product_id = line.product_id
-        CROSS JOIN created_sale
-        RETURNING movement_id
-      ),
-      initial_payment AS (
-        INSERT INTO payments
-          (shop_id, sale_id, customer_id, amount, payment_method, direction, notes, created_by)
-        SELECT ${context.shopId}, created_sale.sale_id, ${customer?.customer_id || null}, ${paidAmount},
-          ${paymentMethod}, 'received', 'Payment received at billing', ${context.userId}
-        FROM created_sale WHERE ${paidAmount} > 0
-        RETURNING payment_id
-      ),
-      converted_estimate AS (
-        UPDATE estimates estimate
-        SET status = 'converted', converted_sale_id = created_sale.sale_id, updated_at = NOW()
-        FROM created_sale
-        WHERE estimate.estimate_id = ${sourceEstimate?.estimate_id || null}
-          AND estimate.shop_id = ${context.shopId}
-          AND estimate.status = 'draft'
-        RETURNING estimate.estimate_id
-      ),
-      conversion_verified AS (
-        SELECT 1 / CASE
-          WHEN ${!sourceEstimate} OR (SELECT COUNT(*) FROM converted_estimate) = 1
-          THEN 1 ELSE 0 END AS ok
-      )
-      SELECT created_sale.* FROM created_sale
-      CROSS JOIN (SELECT COUNT(*) FROM recorded_movements) movements
-      CROSS JOIN (SELECT COUNT(*) FROM initial_payment) payments
-      CROSS JOIN conversion_verified
-    `;
-    const sale = saleRows[0];
+        VALUES
+          (${context.shopOwnerId}, ${context.shopId}, ${customer?.customer_id || null}, ${receiptNumber},
+           ${displayBuyerName}, ${displayBuyerPhone}, ${displayBuyerEmail}, ${linesJson}, ${grandTotal}, ${totalCost}, ${totalProfit},
+           ${totalQuantity}, ${taxAmount}, ${invoice.discountAmount},
+           ${invoiceType}, ${customerGstin}, ${billingAddress}, ${placeOfSupply}, ${customerStateCode},
+           ${invoice.taxableAmount}, ${cgstAmount}, ${sgstAmount}, ${igstAmount},
+           ${gstBreakdownStr},
+           ${paidAmount}, ${dueDate},
+           ${paymentStatus}, ${paymentMethod}, ${notes}, 'completed', ${context.shop.currency || "INR"},
+           ${Number(context.shop.tax_percent) || 0}, ${shopSnapshot}, ${checkoutSessionId})
+      `;
+      const saleId = saleResult.insertId;
+
+      // 4. Insert movements
+      let cumulativeMap = {};
+      for (const line of lineItems) {
+        if (!line.productId) continue;
+        const productId = Number.parseInt(line.productId, 10);
+        cumulativeMap[productId] = (cumulativeMap[productId] || 0) + line.quantityBaseUnit;
+        const decReq = decrementedProducts.get(productId);
+        
+        const lineOldStock = decReq.newStockBase + decReq.quantityBaseUnit - (cumulativeMap[productId] - line.quantityBaseUnit);
+        const lineNewStock = decReq.newStockBase + decReq.quantityBaseUnit - cumulativeMap[productId];
+
+        await tx`
+          INSERT INTO stock_movements
+            (shop_id, product_id, product_name_snapshot, movement_type, quantity_change,
+             quantity_base_unit, display_quantity, unit, old_stock_base_unit, new_stock_base_unit,
+             reason, related_sale_id, reference_type, reference_id, owner_id, created_by)
+          VALUES
+            (${context.shopId}, ${productId}, ${line.productNameSnapshot}, 'sale_stock_out',
+             ${-line.quantityBaseUnit}, ${-line.quantityBaseUnit}, ${line.quantity}, ${line.selectedUnit},
+             ${lineOldStock}, ${lineNewStock},
+             'Invoice stock out', ${saleId}, 'sale', ${String(saleId)},
+             ${context.shopOwnerId}, ${context.userId})
+        `;
+      }
+
+      // 5. Insert initial payment
+      if (paidAmount > 0) {
+        await tx`
+          INSERT INTO payments
+            (shop_id, sale_id, customer_id, amount, payment_method, direction, notes, created_by)
+          VALUES
+            (${context.shopId}, ${saleId}, ${customer?.customer_id || null}, ${paidAmount},
+             ${paymentMethod}, 'received', 'Payment received at billing', ${context.userId})
+        `;
+      }
+
+      // 6. Update estimate if applicable
+      if (sourceEstimate) {
+        await tx`
+          UPDATE estimates
+          SET status = 'converted', converted_sale_id = ${saleId}, updated_at = NOW()
+          WHERE estimate_id = ${sourceEstimate.estimate_id} AND shop_id = ${context.shopId} AND status = 'draft'
+        `;
+      }
+
+      const [saleRow] = await tx`SELECT * FROM sales WHERE sale_id = ${saleId}`;
+      return saleRow[0];
+    });
     await writeAuditEvent(context, "sale.create", "sale", sale.sale_id, {
       receiptNumber,
       totalAmount: grandTotal,

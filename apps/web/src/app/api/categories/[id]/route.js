@@ -37,24 +37,20 @@ export async function PUT(request, { params }) {
     `;
     if (duplicate[0]) return Response.json({ error: "Category already exists" }, { status: 409 });
 
-    const rows = await sql`
-      WITH updated AS (
-        UPDATE categories
-        SET name = ${fields.name}, description = ${fields.description}, icon = ${fields.icon},
-            color = ${fields.color}, updated_at = NOW()
-        WHERE category_id = ${id} AND shop_id = ${context.shopId}
-        RETURNING *
-      ),
-      synced_products AS (
-        UPDATE products
-        SET category = updated.name, category_name_snapshot = updated.name, updated_at = NOW()
-        FROM updated
-        WHERE products.category_id = updated.category_id AND products.shop_id = ${context.shopId}
-        RETURNING products.product_id
-      )
-      SELECT * FROM updated
+    await sql`
+      UPDATE categories
+      SET name = ${fields.name}, description = ${fields.description}, icon = ${fields.icon},
+          color = ${fields.color}, updated_at = NOW()
+      WHERE category_id = ${id} AND shop_id = ${context.shopId}
     `;
+    const rows = await sql`SELECT * FROM categories WHERE category_id = ${id} AND shop_id = ${context.shopId}`;
     if (!rows[0]) return Response.json({ error: "Not found" }, { status: 404 });
+    
+    await sql`
+      UPDATE products
+      SET category = ${fields.name}, category_name_snapshot = ${fields.name}, updated_at = NOW()
+      WHERE category_id = ${id} AND shop_id = ${context.shopId}
+    `;
     await writeAuditEvent(context, "category.update", "category", id);
     return Response.json({ category: rows[0] });
   } catch (error) {
@@ -71,7 +67,7 @@ export async function DELETE(request, { params }) {
     const id = parseId(params.id);
     if (!id) return Response.json({ error: "Invalid id" }, { status: 400 });
     const productCount = await sql`
-      SELECT COUNT(*)::integer AS count FROM products
+      SELECT COUNT(*) AS count FROM products
       WHERE shop_id = ${context.shopId} AND category_id = ${id}
     `;
     if (Number(productCount[0]?.count) > 0) {
@@ -80,12 +76,9 @@ export async function DELETE(request, { params }) {
         { status: 409 },
       );
     }
-    const rows = await sql`
-      DELETE FROM categories
-      WHERE category_id = ${id} AND shop_id = ${context.shopId}
-      RETURNING category_id
-    `;
-    if (!rows[0]) return Response.json({ error: "Not found" }, { status: 404 });
+    const check = await sql`SELECT category_id FROM categories WHERE category_id = ${id} AND shop_id = ${context.shopId}`;
+    if (!check[0]) return Response.json({ error: "Not found" }, { status: 404 });
+    await sql`DELETE FROM categories WHERE category_id = ${id} AND shop_id = ${context.shopId}`;
     await writeAuditEvent(context, "category.delete", "category", id);
     return Response.json({ ok: true });
   } catch (error) {

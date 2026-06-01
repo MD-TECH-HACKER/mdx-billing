@@ -82,21 +82,17 @@ function SignUpPage() {
 
   return (
     <div className="min-h-screen w-full relative overflow-hidden flex items-center justify-center px-4 py-10 font-inter">
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0f0c29] via-[#302b63] to-[#24243e]" />
-        <div className="absolute top-0 left-0 w-[500px] h-[500px] rounded-full bg-violet-600/40 blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-fuchsia-500/30 blur-3xl" />
-      </div>
+      <div className="prism-bg" />
 
-      <div className="w-full max-w-md rounded-3xl bg-white/10 backdrop-blur-2xl border border-white/20 p-8 shadow-2xl">
+      <div className="w-full max-w-md p-8 t-card relative z-10">
         <div className="text-center mb-8">
           <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-xl mb-4">
             <Store className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-white text-2xl font-bold font-poppins">
+          <h1 className="t-text text-2xl font-bold font-poppins">
             Create Account
           </h1>
-          <p className="text-white/60 text-sm mt-1">
+          <p className="t-muted text-sm mt-1">
             Start managing your shop today
           </p>
         </div>
@@ -108,7 +104,7 @@ function SignUpPage() {
           />
         </div>
         {error ? (
-          <div className="mb-4 rounded-2xl bg-red-500/15 border border-red-400/30 px-4 py-3 text-sm text-red-100">
+          <div className="mb-4 rounded-2xl t-danger-bg px-4 py-3 text-sm">
             {error}
           </div>
         ) : null}
@@ -116,7 +112,7 @@ function SignUpPage() {
         <button
           onClick={handleGoogle}
           disabled={googleLoading}
-          className="w-full bg-white text-gray-800 rounded-2xl px-4 py-3.5 font-semibold flex items-center justify-center gap-3 hover:bg-gray-100 transition disabled:opacity-60"
+          className="w-full t-btn rounded-2xl px-4 py-3.5 font-semibold flex items-center justify-center gap-3 transition disabled:opacity-60"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -139,11 +135,11 @@ function SignUpPage() {
           {googleLoading ? "Loading..." : "Continue with Google"}
         </button>
 
-        <p className="text-white/50 text-xs text-center mt-6">
+        <p className="t-dim text-xs text-center mt-6">
           Already have an account?{" "}
           <a
             href="/account/signin"
-            className="text-violet-300 hover:text-violet-200 font-medium"
+            className="t-accent-text hover:opacity-80 font-medium"
           >
             Sign in
           </a>

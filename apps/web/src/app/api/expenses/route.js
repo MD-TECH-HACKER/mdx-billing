@@ -44,11 +44,12 @@ export async function POST(request) {
     if (!category || !Number.isFinite(amount) || amount <= 0) {
       return Response.json({ error: "Category and positive amount are required" }, { status: 400 });
     }
-    const rows = await sql`
+    const insertResult = await sql`
       INSERT INTO expenses (shop_id, expense_date, category, amount, payment_method, vendor, notes, receipt_url, created_by)
-      VALUES (${context.shopId}, COALESCE(${expenseDate}::date, CURRENT_DATE), ${category}, ${amount}, ${paymentMethod}, ${vendor}, ${notes}, ${receiptUrl}, ${context.userId})
-      RETURNING *
+      VALUES (${context.shopId}, COALESCE(${expenseDate}, CURRENT_DATE), ${category}, ${amount}, ${paymentMethod}, ${vendor}, ${notes}, ${receiptUrl}, ${context.userId})
     `;
+    const id = insertResult[0].insertId;
+    const rows = await sql`SELECT * FROM expenses WHERE expense_id = ${id}`;
     await writeAuditEvent(context, "expense.create", "expense", rows[0].expense_id, {
       category,
       amount,
@@ -69,11 +70,9 @@ export async function DELETE(request) {
     if (!Number.isInteger(id) || id <= 0) {
       return Response.json({ error: "Expense id is required" }, { status: 400 });
     }
-    const rows = await sql`
-      DELETE FROM expenses WHERE expense_id = ${id} AND shop_id = ${context.shopId}
-      RETURNING expense_id
-    `;
-    if (!rows[0]) return Response.json({ error: "Not found" }, { status: 404 });
+    const check = await sql`SELECT expense_id FROM expenses WHERE expense_id = ${id} AND shop_id = ${context.shopId}`;
+    if (!check[0]) return Response.json({ error: "Not found" }, { status: 404 });
+    await sql`DELETE FROM expenses WHERE expense_id = ${id} AND shop_id = ${context.shopId}`;
     await writeAuditEvent(context, "expense.delete", "expense", id);
     return Response.json({ ok: true });
   } catch (error) {

@@ -24,20 +24,22 @@ export async function GET(request) {
     const columns = canAccess(context.role, "analytics.profit")
       ? "*"
       : "product_id, shop_id, image_url, title, description, selling_price, stock, stock_base_unit, opening_stock_base_unit, sold_base_unit, low_stock_base_unit, category, category_id, category_name_snapshot, sku, primary_unit, secondary_unit, conversion_rate, hsn_sac, tax_rate, gst_rate, tax_mode, gst_exempt, cess_rate, reverse_charge, product_status, product_created_at, supplier_id, created_at, updated_at";
-    let query = `SELECT ${columns} FROM products WHERE shop_id = $1`;
+    let query = `SELECT ${columns} FROM products WHERE shop_id = ?`;
     const values = [context.shopId];
 
     if (search) {
       values.push(`%${search.toLowerCase()}%`);
-      query += ` AND (LOWER(title) LIKE $${values.length} OR LOWER(COALESCE(description,'')) LIKE $${values.length})`;
+      query += ` AND (LOWER(title) LIKE ? OR LOWER(COALESCE(description,'')) LIKE ?)`;
+      // Push the same value again since we used ? twice
+      values.push(`%${search.toLowerCase()}%`);
     }
     if (category && category !== "all") {
       values.push(category);
-      query += ` AND category = $${values.length}`;
+      query += ` AND category = ?`;
     }
     if (Number.isInteger(categoryId) && categoryId > 0) {
       values.push(categoryId);
-      query += ` AND category_id = $${values.length}`;
+      query += ` AND category_id = ?`;
     }
     query += " ORDER BY created_at DESC";
 

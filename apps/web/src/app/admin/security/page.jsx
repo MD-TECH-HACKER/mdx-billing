@@ -1,18 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, ShieldAlert, Key, Globe, Lock, Unlock, 
   Settings, AlertTriangle, Fingerprint, Eye, EyeOff, Save,
-  RefreshCw, CheckCircle2, Shield, Activity, Network
+  RefreshCw, CheckCircle2, Shield, Activity, Network, Loader2
 } from 'lucide-react';
 
-const Toggle = ({ enabled, onChange }) => (
+const Toggle = ({ enabled, onChange, disabled }) => (
   <button 
     onClick={onChange}
+    disabled={disabled}
     style={{
       width: "44px", height: "24px", borderRadius: "12px",
       background: enabled ? "#10B981" : "var(--border, #E5E7EB)",
-      border: "none", cursor: "pointer", position: "relative",
-      transition: "background 0.3s ease"
+      border: "none", cursor: disabled ? "not-allowed" : "pointer", position: "relative",
+      transition: "background 0.3s ease", opacity: disabled ? 0.5 : 1
     }}
   >
     <div style={{
@@ -47,70 +48,130 @@ const SecuritySection = ({ icon: Icon, title, description, children, color = "#F
 
 export default function AdminSecurity() {
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [toastType, setToastType] = useState("success");
+  const [hasChanges, setHasChanges] = useState(false);
   
   // Security States
   const [securitySettings, setSecuritySettings] = useState({
     cloudflareTurnstile: true,
-    forceHttps: true,
-    strictTransportSecurity: true,
     rateLimiting: true,
-    blockTorExitNodes: true,
-    geoBlocking: false,
+    blockTorExitNodes: false,
     maxLoginAttempts: 5,
     sessionTimeoutMins: 120,
-    twoFactorEnforcement: "admins_only" // "none", "admins_only", "all"
+    twoFactorEnforcement: "none"
   });
 
-  const [bannedIps, setBannedIps] = useState([
-    "103.45.67.89",
-    "45.22.19.1",
-    "192.168.1.50" // Example
-  ]);
+  const [bannedIps, setBannedIps] = useState([]);
   const [newIp, setNewIp] = useState("");
+  const [banLoading, setBanLoading] = useState(false);
 
-  const showToast = (message) => {
+  const showToast = (message, type = "success") => {
     setToast(message);
+    setToastType(type);
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleSave = () => {
-    setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      showToast("Security settings updated successfully.");
-    }, 1000);
+  // Load settings from API on mount
+  useEffect(() => {
+    fetch('/api/admin/security')
+      .then(r => r.json())
+      .then(data => {
+        if (data.settings) setSecuritySettings(data.settings);
+        if (data.bannedIps) setBannedIps(data.bannedIps);
+      })
+      .catch(() => showToast("Failed to load security settings", "error"))
+      .finally(() => setPageLoading(false));
+  }, []);
+
+  const updateSetting = (key, value) => {
+    setSecuritySettings(prev => ({ ...prev, [key]: value }));
+    setHasChanges(true);
   };
 
   const toggleSetting = (key) => {
-    setSecuritySettings(prev => ({ ...prev, [key]: !prev[key] }));
+    updateSetting(key, !securitySettings[key]);
   };
 
-  const handleAddIp = (e) => {
-    e.preventDefault();
-    if (newIp && !bannedIps.includes(newIp)) {
-      setBannedIps([...bannedIps, newIp]);
-      setNewIp("");
-      showToast(`IP ${newIp} added to ban list.`);
+  // Save all settings to the database
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/security', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save_settings', settings: securitySettings })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+      showToast(data.message || "Security settings saved successfully.");
+      setHasChanges(false);
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRemoveIp = (ip) => {
-    setBannedIps(bannedIps.filter(i => i !== ip));
-    showToast(`IP ${ip} removed from ban list.`);
+  // Ban IP via API
+  const handleAddIp = async (e) => {
+    e.preventDefault();
+    if (!newIp) return;
+    setBanLoading(true);
+    try {
+      const res = await fetch('/api/admin/security', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'ban_ip', ip: newIp })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Ban failed');
+      setBannedIps(prev => [newIp, ...prev]);
+      setNewIp("");
+      showToast(data.message || `IP ${newIp} banned successfully.`);
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setBanLoading(false);
+    }
   };
+
+  // Unban IP via API
+  const handleRemoveIp = async (ip) => {
+    try {
+      const res = await fetch('/api/admin/security', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'unban_ip', ip })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Unban failed');
+      setBannedIps(prev => prev.filter(i => i !== ip));
+      showToast(data.message || `IP ${ip} unbanned.`);
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
+  if (pageLoading) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "50vh" }}>
+        <Loader2 size={32} className="animate-spin" style={{ color: "var(--text-dim)" }} />
+      </div>
+    );
+  }
 
   return (
     <div style={{ animation: "fadeIn 0.5s ease" }}>
       {toast && (
         <div style={{
           position: "fixed", top: "24px", right: "24px", zIndex: 9999,
-          background: "#10B981", color: "white", padding: "12px 24px", borderRadius: "8px",
+          background: toastType === "error" ? "#DC2626" : "#10B981", color: "white", padding: "12px 24px", borderRadius: "8px",
           fontWeight: 600, fontSize: "14px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
           display: "flex", alignItems: "center", gap: "8px", animation: "fadeInDown 0.3s ease"
         }}>
-          <CheckCircle2 size={18} /> {toast}
+          {toastType === "error" ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />} {toast}
         </div>
       )}
 
@@ -125,9 +186,9 @@ export default function AdminSecurity() {
         </div>
         <button 
           onClick={handleSave}
-          disabled={loading}
+          disabled={loading || !hasChanges}
           style={{
-            background: "#111827",
+            background: hasChanges ? "#111827" : "#6B7280",
             color: "white",
             border: "none",
             padding: "12px 24px",
@@ -137,12 +198,13 @@ export default function AdminSecurity() {
             display: "flex",
             alignItems: "center",
             gap: "8px",
-            cursor: loading ? "not-allowed" : "pointer",
+            cursor: (loading || !hasChanges) ? "not-allowed" : "pointer",
+            opacity: hasChanges ? 1 : 0.6,
             transition: "all 0.2s"
           }}
         >
           {loading ? <RefreshCw size={18} className="animate-spin" /> : <Save size={18} />}
-          Save Configuration
+          {hasChanges ? "Save Configuration" : "Settings Saved"}
         </button>
       </div>
 
@@ -184,7 +246,7 @@ export default function AdminSecurity() {
                     type="range" 
                     min="3" max="10" 
                     value={securitySettings.maxLoginAttempts}
-                    onChange={(e) => setSecuritySettings(prev => ({...prev, maxLoginAttempts: parseInt(e.target.value)}))}
+                    onChange={(e) => updateSetting('maxLoginAttempts', parseInt(e.target.value))}
                     style={{ width: "200px" }}
                   />
                   <span style={{ fontWeight: 600, fontSize: "14px", color: "var(--text)" }}>{securitySettings.maxLoginAttempts} attempts</span>
@@ -217,7 +279,7 @@ export default function AdminSecurity() {
                       type="radio" 
                       name="2fa" 
                       checked={securitySettings.twoFactorEnforcement === opt.id}
-                      onChange={() => setSecuritySettings(prev => ({...prev, twoFactorEnforcement: opt.id}))}
+                      onChange={() => updateSetting('twoFactorEnforcement', opt.id)}
                       style={{ accentColor: "#3B82F6" }}
                     />
                     <span style={{ fontSize: "14px", fontWeight: 500, color: "var(--text)" }}>{opt.label}</span>
@@ -231,7 +293,7 @@ export default function AdminSecurity() {
               <p style={{ margin: "0 0 12px", fontSize: "13px", color: "var(--text-dim)" }}>Automatically log out inactive users after this amount of time.</p>
               <select 
                 value={securitySettings.sessionTimeoutMins}
-                onChange={(e) => setSecuritySettings(prev => ({...prev, sessionTimeoutMins: parseInt(e.target.value)}))}
+                onChange={(e) => updateSetting('sessionTimeoutMins', parseInt(e.target.value))}
                 style={{
                   padding: "10px 16px", borderRadius: "8px", border: "1px solid var(--border)",
                   background: "var(--bg-elev)", fontSize: "14px", color: "var(--text)", outline: "none", width: "100%", maxWidth: "300px"
@@ -264,13 +326,16 @@ export default function AdminSecurity() {
               />
               <button 
                 type="submit"
-                disabled={!newIp}
+                disabled={!newIp || banLoading}
                 style={{
                   padding: "12px 24px", background: "#DC2626", color: "white", border: "none", 
-                  borderRadius: "8px", fontWeight: 600, fontSize: "14px", cursor: newIp ? "pointer" : "not-allowed",
-                  opacity: newIp ? 1 : 0.5
+                  borderRadius: "8px", fontWeight: 600, fontSize: "14px", 
+                  cursor: (!newIp || banLoading) ? "not-allowed" : "pointer",
+                  opacity: (!newIp || banLoading) ? 0.5 : 1,
+                  display: "flex", alignItems: "center", gap: "8px"
                 }}
               >
+                {banLoading ? <Loader2 size={16} className="animate-spin" /> : <Shield size={16} />}
                 Ban IP
               </button>
             </form>
@@ -287,7 +352,7 @@ export default function AdminSecurity() {
                     </div>
                     <button 
                       onClick={() => handleRemoveIp(ip)}
-                      style={{ background: "transparent", border: "none", color: "var(--text-dim)", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}
+                      style={{ background: "transparent", border: "none", color: "#DC2626", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}
                     >
                       Unban
                     </button>

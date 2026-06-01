@@ -21,10 +21,19 @@ export async function POST(request) {
       data.shops = await sql`SELECT * FROM shops`;
     }
     if (type === 'products' || type === 'full') {
-      data.products = await sql`SELECT * FROM products LIMIT 5000`; // safeguard
+      data.products = await sql`SELECT * FROM products`; 
     }
     if (type === 'sales' || type === 'full') {
-      data.sales = await sql`SELECT * FROM sales LIMIT 5000`; // safeguard
+      data.sales = await sql`SELECT * FROM sales`; 
+    }
+    if (type === 'full') {
+      data.customers = await sql`SELECT * FROM customers`;
+      data.suppliers = await sql`SELECT * FROM suppliers`;
+      data.categories = await sql`SELECT * FROM categories`;
+      data.expenses = await sql`SELECT * FROM expenses`;
+      data.purchases = await sql`SELECT * FROM purchases`;
+      data.payments = await sql`SELECT * FROM payments`;
+      data.estimates = await sql`SELECT * FROM estimates`;
     }
 
     // Log the export action (if audit log table exists, we could write to it, but standard logging works)

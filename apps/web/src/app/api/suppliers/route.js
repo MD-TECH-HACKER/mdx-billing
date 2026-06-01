@@ -57,18 +57,18 @@ export async function GET(request) {
         COUNT(p.purchase_id) AS purchase_count,
         MAX(p.purchase_date) AS last_purchase_date,
         (
-          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+          SELECT COALESCE(JSON_ARRAYAGG(JSON_OBJECT(
             'paymentId', pay.payment_id,
             'amount', pay.amount,
             'method', pay.payment_method,
             'date', pay.payment_date
-          ) ORDER BY pay.created_at DESC), '[]'::jsonb)
-          FROM payments pay WHERE pay.supplier_id = s.supplier_id AND pay.shop_id = s.shop_id
+          )), '[]')
+          FROM (SELECT * FROM payments ORDER BY created_at DESC) pay WHERE pay.supplier_id = s.supplier_id AND pay.shop_id = s.shop_id
         ) AS payment_history
       FROM suppliers s
       LEFT JOIN purchases p ON p.supplier_id = s.supplier_id AND p.shop_id = s.shop_id
       WHERE s.shop_id = ${context.shopId} AND s.is_deleted = FALSE
-        AND (${pattern}::text IS NULL OR LOWER(s.name) LIKE ${pattern} OR LOWER(COALESCE(s.phone, '')) LIKE ${pattern})
+        AND (${pattern} IS NULL OR LOWER(s.name) LIKE ${pattern} OR LOWER(COALESCE(s.phone, '')) LIKE ${pattern})
       GROUP BY s.supplier_id
       ORDER BY s.name ASC
     `;
@@ -104,15 +104,16 @@ export async function POST(request) {
         { status: 409 },
       );
     }
-    const rows = await sql`
+    const insertResult = await sql`
       INSERT INTO suppliers
         (shop_id, owner_id, name, phone, email, gstin, address, opening_balance,
          upi_id, qr_image_url, custom_fields, due_date, notes)
       VALUES
         (${context.shopId}, ${context.shopOwnerId}, ${fields.name}, ${fields.phone}, ${fields.email}, ${fields.gstin}, ${fields.address}, ${fields.openingBalance},
-         ${fields.upiId}, ${fields.qrImageUrl}, ${JSON.stringify(fields.customFields)}::jsonb, ${fields.dueDate}, ${fields.notes})
-      RETURNING *
+         ${fields.upiId}, ${fields.qrImageUrl}, ${JSON.stringify(fields.customFields)}, ${fields.dueDate}, ${fields.notes})
     `;
+    const id = insertResult[0].insertId;
+    const rows = await sql`SELECT * FROM suppliers WHERE supplier_id = ${id}`;
     await writeAuditEvent(context, "supplier.create", "supplier", rows[0].supplier_id, {
       name: fields.name,
     });

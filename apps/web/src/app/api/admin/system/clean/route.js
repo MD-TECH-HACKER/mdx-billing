@@ -21,9 +21,26 @@ export async function POST(request) {
 
     console.log(`[ADMIN DANGER] User ${session.user.email} initiated clean for ${target}`);
 
-    if (target === 'demo_sales') {
-      // Example safe cleanup
-      // await sql`DELETE FROM sales WHERE total_amount = 0 OR note ILIKE '%test%'`;
+    if (target === 'demo_data') {
+      await sql`DELETE FROM products WHERE title LIKE '%Demo%' OR title LIKE '%Test%'`;
+      await sql`DELETE FROM shops WHERE shop_name LIKE '%Demo%' OR shop_name LIKE '%Test%'`;
+      await sql`DELETE FROM sales WHERE notes LIKE '%Demo%' OR notes LIKE '%Test%'`;
+    } else if (target === 'old_logs') {
+      await sql`DELETE FROM audit_events WHERE created_at < NOW() - INTERVAL 90 DAY`;
+    } else if (target === 'factory_reset') {
+      // Wipes everything except users. Deleting shops usually cascades to all,
+      // but we do this explicitly to be safe and thorough.
+      await sql`DELETE FROM payments`;
+      await sql`DELETE FROM estimates`;
+      await sql`DELETE FROM purchases`;
+      await sql`DELETE FROM expenses`;
+      await sql`DELETE FROM sales`;
+      await sql`DELETE FROM products`;
+      await sql`DELETE FROM suppliers`;
+      await sql`DELETE FROM customers`;
+      await sql`DELETE FROM categories`;
+      await sql`DELETE FROM audit_events`;
+      await sql`DELETE FROM shops`;
     }
 
     return Response.json({ success: true, message: `Successfully executed clean action for ${target}` });

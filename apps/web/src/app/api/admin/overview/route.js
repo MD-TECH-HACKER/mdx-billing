@@ -15,13 +15,15 @@ export async function GET() {
       shopCount,
       productCount,
       saleCount,
-      revenueTotal
+      revenueTotal,
+      salesGrowth
     ] = await Promise.all([
-      sql`SELECT COUNT(*)::int as count FROM auth_users`,
-      sql`SELECT COUNT(*)::int as count FROM shops`,
-      sql`SELECT COUNT(*)::int as count FROM products`,
-      sql`SELECT COUNT(*)::int as count FROM sales`,
-      sql`SELECT SUM(total_amount)::numeric as total FROM sales`
+      sql`SELECT COUNT(*) as count FROM auth_users`,
+      sql`SELECT COUNT(*) as count FROM shops`,
+      sql`SELECT COUNT(*) as count FROM products`,
+      sql`SELECT COUNT(*) as count FROM sales`,
+      sql`SELECT SUM(total_amount) as total FROM sales`,
+      sql`SELECT DATE_FORMAT(created_at, '%b') as name, COUNT(*) as sales FROM sales WHERE created_at >= DATE_FORMAT(CURRENT_DATE(), '%Y-01-01') GROUP BY name ORDER BY MIN(created_at) ASC`
     ]);
 
     return Response.json({
@@ -30,7 +32,8 @@ export async function GET() {
         shops: shopCount[0]?.count || 0,
         products: productCount[0]?.count || 0,
         sales: saleCount[0]?.count || 0,
-        revenue: parseFloat(revenueTotal[0]?.total || 0)
+        revenue: parseFloat(revenueTotal[0]?.total || 0),
+        growth: salesGrowth.map(row => ({ name: row.name, sales: row.sales, users: 0 }))
       }
     });
   } catch (err) {

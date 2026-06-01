@@ -59,28 +59,23 @@ export default function SelectShopPage() {
       className="min-h-screen w-full relative overflow-hidden flex items-center justify-center px-4 py-10 font-inter"
     >
       {/* Background */}
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0f0c29] via-[#302b63] to-[#24243e]" />
-        <div className="absolute top-0 left-0 w-[600px] h-[600px] rounded-full bg-violet-600/30 blur-3xl animate-pulse" />
-        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full bg-fuchsia-500/25 blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full bg-blue-500/15 blur-3xl" />
-      </div>
+      <div className="prism-bg" />
 
-      <div className="w-full max-w-lg">
+      <div className="w-full max-w-lg relative z-10">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-2xl mb-5">
             <Store className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-white text-2xl sm:text-3xl font-bold font-poppins">
+          <h1 className="t-text text-2xl sm:text-3xl font-bold font-poppins">
             Select your shop
           </h1>
-          <p className="text-white/60 text-sm mt-2">
+          <p className="t-muted text-sm mt-2">
             {shops.length === 1
               ? "Choose your shop to continue."
               : `You have ${shops.length} shops. Choose one to continue.`}
           </p>
-          <div className="mt-3 inline-flex items-center gap-1.5 text-xs text-white/50 bg-white/10 border border-white/15 px-3 py-1 rounded-full">
+          <div className="mt-3 inline-flex items-center gap-1.5 text-xs t-dim t-elev t-border border px-3 py-1 rounded-full">
             <Sparkles className="w-3 h-3 text-yellow-300" />
             Switch anytime from Settings
           </div>
@@ -97,12 +92,11 @@ export default function SelectShopPage() {
                 disabled={!!selecting}
                 className={`
                   w-full flex items-center gap-4 p-4 rounded-2xl
-                  bg-white/10 backdrop-blur-2xl border border-white/20
-                  hover:bg-white/[0.18] hover:border-violet-400/50
-                  hover:shadow-[0_0_30px_-5px_rgba(139,92,246,0.3)]
+                  t-card
+                  hover:border-[var(--accent)] hover:shadow-lg
                   transition-all duration-300 text-left
                   disabled:opacity-60 disabled:cursor-wait
-                  ${isSelecting ? "ring-2 ring-violet-400 bg-white/[0.18] scale-[0.98]" : ""}
+                  ${isSelecting ? "ring-2 ring-[var(--accent)] scale-[0.98]" : ""}
                 `}
               >
                 {/* Shop logo/avatar */}
@@ -122,19 +116,19 @@ export default function SelectShopPage() {
 
                 {/* Shop info */}
                 <div className="flex-1 min-w-0">
-                  <div className="text-white font-semibold text-base truncate">
+                  <div className="t-text font-semibold text-base truncate">
                     {shop.shop_name}
                   </div>
-                  <div className="mt-1 inline-flex items-center rounded-full bg-orange-500/20 border border-orange-300/30 px-2 py-0.5 text-[10px] font-bold text-orange-100">
+                  <div className="mt-1 inline-flex items-center rounded-full bg-orange-100 border border-orange-200 px-2 py-0.5 text-[10px] font-bold text-orange-700">
                     {roleLabel(shop.access_role)}
                   </div>
                   {shop.shop_description ? (
-                    <div className="text-white/50 text-xs mt-0.5 truncate">
+                    <div className="t-dim text-xs mt-0.5 truncate">
                       {shop.shop_description}
                     </div>
                   ) : null}
                   {shop.address ? (
-                    <div className="text-white/40 text-[11px] mt-0.5 truncate">
+                    <div className="t-dim2 text-[11px] mt-0.5 truncate">
                       📍 {shop.address}
                     </div>
                   ) : null}
@@ -147,8 +141,8 @@ export default function SelectShopPage() {
                       <div className="w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
                     </div>
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                      <ArrowRight className="w-4 h-4 text-white/60" />
+                    <div className="w-8 h-8 rounded-full t-elev flex items-center justify-center">
+                      <ArrowRight className="w-4 h-4 t-muted" />
                     </div>
                   )}
                 </div>
@@ -163,9 +157,9 @@ export default function SelectShopPage() {
           disabled={!!selecting}
           className="
             w-full flex items-center justify-center gap-2 p-4 rounded-2xl
-            border-2 border-dashed border-white/25
-            hover:border-violet-400/60 hover:bg-white/[0.06]
-            text-white/70 hover:text-white
+            border-2 border-dashed t-border
+            hover:border-[var(--accent)] hover:t-accent-soft
+            t-muted hover:t-text
             transition-all duration-300
             disabled:opacity-50
           "
@@ -175,7 +169,7 @@ export default function SelectShopPage() {
         </button>
 
         {/* Footer */}
-        <p className="text-center text-white/30 text-xs mt-6">
+        <p className="text-center t-dim2 text-xs mt-6">
           © {new Date().getFullYear()} MDX Billing · Premium Shop Management
         </p>
       </div>

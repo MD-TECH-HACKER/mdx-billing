@@ -75,33 +75,29 @@ export default function PublicReceiptPage(props) {
 
   if (query.isLoading) {
     return (
-      <div
-        className="min-h-screen flex flex-col items-center justify-center gap-3"
-        style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)" }}
-      >
-        <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
-        <span className="text-white/60 text-sm font-medium tracking-wide">Retrieving receipt...</span>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 relative">
+        <div className="prism-bg" />
+        <Loader2 className="w-10 h-10 t-accent-text animate-spin" />
+        <span className="t-muted text-sm font-medium tracking-wide relative z-10">Retrieving receipt...</span>
       </div>
     );
   }
 
   if (query.isError || !sale) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center p-6"
-        style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)" }}
-      >
-        <div className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl p-8 max-w-md w-full text-center shadow-2xl">
-          <div className="w-16 h-16 rounded-2xl bg-red-500/20 border border-red-500/30 flex items-center justify-center mx-auto mb-5 text-red-400">
-            <AlertTriangle className="w-8 h-8" />
+      <div className="min-h-screen flex items-center justify-center p-6 relative">
+        <div className="prism-bg" />
+        <div className="t-card p-8 max-w-md w-full text-center relative z-10">
+          <div className="w-16 h-16 rounded-2xl t-danger-bg flex items-center justify-center mx-auto mb-5">
+            <AlertTriangle className="w-8 h-8 t-danger" />
           </div>
-          <h2 className="text-white font-poppins font-bold text-xl mb-2">Receipt Not Found</h2>
-          <p className="text-white/60 text-sm leading-relaxed mb-6">
+          <h2 className="t-text font-poppins font-bold text-xl mb-2">Receipt Not Found</h2>
+          <p className="t-muted text-sm leading-relaxed mb-6">
             The link you followed is invalid, has expired, or is for a receipt that does not exist.
           </p>
           <Link
             to="/"
-            className="inline-block bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white rounded-2xl px-6 py-3 font-semibold text-sm transition shadow-lg shadow-orange-500/25"
+            className="inline-block t-btn-primary rounded-2xl px-6 py-3 font-semibold text-sm transition"
           >
             Go Home
           </Link>
@@ -126,47 +122,42 @@ export default function PublicReceiptPage(props) {
   const borderColor = bw ? "#000000" : "#e5e7eb";
 
   return (
-    <div
-      className="min-h-screen font-inter receipt-wrap py-6 px-3"
-      style={{
-        background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)",
-        backgroundAttachment: "fixed",
-      }}
-    >
+    <div className="min-h-screen font-inter receipt-wrap py-6 px-3 relative">
+      <div className="prism-bg" />
       <ToastHost />
 
       <div className={`mx-auto ${thermal ? "max-w-sm" : "max-w-2xl"}`}>
         
         {/* Customer Focused Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-5 no-print bg-white/10 backdrop-blur-2xl border border-white/20 p-4 rounded-3xl shadow-2xl">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5 no-print t-card p-4 rounded-3xl relative z-10">
           <div className="flex items-center gap-3">
             {sale.shop_logo ? (
               <img
                 src={sale.shop_logo}
                 alt={sale.shop_name}
-                className="w-10 h-10 rounded-xl object-cover border border-white/10 shadow-inner"
+                className="w-10 h-10 rounded-xl object-cover border t-border shadow-inner"
               />
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center font-bold text-white text-base shadow-lg">
+              <div className="w-10 h-10 rounded-xl t-btn-primary flex items-center justify-center font-bold text-white text-base shadow-lg">
                 {sale.shop_name?.[0]?.toUpperCase()}
               </div>
             )}
             <div>
-              <div className="font-poppins font-bold text-sm text-white">{sale.shop_name}</div>
-              <div className="text-[10px] text-white/50">Receipt #{sale.receipt_number}</div>
+              <div className="font-poppins font-bold text-sm t-text">{sale.shop_name}</div>
+              <div className="text-[10px] t-dim">Receipt #{sale.receipt_number}</div>
             </div>
           </div>
           
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="bg-white/10 hover:bg-white/20 border border-white/15 text-white px-3.5 py-2 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition shadow-sm"
+              className="t-btn px-3.5 py-2 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition"
             >
               <Printer className="w-3.5 h-3.5" /> Print
             </button>
             <button
               onClick={handleDownload}
-              className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition shadow-md shadow-orange-500/10"
+              className="t-btn-primary px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition"
             >
               <Download className="w-3.5 h-3.5" /> Download PDF
             </button>

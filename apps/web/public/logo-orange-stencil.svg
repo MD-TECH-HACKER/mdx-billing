@@ -1,0 +1,16 @@
+<svg width="512" height="512" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <mask id="cutout">
+      <!-- Everything white stays visible -->
+      <rect width="256" height="256" fill="white" />
+      
+      <!-- Black parts become completely transparent cutouts! -->
+      <path d="M128 70 L174 95 V148 L128 174 L82 148 V95 L128 70 Z" fill="none" stroke="black" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M82 95 L128 120 L174 95" fill="none" stroke="black" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 120 V174" fill="none" stroke="black" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+  </defs>
+
+  <!-- Orange Hexagon Background with the inner box masked out -->
+  <path d="M128 16 L224 72 L224 184 L128 240 L32 184 L32 72 L128 16Z" fill="#FF5A00" stroke="#FF5A00" stroke-width="16" stroke-linejoin="round" mask="url(#cutout)" />
+</svg>

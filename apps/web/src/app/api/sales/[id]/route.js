@@ -87,39 +87,34 @@ export async function PATCH(request, { params }) {
       ? body.paymentMethod
       : "cash";
     const notes = String(body.notes || "").trim().slice(0, 300) || null;
-    const rows = await sql`
-      WITH target AS (
-        SELECT sale_id, customer_id, total_amount, COALESCE(paid_amount, 0) AS paid_amount,
-          LEAST(${amount}, total_amount - COALESCE(paid_amount, 0)) AS accepted_amount
+    const rows = await sql.withTransaction(async (tx) => {
+      const target = await tx`
+        SELECT sale_id, customer_id, total_amount, COALESCE(paid_amount, 0) AS paid_amount
         FROM sales
         WHERE sale_id = ${id} AND shop_id = ${context.shopId}
           AND (sale_status IS NULL OR sale_status = 'completed')
         FOR UPDATE
-      ),
-      updated AS (
-        UPDATE sales s
-        SET
-          paid_amount = target.paid_amount + target.accepted_amount,
-          payment_status = CASE
-            WHEN target.paid_amount + target.accepted_amount >= target.total_amount THEN 'paid'
-            ELSE 'partial'
-          END,
-          updated_at = NOW()
-        FROM target
-        WHERE s.sale_id = target.sale_id AND target.paid_amount < target.total_amount
-        RETURNING s.*, target.customer_id
-      ),
-      recorded AS (
-        INSERT INTO payments
-          (shop_id, sale_id, customer_id, amount, payment_method, direction, notes, created_by)
-        SELECT ${context.shopId}, updated.sale_id, updated.customer_id,
-          target.accepted_amount,
-          ${method}, 'received', ${notes}, ${context.userId}
-        FROM updated JOIN target ON target.sale_id = updated.sale_id
-        RETURNING payment_id
-      )
-      SELECT updated.* FROM updated CROSS JOIN recorded
-    `;
+      `;
+      if (!target[0]) return [];
+      const sale = target[0];
+      const accepted = Math.min(amount, sale.total_amount - sale.paid_amount);
+      if (accepted <= 0) return [];
+      
+      await tx`
+        UPDATE sales
+        SET paid_amount = paid_amount + ${accepted},
+            payment_status = CASE WHEN paid_amount + ${accepted} >= total_amount THEN 'paid' ELSE 'partial' END,
+            updated_at = NOW()
+        WHERE sale_id = ${id}
+      `;
+      
+      await tx`
+        INSERT INTO payments (shop_id, sale_id, customer_id, amount, payment_method, direction, notes, created_by)
+        VALUES (${context.shopId}, ${id}, ${sale.customer_id}, ${accepted}, ${method}, 'received', ${notes}, ${context.userId})
+      `;
+      
+      return await tx`SELECT * FROM sales WHERE sale_id = ${id}`;
+    });
     if (!rows[0]) return Response.json({ error: "Sale is paid, cancelled, or not found" }, { status: 400 });
     await writeAuditEvent(context, "sale.payment", "sale", id, { amount, method });
     return Response.json({ sale: sanitizeSaleForRole(rows[0], context.role) });
@@ -136,94 +131,99 @@ export async function DELETE(request, { params }) {
     await ensureBusinessFeatureSchema();
     const id = parseSaleId(params.id);
     if (!id) return Response.json({ error: "Invalid id" }, { status: 400 });
-    const results = await sql`
-      WITH cancelled_sale AS (
-        UPDATE sales
-        SET sale_status = 'cancelled', updated_at = NOW()
+    const results = await sql.withTransaction(async (tx) => {
+      const saleRows = await tx`
+        SELECT items FROM sales
         WHERE sale_id = ${id} AND shop_id = ${context.shopId}
           AND (sale_status IS NULL OR sale_status = 'completed')
-        RETURNING items
-      ),
-      return_lines AS (
-        SELECT item."productId" AS product_id, item."productNameSnapshot" AS product_name,
-          COALESCE(item."quantityBaseUnit", item.quantity) AS quantity_base_unit,
-          item.quantity AS display_quantity, item."selectedUnit" AS unit,
-          SUM(COALESCE(item."quantityBaseUnit", item.quantity)) OVER (
-            PARTITION BY item."productId" ORDER BY line.ordinality
-          ) AS cumulative_quantity_base_unit
-        FROM cancelled_sale
-        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(cancelled_sale.items, '[]'::jsonb))
-          WITH ORDINALITY AS line(value, ordinality)
-        CROSS JOIN LATERAL jsonb_to_record(line.value)
-          AS item("productId" INTEGER, "productNameSnapshot" TEXT, "quantityBaseUnit" NUMERIC,
-            quantity NUMERIC, "selectedUnit" TEXT)
-        WHERE item."productId" IS NOT NULL
-      ),
-      restored_lines AS (
-        SELECT product_id, MAX(product_name) AS product_name,
-          SUM(quantity_base_unit) AS quantity_base_unit
-        FROM return_lines
-        GROUP BY product_id
-      ),
-      restored_products AS (
-        UPDATE products product
-        SET
-          stock_base_unit = COALESCE(product.stock_base_unit, product.stock) + restored_lines.quantity_base_unit,
-          stock = (COALESCE(product.stock_base_unit, product.stock) + restored_lines.quantity_base_unit) /
-            CASE WHEN product.conversion_rate > 0 THEN product.conversion_rate ELSE 1 END,
-          sold_base_unit = GREATEST(0, COALESCE(product.sold_base_unit, 0) - restored_lines.quantity_base_unit),
-          updated_at = NOW()
-        FROM restored_lines
-        WHERE product.product_id = restored_lines.product_id AND product.shop_id = ${context.shopId}
-        RETURNING product.product_id, product.title,
-          restored_lines.quantity_base_unit,
-          COALESCE(product.stock_base_unit, product.stock) AS new_stock_base_unit
-      ),
-      returned_batches AS (
-        SELECT alloc."batchId" AS batch_id,
-          SUM(alloc."quantityBaseUnit") AS quantity_base_unit
-        FROM cancelled_sale
-        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(cancelled_sale.items, '[]'::jsonb)) item
-        CROSS JOIN LATERAL jsonb_to_recordset(COALESCE(item->'batchAllocations', '[]'::jsonb))
-          AS alloc("batchId" BIGINT, "quantityBaseUnit" NUMERIC)
-        WHERE alloc."batchId" IS NOT NULL
-        GROUP BY alloc."batchId"
-      ),
-      restored_batches AS (
-        UPDATE product_batches batch
-        SET
-          quantity_remaining_base_unit = batch.quantity_remaining_base_unit + returned_batches.quantity_base_unit,
-          quantity_remaining = CASE
-            WHEN batch.conversion_rate_snapshot > 0 AND batch.unit = batch.primary_unit_snapshot
-              THEN (batch.quantity_remaining_base_unit + returned_batches.quantity_base_unit) / batch.conversion_rate_snapshot
-            ELSE batch.quantity_remaining_base_unit + returned_batches.quantity_base_unit
-          END,
-          updated_at = NOW()
-        FROM returned_batches
-        WHERE batch.batch_id = returned_batches.batch_id AND batch.shop_id = ${context.shopId}
-        RETURNING batch.batch_id
-      ),
-      recorded_movements AS (
-        INSERT INTO stock_movements
-          (shop_id, product_id, product_name_snapshot, movement_type, quantity_change,
-           quantity_base_unit, display_quantity, unit, old_stock_base_unit, new_stock_base_unit,
-           reason, related_sale_id, reference_type, reference_id, owner_id, created_by)
-        SELECT ${context.shopId}, line.product_id, line.product_name, 'sale_cancel_return',
-          line.quantity_base_unit, line.quantity_base_unit, line.display_quantity, line.unit,
-          restored.new_stock_base_unit - restored.quantity_base_unit +
-            (line.cumulative_quantity_base_unit - line.quantity_base_unit),
-          restored.new_stock_base_unit - restored.quantity_base_unit + line.cumulative_quantity_base_unit,
-          'Cancelled sale stock returned', ${id}, 'sale', ${String(id)},
-          ${context.shopOwnerId}, ${context.userId}
-        FROM return_lines line
-        JOIN restored_products restored ON restored.product_id = line.product_id
-        RETURNING movement_id
-      )
-      SELECT EXISTS(SELECT 1 FROM cancelled_sale) AS cancelled,
-        (SELECT COUNT(*) FROM recorded_movements) AS restored_movements,
-        (SELECT COUNT(*) FROM restored_batches) AS restored_batches
-    `;
-    if (!results[0]?.cancelled) {
+        FOR UPDATE
+      `;
+      if (!saleRows[0]) return { cancelled: false };
+
+      await tx`UPDATE sales SET sale_status = 'cancelled', updated_at = NOW() WHERE sale_id = ${id}`;
+
+      const saleItems = typeof saleRows[0].items === 'string' ? JSON.parse(saleRows[0].items) : saleRows[0].items || [];
+      
+      let productUpdates = new Map();
+      for (const item of saleItems) {
+        if (!item.productId) continue;
+        const pid = Number.parseInt(item.productId, 10);
+        const qty = Number(item.quantityBaseUnit || item.quantity);
+        
+        let pData = productUpdates.get(pid);
+        if (!pData) {
+          const pRows = await tx`SELECT stock_base_unit, stock, conversion_rate FROM products WHERE product_id = ${pid}`;
+          if (pRows[0]) {
+            pData = {
+               product: pRows[0],
+               oldStockBase: Number(pRows[0].stock_base_unit) || Number(pRows[0].stock) || 0,
+               currentStockBase: Number(pRows[0].stock_base_unit) || Number(pRows[0].stock) || 0,
+               totalQty: 0
+            };
+            productUpdates.set(pid, pData);
+          }
+        }
+        
+        if (pData) {
+           const lineOldStock = pData.currentStockBase;
+           pData.currentStockBase += qty;
+           const lineNewStock = pData.currentStockBase;
+           pData.totalQty += qty;
+
+           await tx`
+              INSERT INTO stock_movements
+                (shop_id, product_id, product_name_snapshot, movement_type, quantity_change,
+                 quantity_base_unit, display_quantity, unit, old_stock_base_unit, new_stock_base_unit,
+                 reason, related_sale_id, reference_type, reference_id, owner_id, created_by)
+              VALUES
+                (${context.shopId}, ${pid}, ${item.productNameSnapshot}, 'sale_cancel_return',
+                 ${qty}, ${qty}, ${item.quantity}, ${item.selectedUnit},
+                 ${lineOldStock}, ${lineNewStock},
+                 'Cancelled sale stock returned', ${id}, 'sale', ${String(id)},
+                 ${context.shopOwnerId}, ${context.userId})
+           `;
+        }
+
+        // Batch updates
+        if (Array.isArray(item.batchAllocations)) {
+          for (const alloc of item.batchAllocations) {
+            if (!alloc.batchId) continue;
+            const bRows = await tx`SELECT quantity_remaining_base_unit, conversion_rate_snapshot, unit, primary_unit_snapshot FROM product_batches WHERE batch_id = ${alloc.batchId}`;
+            if (bRows[0]) {
+              const oldRemBase = Number(bRows[0].quantity_remaining_base_unit) || 0;
+              const newRemBase = oldRemBase + Number(alloc.quantityBaseUnit);
+              let newRem = newRemBase;
+              if (Number(bRows[0].conversion_rate_snapshot) > 0 && bRows[0].unit === bRows[0].primary_unit_snapshot) {
+                 newRem = newRemBase / Number(bRows[0].conversion_rate_snapshot);
+              }
+              
+              await tx`
+                UPDATE product_batches
+                SET quantity_remaining_base_unit = ${newRemBase},
+                    quantity_remaining = ${newRem},
+                    updated_at = NOW()
+                WHERE batch_id = ${alloc.batchId}
+              `;
+            }
+          }
+        }
+      }
+
+      for (const [pid, pData] of productUpdates.entries()) {
+         const newStock = pData.currentStockBase / (Number(pData.product.conversion_rate) || 1);
+         await tx`
+            UPDATE products
+            SET stock_base_unit = ${pData.currentStockBase},
+                stock = ${newStock},
+                sold_base_unit = GREATEST(0, COALESCE(sold_base_unit, 0) - ${pData.totalQty}),
+                updated_at = NOW()
+            WHERE product_id = ${pid}
+         `;
+      }
+      
+      return { cancelled: true };
+    });
+    if (!results?.cancelled) {
       return Response.json({ error: "Not found or already cancelled" }, { status: 404 });
     }
     await writeAuditEvent(context, "sale.cancel", "sale", id);

@@ -3,7 +3,8 @@ import {
   Database, HardDrive, Download, Upload, AlertOctagon, 
   Settings2, Activity, Server, Clock, RefreshCw, FileText, 
   Trash2, ShieldCheck, CheckCircle2, AlertTriangle, Hammer,
-  FileJson, Info, Zap, ChevronRight, Search, FileUp
+  FileJson, Info, Zap, ChevronRight, Search, FileUp,
+  Users, Store, Package
 } from 'lucide-react';
 import AdminDangerZone from '@/components/admin/AdminDangerZone';
 
@@ -93,15 +94,24 @@ export default function AdminSystemPage() {
 
   // Health Stats State
   const [healthStats, setHealthStats] = useState({
-    dbLatency: "42ms",
-    dbConnection: "Healthy",
-    lastBackup: "2 hours ago",
-    activeConnections: 12,
-    storageUsed: "1.2 GB",
-    errorRate: "0.01%",
-    uptime: "99.99%",
+    dbLatency: "—",
+    dbConnection: "Checking…",
+    lastBackup: "—",
+    activeConnections: "—",
+    storageUsed: "—",
+    errorRate: "—",
+    uptime: "—",
     environment: "production"
   });
+
+  useEffect(() => {
+    fetch('/api/admin/system/health')
+      .then(r => r.json())
+      .then(data => {
+        if (data.stats) setHealthStats(data.stats);
+      })
+      .catch(() => setHealthStats(prev => ({ ...prev, dbConnection: "Error" })));
+  }, []);
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -145,10 +155,17 @@ export default function AdminSystemPage() {
     setImportLoading(true);
     try {
       // In a real app, we'd read the file using FileReader
+      const fileContent = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsText(importFile);
+      });
+      const parsed = JSON.parse(fileContent);
       const res = await fetch('/api/admin/system/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: { dummy: "data" } })
+        body: JSON.stringify({ data: parsed })
       });
       const data = await res.json();
       
@@ -224,7 +241,7 @@ export default function AdminSystemPage() {
           All Systems Operational
         </h4>
         <p style={{ margin: 0, fontSize: "14px", color: "var(--text-dim)", lineHeight: 1.6 }}>
-          The Neon Serverless PostgreSQL instance is responding normally. No connection spikes or memory limits reached. Auth services and API edges are functioning with 99.99% uptime.
+          The MySQL database instance is responding normally. Auth services and API routes are functioning correctly.
         </p>
       </div>
     </div>

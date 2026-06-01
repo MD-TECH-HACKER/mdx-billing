@@ -104,81 +104,87 @@ export async function POST(request, { params }) {
       },
     ]);
 
-    const rows = await sql`
-      WITH target AS (
-        SELECT product_id, title, COALESCE(stock_base_unit, stock) AS old_stock_base_unit
+    const result = await sql.withTransaction(async (tx) => {
+      const targetRows = await tx`
+        SELECT product_id, title, COALESCE(stock_base_unit, stock) AS old_stock_base_unit, conversion_rate
         FROM products
         WHERE product_id = ${id} AND shop_id = ${context.shopId}
         FOR UPDATE
-      ),
-      updated_product AS (
-        UPDATE products p
-        SET
-          stock_base_unit = target.old_stock_base_unit + ${quantityBaseUnit},
-          stock = (target.old_stock_base_unit + ${quantityBaseUnit}) /
-            CASE WHEN p.conversion_rate > 0 THEN p.conversion_rate ELSE 1 END,
-          cost_price = ${primaryUnitCost},
-          selling_price = ${primaryUnitSelling},
-          updated_at = NOW()
-        FROM target
-        WHERE p.product_id = target.product_id AND p.shop_id = ${context.shopId}
-        RETURNING p.*, target.old_stock_base_unit
-      ),
-      created_purchase AS (
+      `;
+      if (!targetRows[0]) return null;
+      const target = targetRows[0];
+      
+      const oldStockBase = Number(target.old_stock_base_unit) || 0;
+      const newStockBase = oldStockBase + quantityBaseUnit;
+      const newStock = newStockBase / (Number(target.conversion_rate) || 1);
+
+      await tx`
+        UPDATE products
+        SET stock_base_unit = ${newStockBase},
+            stock = ${newStock},
+            cost_price = ${primaryUnitCost},
+            selling_price = ${primaryUnitSelling},
+            updated_at = NOW()
+        WHERE product_id = ${id}
+      `;
+
+      const [purchaseRes] = await tx`
         INSERT INTO purchases
           (shop_id, owner_id, supplier_id, bill_number, purchase_date, items, subtotal,
            tax_amount, total_amount, paid_amount, payment_status, due_date, notes, created_by)
-        SELECT ${context.shopId}, ${context.shopOwnerId}, ${supplierId}, ${purchaseInvoiceNo},
-          COALESCE(${purchaseDate}::date, CURRENT_DATE), ${itemJson}::jsonb, ${totalAmount},
-          0, ${totalAmount}, ${paidAmount}, ${paymentStatus}, ${dueDate}, ${notes}, ${context.userId}
-        FROM updated_product
-        RETURNING *
-      ),
-      created_batch AS (
+        VALUES
+          (${context.shopId}, ${context.shopOwnerId}, ${supplierId}, ${purchaseInvoiceNo},
+           ${purchaseDate || new Date().toISOString().split('T')[0]}, ${itemJson}, ${totalAmount},
+           0, ${totalAmount}, ${paidAmount}, ${paymentStatus}, ${dueDate}, ${notes}, ${context.userId})
+      `;
+      const purchaseId = purchaseRes.insertId;
+
+      const [batchRes] = await tx`
         INSERT INTO product_batches
           (product_id, shop_id, owner_id, product_name_snapshot, purchase_date,
            quantity_purchased, quantity_remaining, quantity_purchased_base_unit, quantity_remaining_base_unit,
            unit, primary_unit_snapshot, secondary_unit_snapshot, conversion_rate_snapshot,
            cost_price, cost_price_base_unit, selling_price, supplier_id, supplier_name_snapshot,
            purchase_invoice_no, notes, source, created_by)
-        SELECT ${id}, ${context.shopId}, ${context.shopOwnerId}, updated_product.title,
-          COALESCE(${purchaseDate}::timestamp, NOW()), ${quantity}, ${quantity}, ${quantityBaseUnit}, ${quantityBaseUnit},
-          ${selectedUnit}, ${model.primaryUnit}, ${model.secondaryUnit}, ${model.conversionRate},
-          ${primaryUnitCost}, ${costPriceBaseUnit}, ${primaryUnitSelling}, ${supplierId}, ${supplierName},
-          ${purchaseInvoiceNo}, ${notes}, 'add_stock', ${context.userId}
-        FROM updated_product
-        RETURNING *
-      ),
-      movement AS (
+        VALUES
+          (${id}, ${context.shopId}, ${context.shopOwnerId}, ${target.title},
+           NOW(), ${quantity}, ${quantity}, ${quantityBaseUnit}, ${quantityBaseUnit},
+           ${selectedUnit}, ${model.primaryUnit}, ${model.secondaryUnit}, ${model.conversionRate},
+           ${primaryUnitCost}, ${costPriceBaseUnit}, ${primaryUnitSelling}, ${supplierId}, ${supplierName},
+           ${purchaseInvoiceNo}, ${notes}, 'add_stock', ${context.userId})
+      `;
+      const batchId = batchRes.insertId;
+
+      await tx`
         INSERT INTO stock_movements
           (shop_id, product_id, product_name_snapshot, movement_type, quantity_change,
            quantity_base_unit, display_quantity, unit, batch_id, old_stock_base_unit,
            new_stock_base_unit, cost_price_snapshot, selling_price_snapshot, movement_date,
            reason, related_purchase_id, reference_type, reference_id, owner_id, created_by)
-        SELECT ${context.shopId}, ${id}, updated_product.title, 'purchase_stock_in',
-          ${quantityBaseUnit}, ${quantityBaseUnit}, ${quantity}, ${selectedUnit}, created_batch.batch_id,
-          updated_product.old_stock_base_unit, updated_product.old_stock_base_unit + ${quantityBaseUnit},
-          ${primaryUnitCost}, ${primaryUnitSelling}, NOW(), 'Stock added',
-          created_purchase.purchase_id, 'purchase', created_purchase.purchase_id::text,
-          ${context.shopOwnerId}, ${context.userId}
-        FROM updated_product CROSS JOIN created_batch CROSS JOIN created_purchase
-        RETURNING movement_id
-      ),
-      payment AS (
-        INSERT INTO payments
-          (shop_id, purchase_id, supplier_id, amount, payment_method, direction, notes, created_by)
-        SELECT ${context.shopId}, created_purchase.purchase_id, ${supplierId}, ${paidAmount},
-          ${paymentMethod}, 'paid', 'Payment recorded with stock entry', ${context.userId}
-        FROM created_purchase WHERE ${paidAmount} > 0
-        RETURNING payment_id
-      )
-      SELECT
-        (SELECT row_to_json(updated_product) FROM updated_product) AS product,
-        (SELECT row_to_json(created_batch) FROM created_batch) AS batch,
-        (SELECT row_to_json(created_purchase) FROM created_purchase) AS purchase
-      FROM movement
-      LIMIT 1
-    `;
+        VALUES
+          (${context.shopId}, ${id}, ${target.title}, 'purchase_stock_in',
+           ${quantityBaseUnit}, ${quantityBaseUnit}, ${quantity}, ${selectedUnit}, ${batchId},
+           ${oldStockBase}, ${newStockBase},
+           ${primaryUnitCost}, ${primaryUnitSelling}, NOW(), 'Stock added',
+           ${purchaseId}, 'purchase', ${String(purchaseId)},
+           ${context.shopOwnerId}, ${context.userId})
+      `;
+
+      if (paidAmount > 0) {
+        await tx`
+          INSERT INTO payments
+            (shop_id, purchase_id, supplier_id, amount, payment_method, direction, notes, created_by)
+          VALUES
+            (${context.shopId}, ${purchaseId}, ${supplierId}, ${paidAmount},
+             ${paymentMethod}, 'paid', 'Payment recorded with stock entry', ${context.userId})
+        `;
+      }
+      
+      const [productRow] = await tx`SELECT * FROM products WHERE product_id = ${id}`;
+      const [batchRow] = await tx`SELECT * FROM product_batches WHERE batch_id = ${batchId}`;
+      const [purchaseRow] = await tx`SELECT * FROM purchases WHERE purchase_id = ${purchaseId}`;
+      return { product: productRow[0], batch: batchRow[0], purchase: purchaseRow[0] };
+    });
 
     await writeAuditEvent(context, "product.stock.add", "product", id, {
       quantity,

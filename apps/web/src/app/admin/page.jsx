@@ -20,14 +20,7 @@ export default function AdminOverview() {
       });
   }, []);
 
-  const dummyData = [
-    { name: 'Jan', users: 40, sales: 240 },
-    { name: 'Feb', users: 80, sales: 139 },
-    { name: 'Mar', users: 200, sales: 980 },
-    { name: 'Apr', users: 278, sales: 1108 },
-    { name: 'May', users: 389, sales: 2800 },
-    { name: 'Jun', users: 539, sales: 3800 },
-  ];
+  const chartData = stats?.growth || [];
 
   return (
     <div style={{ animation: "fadeIn 0.5s ease" }}>
@@ -110,7 +103,12 @@ export default function AdminOverview() {
           <h3 style={{ margin: "0 0 20px", fontSize: "16px", fontWeight: 600 }}>User & Sales Growth (YTD)</h3>
           <div style={{ height: "300px", width: "100%" }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dummyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              {chartData.length === 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dim)' }}>
+                  No growth data yet
+                </div>
+              ) : (
+                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
@@ -129,7 +127,8 @@ export default function AdminOverview() {
                 />
                 <Area type="monotone" dataKey="sales" stroke="#10B981" strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" />
                 <Area type="monotone" dataKey="users" stroke="#3B82F6" strokeWidth={3} fillOpacity={1} fill="url(#colorUsers)" />
-              </AreaChart>
+                </AreaChart>
+              )}
             </ResponsiveContainer>
           </div>
         </div>

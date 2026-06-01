@@ -73,15 +73,15 @@ export async function POST(request, { params }) {
       return Response.json({ error: "This invitation cannot be resent" }, { status: 400 });
     }
 
-    const rows = await sql`
+    await sql`
       UPDATE team_invitations
       SET token = ${inviteToken()},
           status = 'pending',
           expires_at = ${inviteExpiresAt()},
           updated_at = NOW()
       WHERE invite_id = ${id} AND shop_id = ${context.shopId}
-      RETURNING invite_id, shop_id, invited_email, invited_name, role, token, status, expires_at, created_at, updated_at
     `;
+    const rows = await sql`SELECT invite_id, shop_id, invited_email, invited_name, role, token, status, expires_at, created_at, updated_at FROM team_invitations WHERE invite_id = ${id}`;
     const invite = rows[0];
     let emailSent = false;
     let emailError = null;
@@ -113,15 +113,15 @@ export async function DELETE(request, { params }) {
     const id = parseInviteId(params.id);
     if (!id) return Response.json({ error: "Invalid invite id" }, { status: 400 });
 
-    const rows = await sql`
+    const check = await sql`SELECT invite_id, invited_email FROM team_invitations WHERE invite_id = ${id} AND shop_id = ${context.shopId} AND status IN ('pending', 'expired')`;
+    if (!check[0]) return Response.json({ error: "Invitation not found" }, { status: 404 });
+    
+    await sql`
       UPDATE team_invitations
       SET status = 'cancelled', updated_at = NOW()
       WHERE invite_id = ${id}
-        AND shop_id = ${context.shopId}
-        AND status IN ('pending', 'expired')
-      RETURNING invite_id, invited_email
     `;
-    if (!rows[0]) return Response.json({ error: "Invitation not found" }, { status: 404 });
+    const rows = check;
     await writeAuditEvent(context, "team.invite.cancel", "team_invitation", id, {
       email: rows[0].invited_email,
     });

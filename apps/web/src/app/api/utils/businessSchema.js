@@ -102,7 +102,7 @@ export async function ensureBusinessFeatureSchema() {
             address TEXT,
             opening_balance DECIMAL(15,2) DEFAULT 0,
             upi_id VARCHAR(255),
-            qr_image_url TEXT,
+            qr_image_url LONGTEXT,
             custom_fields JSON,
             due_date DATE,
             payment_status VARCHAR(50) DEFAULT 'due',
@@ -138,7 +138,7 @@ export async function ensureBusinessFeatureSchema() {
             payment_method VARCHAR(50) DEFAULT 'cash',
             vendor VARCHAR(255),
             notes TEXT,
-            receipt_url TEXT,
+            receipt_url LONGTEXT,
             created_by VARCHAR(36),
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -261,6 +261,22 @@ export async function ensureBusinessFeatureSchema() {
             FOREIGN KEY (owner_id) REFERENCES auth_users(id) ON DELETE SET NULL,
             FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE SET NULL,
             FOREIGN KEY (created_by) REFERENCES auth_users(id) ON DELETE SET NULL
+        )`,
+        `CREATE TABLE IF NOT EXISTS payments (
+            payment_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            shop_id VARCHAR(36) NOT NULL,
+            sale_id INT,
+            purchase_id INT,
+            customer_id INT,
+            supplier_id INT,
+            amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+            payment_method VARCHAR(50) DEFAULT 'cash',
+            direction VARCHAR(50) DEFAULT 'received',
+            notes TEXT,
+            payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_by VARCHAR(36),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE
         )`
       ];
 
@@ -270,6 +286,37 @@ export async function ensureBusinessFeatureSchema() {
         } catch (e) {
           if (e.code !== 'ER_DUP_KEYNAME') console.error(e);
         }
+      }
+
+      // Add missing columns to sales table (schema drift fix)
+      const salesAlters = [
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_id INT',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_email VARCHAR(255)',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_gstin VARCHAR(50)',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS billing_address TEXT',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS place_of_supply VARCHAR(255)',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_state_code VARCHAR(10)',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_type VARCHAR(50) DEFAULT "invoice"',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(15,2) DEFAULT 0',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS taxable_amount DECIMAL(15,2) DEFAULT 0',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS cgst_amount DECIMAL(15,2) DEFAULT 0',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS sgst_amount DECIMAL(15,2) DEFAULT 0',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS igst_amount DECIMAL(15,2) DEFAULT 0',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS gst_breakdown JSON',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS paid_amount DECIMAL(15,2) DEFAULT 0',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS due_date DATE',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS sale_status VARCHAR(50) DEFAULT "completed"',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS currency_snapshot VARCHAR(20) DEFAULT "INR"',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS tax_percent_snapshot DECIMAL(10,2) DEFAULT 0',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS shop_snapshot JSON',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS checkout_session_id VARCHAR(255)',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS receipt_email_sent BOOLEAN DEFAULT FALSE',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS receipt_email_sent_at DATETIME',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS receipt_email_error TEXT',
+        'ALTER TABLE sales ADD COLUMN IF NOT EXISTS email_message_id VARCHAR(255)',
+      ];
+      for (const alter of salesAlters) {
+        try { await sql(alter); } catch (e) { /* column might already exist */ }
       }
     })();
   }

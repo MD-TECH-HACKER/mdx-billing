@@ -13,11 +13,11 @@ export async function GET() {
       SELECT 
         s.shop_id, s.shop_name, s.shop_logo, s.created_at, s.currency,
         u.name as owner_name, u.email as owner_email,
-        (SELECT COUNT(*)::int FROM products p WHERE p.shop_id = s.shop_id) as products_count,
-        (SELECT COUNT(*)::int FROM sales sa WHERE sa.shop_id = s.shop_id) as sales_count,
-        (SELECT SUM(total_amount)::numeric FROM sales sa WHERE sa.shop_id = s.shop_id) as total_revenue
+        (SELECT COUNT(*) FROM products p WHERE p.shop_id = s.shop_id) as products_count,
+        (SELECT COUNT(*) FROM sales sa WHERE sa.shop_id = s.shop_id) as sales_count,
+        (SELECT SUM(total_amount) FROM sales sa WHERE sa.shop_id = s.shop_id) as total_revenue
       FROM shops s
-      LEFT JOIN auth_users u ON u.id::varchar = s.owner_id::varchar
+      LEFT JOIN auth_users u ON u.id = s.owner_id
       ORDER BY s.created_at DESC
       LIMIT 200
     `;

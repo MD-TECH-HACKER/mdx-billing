@@ -159,107 +159,98 @@ export async function POST(request) {
     const billNumber = String(body.billNumber || "").trim().slice(0, 60) || null;
     const purchaseDate = String(body.purchaseDate || "").slice(0, 10) || null;
     const notes = String(body.notes || "").trim().slice(0, 500) || null;
-    const rows = await sql`
-      WITH requested AS (
-        SELECT item."productId" AS product_id, item."productName" AS product_name,
-          item."quantityBaseUnit" AS quantity_base_unit,
-          item."primaryUnitCost" AS primary_unit_cost,
-          item."sellingPrice" AS selling_price
-        FROM jsonb_to_recordset(${receivedProducts}::jsonb)
-          AS item("productId" INTEGER, "productName" TEXT, "quantityBaseUnit" NUMERIC,
-            "primaryUnitCost" NUMERIC, "sellingPrice" NUMERIC)
-      ),
-      received AS (
-        UPDATE products product
-        SET
-          stock_base_unit = COALESCE(product.stock_base_unit, product.stock) + requested.quantity_base_unit,
-          stock = (COALESCE(product.stock_base_unit, product.stock) + requested.quantity_base_unit) /
-            CASE WHEN product.conversion_rate > 0 THEN product.conversion_rate ELSE 1 END,
-          cost_price = requested.primary_unit_cost,
-          selling_price = COALESCE(requested.selling_price, product.selling_price),
-          updated_at = NOW()
-        FROM requested
-        WHERE product.product_id = requested.product_id AND product.shop_id = ${context.shopId}
-        RETURNING product.product_id, product.title, requested.quantity_base_unit,
-          COALESCE(product.stock_base_unit, product.stock) AS new_stock_base_unit
-      ),
-      verified AS (
-        SELECT 1 / CASE WHEN COUNT(*) = ${receivedByProduct.size} THEN 1 ELSE 0 END AS ok FROM received
-      ),
-      created_purchase AS (
+    const purchaseDateVal = purchaseDate || new Date().toISOString().split('T')[0];
+
+    const purchase = await sql.withTransaction(async (tx) => {
+      // 1. Update Products Stock & Cost
+      for (const req of receivedByProduct.values()) {
+        const product = productMap[req.productId];
+        const newStockBase = (Number(product.stock_base_unit) || Number(product.stock)) + req.quantityBaseUnit;
+        const newStock = newStockBase / (Number(product.conversion_rate) || 1);
+        
+        await tx`
+          UPDATE products
+          SET stock_base_unit = ${newStockBase},
+              stock = ${newStock},
+              cost_price = ${req.primaryUnitCost},
+              selling_price = COALESCE(${req.sellingPrice}, selling_price),
+              updated_at = NOW()
+          WHERE product_id = ${req.productId} AND shop_id = ${context.shopId}
+        `;
+        req.newStockBase = newStockBase;
+        req.oldStockBase = Number(product.stock_base_unit) || Number(product.stock);
+      }
+
+      // 2. Insert Purchase
+      const [purchaseResult] = await tx`
         INSERT INTO purchases
           (shop_id, supplier_id, bill_number, purchase_date, items, subtotal, tax_amount,
            total_amount, paid_amount, payment_status, notes, created_by, owner_id)
-        SELECT ${context.shopId}, ${supplierId}, ${billNumber}, COALESCE(${purchaseDate}::date, CURRENT_DATE),
-          ${postedItems}::jsonb, ${subtotal}, ${taxAmount}, ${totalAmount}, ${paidAmount},
-          ${paymentStatus}, ${notes}, ${context.userId}, ${context.shopOwnerId}
-        FROM verified WHERE verified.ok = 1
-        RETURNING *
-      ),
-      created_batches AS (
-        INSERT INTO product_batches
-          (product_id, shop_id, owner_id, product_name_snapshot, purchase_date,
-           quantity_purchased, quantity_remaining, quantity_purchased_base_unit, quantity_remaining_base_unit,
-           unit, primary_unit_snapshot, secondary_unit_snapshot, conversion_rate_snapshot,
-           cost_price, cost_price_base_unit, selling_price, supplier_id, supplier_name_snapshot,
-           purchase_invoice_no, notes, source, created_by)
-        SELECT item."productId", ${context.shopId}, ${context.shopOwnerId}, item."productNameSnapshot",
-          created_purchase.purchase_date::timestamp, item.quantity, item.quantity,
-          item."quantityBaseUnit", item."quantityBaseUnit", item."selectedUnit",
-          item."primaryUnitSnapshot", item."secondaryUnitSnapshot", item."conversionRateSnapshot",
-          item."primaryUnitCost", item."costPriceBaseUnit", item."sellingPrice",
-          ${supplierId}, item."supplierName", ${billNumber}, ${notes}, 'purchase', ${context.userId}
-        FROM created_purchase
-        CROSS JOIN LATERAL jsonb_to_recordset(${batchItems}::jsonb)
-          AS item("productId" INTEGER, "productNameSnapshot" TEXT, "selectedUnit" TEXT,
-            "primaryUnitSnapshot" TEXT, "secondaryUnitSnapshot" TEXT, "conversionRateSnapshot" NUMERIC,
-            quantity NUMERIC, "quantityBaseUnit" NUMERIC, "unitCost" NUMERIC, "primaryUnitCost" NUMERIC,
-            "costPriceBaseUnit" NUMERIC, "sellingPrice" NUMERIC, "supplierName" TEXT)
-        RETURNING batch_id
-      ),
-      purchase_lines AS (
-        SELECT item."productId" AS product_id, item."productNameSnapshot" AS product_name,
-          item."quantityBaseUnit" AS quantity_base_unit, item.quantity AS display_quantity,
-          item."selectedUnit" AS unit,
-          SUM(item."quantityBaseUnit") OVER (
-            PARTITION BY item."productId" ORDER BY line.ordinality
-          ) AS cumulative_quantity_base_unit
-        FROM jsonb_array_elements(${postedItems}::jsonb) WITH ORDINALITY AS line(value, ordinality)
-        CROSS JOIN LATERAL jsonb_to_record(line.value)
-          AS item("productId" INTEGER, "productNameSnapshot" TEXT, "quantityBaseUnit" NUMERIC,
-            quantity NUMERIC, "selectedUnit" TEXT)
-      ),
-      movements AS (
-        INSERT INTO stock_movements
-          (shop_id, product_id, product_name_snapshot, movement_type, quantity_change,
-           quantity_base_unit, display_quantity, unit, old_stock_base_unit, new_stock_base_unit,
-           reason, related_purchase_id, reference_type, reference_id, owner_id, created_by)
-        SELECT ${context.shopId}, line.product_id, line.product_name, 'purchase_stock_in',
-          line.quantity_base_unit, line.quantity_base_unit, line.display_quantity, line.unit,
-          received.new_stock_base_unit - received.quantity_base_unit +
-            (line.cumulative_quantity_base_unit - line.quantity_base_unit),
-          received.new_stock_base_unit - received.quantity_base_unit + line.cumulative_quantity_base_unit,
-          'Purchase stock received', created_purchase.purchase_id, 'purchase',
-          created_purchase.purchase_id::TEXT, ${context.shopOwnerId}, ${context.userId}
-        FROM purchase_lines line
-        JOIN received ON received.product_id = line.product_id
-        CROSS JOIN created_purchase
-        RETURNING movement_id
-      ),
-      payment AS (
-        INSERT INTO payments
-          (shop_id, purchase_id, supplier_id, amount, payment_method, direction, notes, created_by)
-        SELECT ${context.shopId}, created_purchase.purchase_id, ${supplierId}, ${paidAmount},
-          ${paymentMethod}, 'paid', 'Payment recorded on purchase', ${context.userId}
-        FROM created_purchase WHERE ${paidAmount} > 0
-        RETURNING payment_id
-      )
-      SELECT created_purchase.* FROM created_purchase
-      CROSS JOIN (SELECT COUNT(*) FROM created_batches) batch_count
-      CROSS JOIN (SELECT COUNT(*) FROM movements) movement_count
-      CROSS JOIN (SELECT COUNT(*) FROM payment) payment_count
-    `;
-    const purchase = rows[0];
+        VALUES
+          (${context.shopId}, ${supplierId}, ${billNumber}, ${purchaseDateVal},
+           ${postedItems}, ${subtotal}, ${taxAmount}, ${totalAmount}, ${paidAmount},
+           ${paymentStatus}, ${notes}, ${context.userId}, ${context.shopOwnerId})
+      `;
+      const purchaseId = purchaseResult.insertId;
+
+      // 3. Insert Product Batches
+      for (const item of purchaseItems) {
+        await tx`
+          INSERT INTO product_batches
+            (product_id, shop_id, owner_id, product_name_snapshot, purchase_date,
+             quantity_purchased, quantity_remaining, quantity_purchased_base_unit, quantity_remaining_base_unit,
+             unit, primary_unit_snapshot, secondary_unit_snapshot, conversion_rate_snapshot,
+             cost_price, cost_price_base_unit, selling_price, supplier_id, supplier_name_snapshot,
+             purchase_invoice_no, notes, source, created_by)
+          VALUES
+            (${item.productId}, ${context.shopId}, ${context.shopOwnerId}, ${item.productNameSnapshot},
+             ${purchaseDateVal}, ${item.quantity}, ${item.quantity},
+             ${item.quantityBaseUnit}, ${item.quantityBaseUnit}, ${item.selectedUnit},
+             ${item.primaryUnitSnapshot}, ${item.secondaryUnitSnapshot}, ${item.conversionRateSnapshot},
+             ${item.primaryUnitCost}, ${item.costPriceBaseUnit}, ${item.sellingPrice},
+             ${supplierId}, ${supplierName}, ${billNumber}, ${notes}, 'purchase', ${context.userId})
+        `;
+      }
+
+      // 4. Insert Stock Movements
+      let cumulativeMap = {};
+      for (const line of purchaseItems) {
+        cumulativeMap[line.productId] = (cumulativeMap[line.productId] || 0) + line.quantityBaseUnit;
+        const req = receivedByProduct.get(line.productId);
+        // This is a rough estimation of new vs old base unit for each line item in sequential order
+        const lineOldStock = req.oldStockBase + cumulativeMap[line.productId] - line.quantityBaseUnit;
+        const lineNewStock = req.oldStockBase + cumulativeMap[line.productId];
+        
+        await tx`
+          INSERT INTO stock_movements
+            (shop_id, product_id, product_name_snapshot, movement_type, quantity_change,
+             quantity_base_unit, display_quantity, unit, old_stock_base_unit, new_stock_base_unit,
+             reason, related_purchase_id, reference_type, reference_id, owner_id, created_by)
+          VALUES
+            (${context.shopId}, ${line.productId}, ${line.productNameSnapshot}, 'purchase_stock_in',
+             ${line.quantityBaseUnit}, ${line.quantityBaseUnit}, ${line.quantity}, ${line.selectedUnit},
+             ${lineOldStock}, ${lineNewStock},
+             'Purchase stock received', ${purchaseId}, 'purchase', ${String(purchaseId)},
+             ${context.shopOwnerId}, ${context.userId})
+        `;
+      }
+
+      // 5. Insert Payment
+      if (paidAmount > 0) {
+        await tx`
+          INSERT INTO payments
+            (shop_id, purchase_id, supplier_id, amount, payment_method, direction, notes, created_by)
+          VALUES
+            (${context.shopId}, ${purchaseId}, ${supplierId}, ${paidAmount},
+             ${paymentMethod}, 'paid', 'Payment recorded on purchase', ${context.userId})
+        `;
+      }
+
+      // Fetch the full inserted purchase row to return
+      const [insertedRows] = await tx`SELECT * FROM purchases WHERE purchase_id = ${purchaseId}`;
+      return insertedRows[0];
+    });
+
     await writeAuditEvent(context, "purchase.create", "purchase", purchase.purchase_id, {
       totalAmount,
       paidAmount,

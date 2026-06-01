@@ -53,15 +53,15 @@ export async function PUT(request, { params }) {
     if (duplicate[0]) {
       return Response.json({ error: "Supplier already exists" }, { status: 409 });
     }
-    const rows = await sql`
+    await sql`
       UPDATE suppliers
       SET name = ${name}, phone = ${phone}, email = ${email}, gstin = ${gstin},
           address = ${address}, opening_balance = ${openingBalance}, upi_id = ${upiId},
-          qr_image_url = ${qrImageUrl}, custom_fields = ${JSON.stringify(customFields)}::jsonb,
+          qr_image_url = ${qrImageUrl}, custom_fields = ${JSON.stringify(customFields)},
           due_date = ${dueDate}, notes = ${notes}, updated_at = NOW()
       WHERE supplier_id = ${id} AND shop_id = ${context.shopId} AND is_deleted = FALSE
-      RETURNING *
     `;
+    const rows = await sql`SELECT * FROM suppliers WHERE supplier_id = ${id} AND shop_id = ${context.shopId} AND is_deleted = FALSE`;
     if (!rows[0]) return Response.json({ error: "Not found" }, { status: 404 });
     await writeAuditEvent(context, "supplier.update", "supplier", id);
     return Response.json({ supplier: rows[0] });
@@ -87,38 +87,31 @@ export async function PATCH(request, { params }) {
       ? body.paymentMethod
       : "cash";
     const notes = String(body.notes || "").trim().slice(0, 300) || null;
-    const rows = await sql`
-      WITH locked_supplier AS (
-        SELECT supplier_id, COALESCE(opening_balance, 0) AS opening_balance
-        FROM suppliers
-        WHERE supplier_id = ${id} AND shop_id = ${context.shopId} AND is_deleted = FALSE
-        FOR UPDATE
-      ),
-      outstanding AS (
-        SELECT locked_supplier.supplier_id,
-          GREATEST(0, locked_supplier.opening_balance +
-            COALESCE((SELECT SUM(total_amount - COALESCE(paid_amount, 0)) FROM purchases
-              WHERE supplier_id = locked_supplier.supplier_id AND shop_id = ${context.shopId}), 0) -
-            COALESCE((SELECT SUM(amount) FROM payments
-              WHERE supplier_id = locked_supplier.supplier_id AND shop_id = ${context.shopId}
-                AND direction = 'paid' AND purchase_id IS NULL), 0)
-          ) AS balance_due
-        FROM locked_supplier
-      ),
-      created AS (
-        INSERT INTO payments
-          (shop_id, supplier_id, amount, payment_method, direction, notes, created_by)
-        SELECT ${context.shopId}, outstanding.supplier_id, ${amount}, ${method}, 'paid', ${notes}, ${context.userId}
-        FROM outstanding WHERE outstanding.balance_due >= ${amount}
-        RETURNING *
-      )
-      SELECT outstanding.balance_due, created.*
-      FROM outstanding LEFT JOIN created ON TRUE
+    const locks = await sql`SELECT opening_balance FROM suppliers WHERE supplier_id = ${id} AND shop_id = ${context.shopId} AND is_deleted = FALSE FOR UPDATE`;
+    if (!locks[0]) return Response.json({ error: "Not found" }, { status: 404 });
+    const openingBalance = Number(locks[0].opening_balance) || 0;
+    
+    const stats = await sql`
+      SELECT 
+        COALESCE((SELECT SUM(total_amount - COALESCE(paid_amount, 0)) FROM purchases WHERE supplier_id = ${id} AND shop_id = ${context.shopId}), 0) AS purchases,
+        COALESCE((SELECT SUM(amount) FROM payments WHERE supplier_id = ${id} AND shop_id = ${context.shopId} AND direction = 'paid' AND purchase_id IS NULL), 0) AS payments
     `;
-    if (!rows[0]) return Response.json({ error: "Not found" }, { status: 404 });
-    if (!rows[0].payment_id) {
-      return Response.json({ error: `Payment exceeds balance due (${rows[0].balance_due})` }, { status: 400 });
+    const balance_due = Math.max(0, openingBalance + Number(stats[0].purchases) - Number(stats[0].payments));
+    
+    if (balance_due < amount) {
+      return Response.json({ error: `Payment exceeds balance due (${balance_due})` }, { status: 400 });
     }
+    
+    const insertRes = await sql`
+      INSERT INTO payments (shop_id, supplier_id, amount, payment_method, direction, notes, created_by)
+      VALUES (${context.shopId}, ${id}, ${amount}, ${method}, 'paid', ${notes}, ${context.userId})
+    `;
+    const paymentId = insertRes[0].insertId;
+    const paymentRows = await sql`SELECT * FROM payments WHERE payment_id = ${paymentId}`;
+    const payment = paymentRows[0];
+    payment.balance_due = balance_due;
+    
+    const rows = [payment];
     await writeAuditEvent(context, "supplier.payment", "supplier", id, { amount, method });
     return Response.json({ payment: rows[0] }, { status: 201 });
   } catch (error) {
@@ -134,29 +127,17 @@ export async function DELETE(request, { params }) {
     await ensureBusinessFeatureSchema();
     const id = parseId(params.id);
     if (!id) return Response.json({ error: "Invalid id" }, { status: 400 });
-    const rows = await sql`
-      WITH transacted AS (
-        SELECT EXISTS (
-          SELECT 1 FROM purchases WHERE supplier_id = ${id} AND shop_id = ${context.shopId}
-        ) AS has_transactions
-      ),
-      archived AS (
-        UPDATE suppliers SET is_deleted = TRUE, updated_at = NOW()
-        WHERE supplier_id = ${id} AND shop_id = ${context.shopId}
-          AND (SELECT has_transactions FROM transacted)
-        RETURNING supplier_id, TRUE AS archived
-      ),
-      removed AS (
-        DELETE FROM suppliers
-        WHERE supplier_id = ${id} AND shop_id = ${context.shopId}
-          AND NOT (SELECT has_transactions FROM transacted)
-        RETURNING supplier_id, FALSE AS archived
-      )
-      SELECT * FROM archived UNION ALL SELECT * FROM removed
-    `;
-    if (!rows[0]) return Response.json({ error: "Not found" }, { status: 404 });
-    await writeAuditEvent(context, rows[0].archived ? "supplier.archive" : "supplier.delete", "supplier", id);
-    return Response.json({ ok: true, archived: rows[0].archived });
+    const checkTx = await sql`SELECT EXISTS (SELECT 1 FROM purchases WHERE supplier_id = ${id} AND shop_id = ${context.shopId}) AS has_transactions`;
+    const hasTransactions = Boolean(checkTx[0]?.has_transactions);
+    
+    if (hasTransactions) {
+      await sql`UPDATE suppliers SET is_deleted = TRUE, updated_at = NOW() WHERE supplier_id = ${id} AND shop_id = ${context.shopId}`;
+    } else {
+      await sql`DELETE FROM suppliers WHERE supplier_id = ${id} AND shop_id = ${context.shopId}`;
+    }
+    
+    await writeAuditEvent(context, hasTransactions ? "supplier.archive" : "supplier.delete", "supplier", id);
+    return Response.json({ ok: true, archived: hasTransactions });
   } catch (error) {
     if (error instanceof AccessError) return accessErrorResponse(error);
     console.error("DELETE /api/suppliers/[id]", error);

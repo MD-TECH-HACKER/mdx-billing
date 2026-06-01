@@ -1758,24 +1758,16 @@ export default function DashboardPage() {
           iconBg={ACCENT}
           label="Total Sales"
           value={fmt(animatedRevenue)}
-          trend="12.5%"
-          trendLabel="↑ 12.5% this month"
-          trendUp={true}
           loading={loading}
           delay={0}
-          sparkData={generateSparkline(7, 20, 60)}
         />
         <StatCard
           icon={TrendingUp}
           iconBg={SUCCESS}
           label="Total Profit"
           value={fmt(animatedProfit)}
-          trend="8.7%"
-          trendLabel="↑ 8.7% this month"
-          trendUp={true}
           loading={loading}
           delay={80}
-          sparkData={generateSparkline(7, 15, 45)}
         />
         <StatCard
           icon={Package}
@@ -1791,12 +1783,8 @@ export default function DashboardPage() {
           iconBg="#8B5CF6"
           label="Today's Sales"
           value={fmt(animatedTodayRevenue)}
-          trend="15.3%"
-          trendLabel="↑ 15.3% today"
-          trendUp={true}
           loading={loading}
           delay={240}
-          sparkData={generateSparkline(7, 10, 40)}
         />
       </div>
 

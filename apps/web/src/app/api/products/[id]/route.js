@@ -188,8 +188,9 @@ export async function PUT(request, { params }) {
     const values = keys.map((key) => fields[key]);
     values.push(id, context.shopId);
     const setClauses = keys.map((key, index) => `${key} = $${index + 1}`);
-    const query = `UPDATE products SET ${setClauses.join(", ")}, updated_at = NOW() WHERE product_id = $${keys.length + 1} AND shop_id = $${keys.length + 2} RETURNING *`;
-    const result = await sql(query, values);
+    const query = `UPDATE products SET ${setClauses.join(", ")}, updated_at = NOW() WHERE product_id = $${keys.length + 1} AND shop_id = $${keys.length + 2}`;
+    await sql(query, values);
+    const result = await sql`SELECT * FROM products WHERE product_id = ${id}`;
     const product = result[0];
 
     if (changesUnitModel || body.primaryUnit !== undefined || body.secondaryUnit !== undefined) {
@@ -227,12 +228,9 @@ export async function DELETE(request, { params }) {
     const id = parseProductId(params.id);
     if (!id) return Response.json({ error: "Invalid id" }, { status: 400 });
 
-    const result = await sql`
-      DELETE FROM products
-      WHERE product_id = ${id} AND shop_id = ${context.shopId}
-      RETURNING product_id
-    `;
-    if (!result[0]) return Response.json({ error: "Not found" }, { status: 404 });
+    const check = await sql`SELECT product_id FROM products WHERE product_id = ${id} AND shop_id = ${context.shopId}`;
+    if (!check[0]) return Response.json({ error: "Not found" }, { status: 404 });
+    await sql`DELETE FROM products WHERE product_id = ${id} AND shop_id = ${context.shopId}`;
     await writeAuditEvent(context, "product.delete", "product", id);
     return Response.json({ ok: true });
   } catch (error) {
