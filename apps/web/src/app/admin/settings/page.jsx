@@ -191,11 +191,21 @@ export default function AdminSettings() {
               enabled={settings.enableEmailReceipts} 
               onChange={() => handleChange("enableEmailReceipts", !settings.enableEmailReceipts)} 
             />
-            <ToggleRow 
-              label="Enable SMS Notifications" 
-              description="Requires an active Twilio integration (coming soon)."
-              enabled={settings.enableSmsNotifications} 
-              onChange={() => handleChange("enableSmsNotifications", !settings.enableSmsNotifications)} 
+          </div>
+        </SettingsSection>
+
+        {/* Localization Settings */}
+        <SettingsSection icon={Globe} title="Localization & Formats" description="Set regional defaults for new shops and users." color="#F59E0B">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+            <InputGroup 
+              label="Default Currency" 
+              value={settings.currencyDefault || "INR"} 
+              onChange={(e) => handleChange("currencyDefault", e.target.value)} 
+            />
+            <InputGroup 
+              label="Default Timezone" 
+              value={settings.timezoneDefault || "Asia/Kolkata"} 
+              onChange={(e) => handleChange("timezoneDefault", e.target.value)} 
             />
           </div>
         </SettingsSection>
@@ -214,6 +224,18 @@ export default function AdminSettings() {
               description="When disabled, only administrators can invite new users to the platform."
               enabled={settings.allowNewSignups} 
               onChange={() => handleChange("allowNewSignups", !settings.allowNewSignups)} 
+            />
+            <ToggleRow 
+              label="Enforce 2FA for Shop Owners" 
+              description="Require two-factor authentication for all users managing a shop."
+              enabled={settings.enforce2FA || false} 
+              onChange={() => handleChange("enforce2FA", !settings.enforce2FA)} 
+            />
+            <ToggleRow 
+              label="Automated Daily Backups" 
+              description="Run automated database dumps at 3:00 AM every day."
+              enabled={settings.autoBackup || true} 
+              onChange={() => handleChange("autoBackup", !settings.autoBackup)} 
             />
             <ToggleRow 
               label="Maintenance Mode" 
