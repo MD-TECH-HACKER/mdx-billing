@@ -21,6 +21,14 @@ describe("stock movement route contracts", () => {
     expect(salesRoute).not.toContain("d.quantity_base_unit, 'base'");
   });
 
+  test("sales stock decrements keep product ids in MySQL parameters", () => {
+    const salesRoute = read("../sales/route.js");
+
+    expect(salesRoute).toContain("for (const req of stockRequests)");
+    expect(salesRoute).toContain("Invalid product line. Refresh billing and try again.");
+    expect(salesRoute).not.toContain("Object.values(Object.fromEntries(requiredByProduct))");
+  });
+
   test("purchase movements preserve each inward line selected unit", () => {
     const purchasesRoute = read("../purchases/route.js");
 

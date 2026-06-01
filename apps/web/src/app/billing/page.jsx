@@ -56,6 +56,23 @@ function productLine(item, quotedUnitPrice = null) {
   };
 }
 
+function cartSignature(cart) {
+  return cart
+    .map((item) =>
+      [
+        item.product_id,
+        item.quantity,
+        item.selling_price,
+        item.primary_unit,
+        item.secondary_unit,
+        item.conversion_rate,
+        item.stock,
+        item.stock_base_unit,
+      ].join(":"),
+    )
+    .join("|");
+}
+
 function newManualLine() {
   return {
     id: lineId(),
@@ -78,6 +95,7 @@ export default function BillingPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const hydratedEstimateId = useRef(null);
+  const syncedCartSignature = useRef("");
   const [items, setItems] = useState(() => cart.map(productLine));
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
@@ -117,6 +135,15 @@ export default function BillingPage() {
     const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
     setBillingType(normalizeBillingType(params?.get("type") || shop?.default_invoice_type || "invoice"));
   }, [shop?.shop_id]);
+
+  useEffect(() => {
+    if (sourceEstimate) return;
+    const signature = cartSignature(cart);
+    if (signature === syncedCartSignature.current) return;
+    syncedCartSignature.current = signature;
+    setItems(cart.map(productLine));
+    setItemsError("");
+  }, [cart, sourceEstimate]);
 
   const customersQuery = useQuery({
     queryKey: ["customers", "billing-select", shop?.shop_id],

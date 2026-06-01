@@ -358,13 +358,22 @@ export async function POST(request) {
       print_mode: context.shop.print_mode || "color",
       default_invoice_type: invoiceType,
     });
-    const stockRequests = JSON.stringify(
-      [...requiredByProduct].map(([productId, quantityBaseUnit]) => ({
-        productId,
-        quantityBaseUnit,
-        productName: productMap[productId].title,
-      })),
-    );
+    const stockRequests = [...requiredByProduct].map(([productId, quantityBaseUnit]) => ({
+      productId: Number(productId),
+      quantityBaseUnit: Number(quantityBaseUnit),
+      productName: productMap[productId]?.title || "Product",
+    }));
+    if (
+      stockRequests.some(
+        (request) =>
+          !Number.isInteger(request.productId) ||
+          request.productId <= 0 ||
+          !Number.isFinite(request.quantityBaseUnit) ||
+          request.quantityBaseUnit <= 0,
+      )
+    ) {
+      return Response.json({ error: "Invalid product line. Refresh billing and try again." }, { status: 400 });
+    }
     const linesJson = JSON.stringify(lineItems);
     const batchRequestsJson = JSON.stringify(batchRequests);
     const productLineCount = requiredByProduct.size;
@@ -373,8 +382,7 @@ export async function POST(request) {
     const sale = await sql.withTransaction(async (tx) => {
       // 1. Decrement products
       let decrementedProducts = new Map();
-      const requests = Object.values(Object.fromEntries(requiredByProduct));
-      for (const req of requests) {
+      for (const req of stockRequests) {
         const product = await tx`SELECT stock_base_unit, stock, conversion_rate FROM products WHERE product_id = ${req.productId} AND shop_id = ${context.shopId}`;
         if (!product[0]) throw new Error("Product not found");
         const currentStockBase = Number(product[0].stock_base_unit) || Number(product[0].stock) || 0;
