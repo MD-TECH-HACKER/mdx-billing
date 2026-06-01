@@ -318,6 +318,22 @@ export async function ensureBusinessFeatureSchema() {
       for (const alter of salesAlters) {
         try { await sql(alter); } catch (e) { /* column might already exist */ }
       }
+
+      // Add missing columns to products table (schema drift fix)
+      const productsAlters = [
+        'ALTER TABLE products ADD COLUMN category_id BIGINT',
+        'ALTER TABLE products ADD COLUMN category_name_snapshot TEXT',
+        'ALTER TABLE products ADD COLUMN gst_rate DECIMAL(5,2) DEFAULT 0',
+        "ALTER TABLE products ADD COLUMN tax_mode VARCHAR(50) DEFAULT 'inclusive'",
+        'ALTER TABLE products ADD COLUMN gst_exempt BOOLEAN DEFAULT FALSE',
+        'ALTER TABLE products ADD COLUMN cess_rate DECIMAL(5,2) DEFAULT 0',
+        'ALTER TABLE products ADD COLUMN reverse_charge BOOLEAN DEFAULT FALSE',
+        "ALTER TABLE products ADD COLUMN product_status VARCHAR(50) DEFAULT 'active'",
+        'ALTER TABLE products ADD COLUMN product_created_at DATETIME'
+      ];
+      for (const alter of productsAlters) {
+        try { await sql(alter); } catch (e) { /* column might already exist */ }
+      }
     })();
   }
   return featureSchemaPromise;
