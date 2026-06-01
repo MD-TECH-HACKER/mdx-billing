@@ -427,6 +427,14 @@ export default function AdminSystemPage() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
         <AdminDangerZone 
+          title="Clear Invalid Sessions"
+          description="Force logout all users except the platform owner by clearing active auth sessions."
+          buttonText="Clear Sessions"
+          onConfirm={() => handleClean("invalid_sessions")}
+          expectedText="CLEAR SESSIONS"
+        />
+
+        <AdminDangerZone 
           title="Clear Demo Shops & Products"
           description="Deletes all shops and products where the name contains 'Demo' or 'Test'. Does not affect real production data."
           buttonText="Clean Demo Data"

@@ -78,8 +78,7 @@ export default function AdminSettings() {
 
   const [settings, setSettings] = useState({
     platformName: "MDX Billing App",
-    supportEmail: "support@mdxbilling.com",
-    contactPhone: "+91 98765 43210",
+    supportEmail: "support@mdx-billing.app",
     resendApiKey: "re_8o2HDAH2_HgStjKbLEKdQKitmWg2jmeuD",
     senderEmail: "receipts@mdxbilling.app",
     enableEmailReceipts: true,
@@ -168,11 +167,6 @@ export default function AdminSettings() {
             description="Where users should email if they encounter issues."
             value={settings.supportEmail} 
             onChange={(e) => handleChange("supportEmail", e.target.value)} 
-          />
-          <InputGroup 
-            label="Contact Phone" 
-            value={settings.contactPhone} 
-            onChange={(e) => handleChange("contactPhone", e.target.value)} 
           />
         </SettingsSection>
 
