@@ -53,7 +53,7 @@ async function executeQuery(executor, strings, values) {
     // For SELECT queries, rows is an array of objects
     return Array.isArray(rows) ? rows : [rows];
   } catch (error) {
-    if (error.code !== 'ER_DUP_KEYNAME') {
+    if (error.code !== 'ER_DUP_KEYNAME' && error.code !== 'ER_DUP_FIELDNAME') {
       console.error("MySQL Query Error:", error, query);
     }
     throw error;
