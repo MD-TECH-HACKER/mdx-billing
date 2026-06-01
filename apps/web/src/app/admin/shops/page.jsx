@@ -11,6 +11,7 @@ export default function AdminShops() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedShop, setSelectedShop] = useState(null);
+  const [showRawData, setShowRawData] = useState(false);
 
   useEffect(() => {
     fetch('/api/admin/shops')
@@ -51,11 +52,11 @@ export default function AdminShops() {
           <div style={{
             background: "var(--bg-surface, #ffffff)", width: "100%", maxWidth: "600px",
             borderRadius: "20px", overflow: "hidden", boxShadow: "0 25px 50px rgba(0,0,0,0.25)",
-            animation: "slideUp 0.3s ease"
+            animation: "slideUp 0.3s ease", maxHeight: "90vh", display: "flex", flexDirection: "column"
           }}>
             <div style={{ 
               padding: "24px", borderBottom: "1px solid var(--border, #E5E7EB)",
-              display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-elev, #F9FAFB)" 
+              display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-elev, #F9FAFB)", flexShrink: 0 
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 {selectedShop.shop_logo ? (
@@ -77,7 +78,7 @@ export default function AdminShops() {
               </button>
             </div>
             
-            <div style={{ padding: "24px" }}>
+            <div style={{ padding: "24px", overflowY: "auto", flex: 1 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "24px" }}>
                 <div style={{ background: "rgba(16, 185, 129, 0.05)", border: "1px solid rgba(16, 185, 129, 0.2)", borderRadius: "12px", padding: "16px" }}>
                   <div style={{ color: "#10B981", display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", fontWeight: 600, fontSize: "14px" }}>
@@ -106,13 +107,26 @@ export default function AdminShops() {
               </div>
 
               <div style={{ display: "flex", gap: "12px" }}>
-                <button style={{ flex: 1, padding: "12px", background: "var(--bg-elev)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--text)", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", cursor: "pointer" }}>
+                <button 
+                  onClick={() => setShowRawData(!showRawData)}
+                  style={{ flex: 1, padding: "12px", background: "var(--bg-elev)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--text)", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", cursor: "pointer" }}>
                   <Eye size={18} /> View Raw Data
                 </button>
                 <button style={{ flex: 1, padding: "12px", background: "rgba(220, 38, 38, 0.1)", border: "1px solid rgba(220, 38, 38, 0.3)", borderRadius: "8px", color: "#DC2626", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", cursor: "pointer" }}>
                   <Ban size={18} /> Suspend Shop
                 </button>
               </div>
+
+              {showRawData && (
+                <div style={{ marginTop: "24px", padding: "16px", background: "var(--bg-elev)", border: "1px solid var(--border)", borderRadius: "12px", position: "relative", animation: "slideUp 0.3s ease" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                    <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>Raw Data</h4>
+                  </div>
+                  <pre style={{ margin: 0, padding: "12px", background: "#111827", color: "#E5E7EB", borderRadius: "8px", fontSize: "12px", overflowX: "auto", maxHeight: "300px", overflowY: "auto", fontFamily: "monospace" }}>
+                    {JSON.stringify(selectedShop, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
           </div>
         </div>

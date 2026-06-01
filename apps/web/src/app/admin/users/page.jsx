@@ -5,6 +5,8 @@ export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [openActionId, setOpenActionId] = useState(null);
+  const [modalMessage, setModalMessage] = useState(null);
 
   useEffect(() => {
     fetch('/api/admin/users')
@@ -26,6 +28,30 @@ export default function AdminUsers() {
 
   return (
     <div style={{ animation: "fadeIn 0.5s ease" }}>
+      {/* Custom Alert Modal */}
+      {modalMessage && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.5)", zIndex: 1000,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          backdropFilter: "blur(4px)", animation: "fadeIn 0.2s ease"
+        }}>
+          <div style={{
+            background: "var(--bg-surface, #ffffff)", width: "100%", maxWidth: "400px",
+            borderRadius: "16px", padding: "24px", boxShadow: "0 25px 50px rgba(0,0,0,0.25)",
+            animation: "slideUp 0.3s ease", textAlign: "center"
+          }}>
+            <h3 style={{ margin: "0 0 12px", fontSize: "18px", fontWeight: 700, color: "var(--text)" }}>Notice</h3>
+            <p style={{ margin: "0 0 24px", color: "var(--text-dim)", fontSize: "15px" }}>{modalMessage}</p>
+            <button 
+              onClick={() => setModalMessage(null)}
+              style={{ width: "100%", padding: "12px", background: "#F97316", color: "white", border: "none", borderRadius: "8px", fontWeight: 600, cursor: "pointer" }}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
       <div style={{ marginBottom: "24px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "16px" }}>
         <div>
           <h1 style={{ margin: "0 0 8px", fontSize: "28px", fontWeight: 800, letterSpacing: "-0.02em" }}>
@@ -122,10 +148,24 @@ export default function AdminUsers() {
                         </td>
                         <td style={{ padding: "16px 24px", textAlign: "right", fontSize: "14px", fontWeight: 500, color: "var(--text)" }}>{user.shop_count || 0}</td>
                         <td style={{ padding: "16px 24px", textAlign: "right", fontSize: "14px", fontWeight: 500, color: "var(--text)" }}>{user.sales_count || 0}</td>
-                        <td style={{ padding: "16px 24px", textAlign: "center" }}>
-                          <button style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--text-dim)", padding: "8px", borderRadius: "8px", transition: "all 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elev, #F3F4F6)"; e.currentTarget.style.color = "var(--text)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-dim)"; }}>
+                        <td style={{ padding: "16px 24px", textAlign: "center", position: "relative" }}>
+                          <button 
+                            onClick={() => setOpenActionId(openActionId === user.id ? null : user.id)}
+                            style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--text-dim)", padding: "8px", borderRadius: "8px", transition: "all 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elev, #F3F4F6)"; e.currentTarget.style.color = "var(--text)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-dim)"; }}>
                             <MoreHorizontal size={20} />
                           </button>
+                          {openActionId === user.id && (
+                            <div style={{ position: "absolute", right: "24px", top: "100%", zIndex: 10, background: "var(--bg-surface, #ffffff)", border: "1px solid var(--border, #E5E7EB)", borderRadius: "8px", boxShadow: "0 4px 6px rgba(0,0,0,0.1)", minWidth: "150px", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                              {!isOwner && (
+                                <button style={{ width: "100%", padding: "10px 16px", background: "transparent", border: "none", borderBottom: "1px solid var(--border, #E5E7EB)", textAlign: "left", color: "#DC2626", cursor: "pointer", fontSize: "14px", fontWeight: 500 }} onClick={() => { setModalMessage("Ban user functionality coming soon"); setOpenActionId(null); }}>
+                                  Ban User
+                                </button>
+                              )}
+                              <button style={{ width: "100%", padding: "10px 16px", background: "transparent", border: "none", textAlign: "left", color: "var(--text, #111827)", cursor: "pointer", fontSize: "14px", fontWeight: 500 }} onClick={() => { setModalMessage("View Details coming soon"); setOpenActionId(null); }}>
+                                View Details
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );

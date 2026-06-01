@@ -1,6 +1,7 @@
 const mysql = require('mysql2/promise');
 const fs = require('fs');
-require('dotenv').config({ path: 'apps/web/.env' });
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../apps/web/.env') });
 
 async function dumpSchema() {
   const connection = await mysql.createConnection(process.env.DATABASE_URL);
@@ -20,7 +21,7 @@ async function dumpSchema() {
     
     sqlContent += 'SET FOREIGN_KEY_CHECKS=1;\n';
     
-    fs.writeFileSync('db.sql', sqlContent);
+    fs.writeFileSync(path.join(__dirname, '../db.sql'), sqlContent);
     console.log('Successfully wrote db.sql');
   } catch (err) {
     console.error('Error:', err);
