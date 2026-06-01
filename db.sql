@@ -1,462 +1,463 @@
--- MDX Billing App Database Schema Dump
--- Generated after full MySQL refactoring
+-- Auth Tables
+CREATE TABLE IF NOT EXISTS auth_users (
+  id VARCHAR(36) PRIMARY KEY,
+  name TEXT,
+  display_name TEXT,
+  email VARCHAR(255) UNIQUE,
+  emailVerified DATETIME,
+  image TEXT
+);
 
-SET FOREIGN_KEY_CHECKS=0;
+CREATE TABLE IF NOT EXISTS auth_accounts (
+  id VARCHAR(36) PRIMARY KEY,
+  userId VARCHAR(36),
+  type TEXT,
+  provider VARCHAR(255),
+  providerAccountId VARCHAR(255),
+  refresh_token TEXT,
+  access_token TEXT,
+  expires_at BIGINT,
+  token_type TEXT,
+  scope TEXT,
+  id_token TEXT,
+  session_state TEXT,
+  password TEXT,
+  UNIQUE(provider, providerAccountId),
+  FOREIGN KEY (userId) REFERENCES auth_users(id) ON DELETE CASCADE
+);
 
--- Table structure for table `audit_events`
-DROP TABLE IF EXISTS `audit_events`;
-CREATE TABLE `audit_events` (
-  `audit_id` varchar(36) NOT NULL DEFAULT (uuid()),
-  `shop_id` varchar(36) DEFAULT NULL,
-  `actor_id` varchar(36) DEFAULT NULL,
-  `actor_role` varchar(50) DEFAULT NULL,
-  `action` text NOT NULL,
-  `resource_type` varchar(50) DEFAULT NULL,
-  `resource_id` varchar(255) DEFAULT NULL,
-  `metadata` json DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`audit_id`),
-  KEY `actor_id` (`actor_id`),
-  KEY `audit_events_shop_created_idx` (`shop_id`,`created_at`),
-  CONSTRAINT `audit_events_ibfk_1` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`shop_id`) ON DELETE CASCADE,
-  CONSTRAINT `audit_events_ibfk_2` FOREIGN KEY (`actor_id`) REFERENCES `auth_users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS auth_sessions (
+  id VARCHAR(36) PRIMARY KEY,
+  sessionToken VARCHAR(255) UNIQUE,
+  userId VARCHAR(36),
+  expires DATETIME,
+  FOREIGN KEY (userId) REFERENCES auth_users(id) ON DELETE CASCADE
+);
 
--- Table structure for table `auth_accounts`
-DROP TABLE IF EXISTS `auth_accounts`;
-CREATE TABLE `auth_accounts` (
-  `id` varchar(36) NOT NULL,
-  `userId` varchar(36) DEFAULT NULL,
-  `type` text,
-  `provider` varchar(255) DEFAULT NULL,
-  `providerAccountId` varchar(255) DEFAULT NULL,
-  `refresh_token` text,
-  `access_token` text,
-  `expires_at` bigint DEFAULT NULL,
-  `token_type` text,
-  `scope` text,
-  `id_token` text,
-  `session_state` text,
-  `password` text,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `provider` (`provider`,`providerAccountId`),
-  KEY `userId` (`userId`),
-  CONSTRAINT `auth_accounts_ibfk_1` FOREIGN KEY (`userId`) REFERENCES `auth_users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS auth_verification_token (
+  identifier VARCHAR(255),
+  token VARCHAR(255),
+  expires DATETIME,
+  PRIMARY KEY (identifier, token)
+);
 
--- Table structure for table `auth_sessions`
-DROP TABLE IF EXISTS `auth_sessions`;
-CREATE TABLE `auth_sessions` (
-  `id` varchar(36) NOT NULL,
-  `sessionToken` varchar(255) DEFAULT NULL,
-  `userId` varchar(36) DEFAULT NULL,
-  `expires` datetime DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `sessionToken` (`sessionToken`),
-  KEY `userId` (`userId`),
-  CONSTRAINT `auth_sessions_ibfk_1` FOREIGN KEY (`userId`) REFERENCES `auth_users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+-- Core Business Tables
+CREATE TABLE IF NOT EXISTS shops (
+  shop_id VARCHAR(36) PRIMARY KEY,
+  owner_id VARCHAR(36),
+  shop_name TEXT,
+  shop_description TEXT,
+  shop_logo LONGTEXT,
+  address TEXT,
+  phone TEXT,
+  email VARCHAR(255),
+  currency TEXT,
+  receipt_prefix VARCHAR(50) DEFAULT 'INV',
+  tax_percent DECIMAL(10,2) DEFAULT 0,
+  thank_you_message TEXT,
+  theme TEXT,
+  accent_color TEXT,
+  gstin TEXT,
+  default_invoice_type VARCHAR(50) DEFAULT 'tax_invoice',
+  default_payment_method VARCHAR(50) DEFAULT 'cash',
+  default_terms TEXT,
+  receipt_size VARCHAR(50) DEFAULT 'a4',
+  print_mode VARCHAR(50) DEFAULT 'color',
+  custom_units JSON DEFAULT ('[]'),
+  drive_connected BOOLEAN DEFAULT false,
+  drive_email TEXT,
+  drive_last_synced DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (owner_id) REFERENCES auth_users(id) ON DELETE CASCADE
+);
 
--- Table structure for table `auth_users`
-DROP TABLE IF EXISTS `auth_users`;
-CREATE TABLE `auth_users` (
-  `id` varchar(36) NOT NULL,
-  `name` text,
-  `display_name` text,
-  `email` varchar(255) DEFAULT NULL,
-  `emailVerified` datetime DEFAULT NULL,
-  `image` longtext,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `email` (`email`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS shop_memberships (
+  membership_id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  shop_id VARCHAR(36) NOT NULL,
+  user_id VARCHAR(36) NOT NULL,
+  role VARCHAR(50) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'active',
+  invited_by VARCHAR(36),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE (shop_id, user_id),
+  FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE,
+  FOREIGN KEY (invited_by) REFERENCES auth_users(id) ON DELETE SET NULL
+);
 
--- Table structure for table `auth_verification_token`
-DROP TABLE IF EXISTS `auth_verification_token`;
-CREATE TABLE `auth_verification_token` (
-  `identifier` varchar(255) NOT NULL,
-  `token` varchar(255) NOT NULL,
-  `expires` datetime DEFAULT NULL,
-  PRIMARY KEY (`identifier`,`token`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS audit_events (
+  audit_id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  shop_id VARCHAR(36),
+  actor_id VARCHAR(36),
+  actor_role VARCHAR(50),
+  action TEXT NOT NULL,
+  resource_type VARCHAR(50),
+  resource_id VARCHAR(255),
+  metadata JSON,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE,
+  FOREIGN KEY (actor_id) REFERENCES auth_users(id) ON DELETE SET NULL
+);
 
--- Table structure for table `categories`
-DROP TABLE IF EXISTS `categories`;
-CREATE TABLE `categories` (
-  `category_id` int NOT NULL AUTO_INCREMENT,
-  `shop_id` varchar(36) NOT NULL,
-  `owner_id` varchar(36) DEFAULT NULL,
-  `name` varchar(255) NOT NULL,
-  `description` text,
-  `icon` varchar(255) DEFAULT NULL,
-  `color` varchar(50) DEFAULT NULL,
-  `product_count` int DEFAULT '0',
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`category_id`),
-  KEY `shop_id` (`shop_id`),
-  KEY `owner_id` (`owner_id`),
-  CONSTRAINT `categories_ibfk_1` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`shop_id`) ON DELETE CASCADE,
-  CONSTRAINT `categories_ibfk_2` FOREIGN KEY (`owner_id`) REFERENCES `auth_users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS team_invitations (
+  invite_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  shop_id VARCHAR(36) NOT NULL,
+  invited_email VARCHAR(255) NOT NULL,
+  invited_name TEXT,
+  role VARCHAR(50) NOT NULL,
+  token VARCHAR(255) NOT NULL UNIQUE,
+  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  invited_by VARCHAR(36),
+  accepted_by VARCHAR(36),
+  expires_at DATETIME NOT NULL,
+  accepted_at DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE,
+  FOREIGN KEY (invited_by) REFERENCES auth_users(id) ON DELETE SET NULL,
+  FOREIGN KEY (accepted_by) REFERENCES auth_users(id) ON DELETE SET NULL
+);
 
--- Table structure for table `customers`
-DROP TABLE IF EXISTS `customers`;
-CREATE TABLE `customers` (
-  `customer_id` int NOT NULL AUTO_INCREMENT,
-  `shop_id` varchar(36) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `phone` varchar(50) DEFAULT NULL,
-  `email` varchar(255) DEFAULT NULL,
-  `gstin` varchar(50) DEFAULT NULL,
-  `address` text,
-  `opening_balance` decimal(15,2) DEFAULT '0.00',
-  `notes` text,
-  `is_deleted` tinyint(1) DEFAULT '0',
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`customer_id`),
-  KEY `shop_id` (`shop_id`),
-  CONSTRAINT `customers_ibfk_1` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`shop_id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS customers (
+  customer_id INT AUTO_INCREMENT PRIMARY KEY,
+  shop_id VARCHAR(36) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  phone VARCHAR(50),
+  email VARCHAR(255),
+  gstin VARCHAR(50),
+  address TEXT,
+  opening_balance DECIMAL(15,2) DEFAULT 0,
+  notes TEXT,
+  is_deleted BOOLEAN DEFAULT FALSE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE
+);
 
--- Table structure for table `estimates`
-DROP TABLE IF EXISTS `estimates`;
-CREATE TABLE `estimates` (
-  `estimate_id` bigint NOT NULL AUTO_INCREMENT,
-  `shop_id` varchar(36) NOT NULL,
-  `owner_id` varchar(36) DEFAULT NULL,
-  `estimate_number` varchar(255) NOT NULL,
-  `customer_id` int DEFAULT NULL,
-  `customer_name` text,
-  `customer_phone` varchar(50) DEFAULT NULL,
-  `customer_email` varchar(255) DEFAULT NULL,
-  `customer_gstin` varchar(50) DEFAULT NULL,
-  `billing_address` text,
-  `place_of_supply` varchar(255) DEFAULT NULL,
-  `valid_until` date DEFAULT NULL,
-  `items` json DEFAULT NULL,
-  `subtotal` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `discount_amount` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `taxable_amount` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `tax_amount` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `cgst_amount` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `sgst_amount` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `igst_amount` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `total_amount` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `notes` text,
-  `terms` text,
-  `status` varchar(50) NOT NULL DEFAULT 'draft',
-  `converted_sale_id` int DEFAULT NULL,
-  `created_by` varchar(36) DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`estimate_id`),
-  UNIQUE KEY `shop_id` (`shop_id`,`estimate_number`),
-  KEY `owner_id` (`owner_id`),
-  KEY `customer_id` (`customer_id`),
-  KEY `created_by` (`created_by`),
-  CONSTRAINT `estimates_ibfk_1` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`shop_id`) ON DELETE CASCADE,
-  CONSTRAINT `estimates_ibfk_2` FOREIGN KEY (`owner_id`) REFERENCES `auth_users` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `estimates_ibfk_3` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`customer_id`) ON DELETE SET NULL,
-  CONSTRAINT `estimates_ibfk_4` FOREIGN KEY (`created_by`) REFERENCES `auth_users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS suppliers (
+  supplier_id INT AUTO_INCREMENT PRIMARY KEY,
+  shop_id VARCHAR(36) NOT NULL,
+  owner_id VARCHAR(36),
+  name VARCHAR(255) NOT NULL,
+  phone VARCHAR(50),
+  email VARCHAR(255),
+  gstin VARCHAR(50),
+  address TEXT,
+  opening_balance DECIMAL(15,2) DEFAULT 0,
+  upi_id VARCHAR(255),
+  qr_image_url LONGTEXT,
+  custom_fields JSON,
+  due_date DATE,
+  payment_status VARCHAR(50) DEFAULT 'due',
+  notes TEXT,
+  is_deleted BOOLEAN DEFAULT FALSE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE,
+  FOREIGN KEY (owner_id) REFERENCES auth_users(id) ON DELETE SET NULL
+);
 
--- Table structure for table `expenses`
-DROP TABLE IF EXISTS `expenses`;
-CREATE TABLE `expenses` (
-  `expense_id` int NOT NULL AUTO_INCREMENT,
-  `shop_id` varchar(36) NOT NULL,
-  `owner_id` varchar(36) DEFAULT NULL,
-  `expense_date` date DEFAULT (curdate()),
-  `category` varchar(255) NOT NULL,
-  `amount` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `gst_included` tinyint(1) DEFAULT '0',
-  `payment_method` varchar(50) DEFAULT 'cash',
-  `vendor` varchar(255) DEFAULT NULL,
-  `notes` text,
-  `receipt_url` longtext,
-  `created_by` varchar(36) DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`expense_id`),
-  KEY `shop_id` (`shop_id`),
-  KEY `owner_id` (`owner_id`),
-  KEY `created_by` (`created_by`),
-  CONSTRAINT `expenses_ibfk_1` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`shop_id`) ON DELETE CASCADE,
-  CONSTRAINT `expenses_ibfk_2` FOREIGN KEY (`owner_id`) REFERENCES `auth_users` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `expenses_ibfk_3` FOREIGN KEY (`created_by`) REFERENCES `auth_users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS categories (
+  category_id INT AUTO_INCREMENT PRIMARY KEY,
+  shop_id VARCHAR(36) NOT NULL,
+  owner_id VARCHAR(36),
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  icon VARCHAR(255),
+  color VARCHAR(50),
+  product_count INT DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE,
+  FOREIGN KEY (owner_id) REFERENCES auth_users(id) ON DELETE SET NULL
+);
 
--- Table structure for table `product_batches`
-DROP TABLE IF EXISTS `product_batches`;
-CREATE TABLE `product_batches` (
-  `batch_id` bigint NOT NULL AUTO_INCREMENT,
-  `product_id` int NOT NULL,
-  `shop_id` varchar(36) NOT NULL,
-  `owner_id` varchar(36) DEFAULT NULL,
-  `product_name_snapshot` text NOT NULL,
-  `purchase_date` datetime DEFAULT CURRENT_TIMESTAMP,
-  `quantity_purchased` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `quantity_remaining` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `quantity_purchased_base_unit` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `quantity_remaining_base_unit` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `unit` varchar(50) NOT NULL DEFAULT 'piece',
-  `primary_unit_snapshot` varchar(50) DEFAULT NULL,
-  `secondary_unit_snapshot` varchar(50) DEFAULT NULL,
-  `conversion_rate_snapshot` decimal(15,4) DEFAULT NULL,
-  `cost_price` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `cost_price_base_unit` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `selling_price` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `supplier_id` int DEFAULT NULL,
-  `supplier_name_snapshot` text,
-  `purchase_invoice_no` varchar(255) DEFAULT NULL,
-  `notes` text,
-  `source` varchar(50) DEFAULT 'purchase',
-  `created_by` varchar(36) DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`batch_id`),
-  KEY `shop_id` (`shop_id`),
-  KEY `owner_id` (`owner_id`),
-  CONSTRAINT `product_batches_ibfk_1` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`shop_id`) ON DELETE CASCADE,
-  CONSTRAINT `product_batches_ibfk_2` FOREIGN KEY (`owner_id`) REFERENCES `auth_users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS products (
+  product_id INT AUTO_INCREMENT PRIMARY KEY,
+  owner_id VARCHAR(36),
+  shop_id VARCHAR(36),
+  image_url LONGTEXT,
+  title TEXT,
+  description TEXT,
+  selling_price DECIMAL(15,2) DEFAULT 0,
+  cost_price DECIMAL(15,2) DEFAULT 0,
+  stock DECIMAL(15,2) DEFAULT 0,
+  category TEXT,
+  category_id BIGINT,
+  category_name_snapshot TEXT,
+  sku VARCHAR(255),
+  primary_unit VARCHAR(50) DEFAULT 'piece',
+  secondary_unit VARCHAR(50),
+  conversion_rate DECIMAL(15,4),
+  opening_stock_base_unit DECIMAL(15,2),
+  stock_base_unit DECIMAL(15,2),
+  sold_base_unit DECIMAL(15,2) DEFAULT 0,
+  reorder_level DECIMAL(15,2) DEFAULT 5,
+  low_stock_base_unit DECIMAL(15,2),
+  hsn_sac VARCHAR(255),
+  tax_rate DECIMAL(5,2) DEFAULT 0,
+  gst_rate DECIMAL(5,2) DEFAULT 0,
+  tax_mode VARCHAR(50) DEFAULT 'inclusive',
+  gst_exempt BOOLEAN DEFAULT FALSE,
+  cess_rate DECIMAL(5,2) DEFAULT 0,
+  reverse_charge BOOLEAN DEFAULT FALSE,
+  product_status VARCHAR(50) DEFAULT 'active',
+  supplier_id INT,
+  product_created_at DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (owner_id) REFERENCES auth_users(id) ON DELETE CASCADE,
+  FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE
+);
 
--- Table structure for table `products`
-DROP TABLE IF EXISTS `products`;
-CREATE TABLE `products` (
-  `product_id` int NOT NULL AUTO_INCREMENT,
-  `owner_id` varchar(36) DEFAULT NULL,
-  `shop_id` varchar(36) DEFAULT NULL,
-  `image_url` longtext,
-  `title` text,
-  `description` text,
-  `selling_price` decimal(15,2) DEFAULT '0.00',
-  `cost_price` decimal(15,2) DEFAULT '0.00',
-  `stock` decimal(15,2) DEFAULT '0.00',
-  `category` text,
-  `sku` varchar(255) DEFAULT NULL,
-  `primary_unit` varchar(50) DEFAULT 'piece',
-  `secondary_unit` varchar(50) DEFAULT NULL,
-  `conversion_rate` decimal(15,4) DEFAULT NULL,
-  `opening_stock_base_unit` decimal(15,2) DEFAULT NULL,
-  `stock_base_unit` decimal(15,2) DEFAULT NULL,
-  `sold_base_unit` decimal(15,2) DEFAULT '0.00',
-  `reorder_level` decimal(15,2) DEFAULT '5.00',
-  `low_stock_base_unit` decimal(15,2) DEFAULT NULL,
-  `hsn_sac` varchar(255) DEFAULT NULL,
-  `tax_rate` decimal(5,2) DEFAULT '0.00',
-  `supplier_id` int DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`product_id`),
-  KEY `owner_id` (`owner_id`),
-  KEY `shop_id` (`shop_id`),
-  CONSTRAINT `products_ibfk_1` FOREIGN KEY (`owner_id`) REFERENCES `auth_users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `products_ibfk_2` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`shop_id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS sales (
+  sale_id INT AUTO_INCREMENT PRIMARY KEY,
+  owner_id VARCHAR(36),
+  shop_id VARCHAR(36),
+  customer_id INT,
+  customer_email VARCHAR(255),
+  customer_gstin VARCHAR(50),
+  billing_address TEXT,
+  place_of_supply VARCHAR(255),
+  customer_state_code VARCHAR(10),
+  invoice_type VARCHAR(50) DEFAULT 'invoice',
+  receipt_number VARCHAR(255),
+  buyer_name TEXT,
+  buyer_phone TEXT,
+  items JSON,
+  total_amount DECIMAL(15,2) DEFAULT 0,
+  total_cost DECIMAL(15,2) DEFAULT 0,
+  total_profit DECIMAL(15,2) DEFAULT 0,
+  total_quantity INT DEFAULT 0,
+  discount_amount DECIMAL(15,2) DEFAULT 0,
+  taxable_amount DECIMAL(15,2) DEFAULT 0,
+  tax_amount DECIMAL(15,2) DEFAULT 0,
+  cgst_amount DECIMAL(15,2) DEFAULT 0,
+  sgst_amount DECIMAL(15,2) DEFAULT 0,
+  igst_amount DECIMAL(15,2) DEFAULT 0,
+  gst_breakdown JSON,
+  payment_status VARCHAR(50),
+  payment_method VARCHAR(50),
+  paid_amount DECIMAL(15,2) DEFAULT 0,
+  due_date DATE,
+  sale_status VARCHAR(50) DEFAULT 'completed',
+  currency_snapshot VARCHAR(20) DEFAULT 'INR',
+  tax_percent_snapshot DECIMAL(10,2) DEFAULT 0,
+  shop_snapshot JSON,
+  checkout_session_id VARCHAR(255),
+  receipt_email_sent BOOLEAN DEFAULT FALSE,
+  receipt_email_sent_at DATETIME,
+  receipt_email_error TEXT,
+  email_message_id VARCHAR(255),
+  notes TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (owner_id) REFERENCES auth_users(id) ON DELETE CASCADE,
+  FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE
+);
 
--- Table structure for table `purchases`
-DROP TABLE IF EXISTS `purchases`;
-CREATE TABLE `purchases` (
-  `purchase_id` int NOT NULL AUTO_INCREMENT,
-  `shop_id` varchar(36) NOT NULL,
-  `owner_id` varchar(36) DEFAULT NULL,
-  `supplier_id` int DEFAULT NULL,
-  `bill_number` varchar(255) DEFAULT NULL,
-  `purchase_date` date DEFAULT (curdate()),
-  `items` json DEFAULT NULL,
-  `subtotal` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `tax_amount` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `total_amount` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `payment_status` varchar(50) DEFAULT 'paid',
-  `paid_amount` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `due_date` date DEFAULT NULL,
-  `notes` text,
-  `created_by` varchar(36) DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`purchase_id`),
-  KEY `shop_id` (`shop_id`),
-  KEY `owner_id` (`owner_id`),
-  KEY `supplier_id` (`supplier_id`),
-  KEY `created_by` (`created_by`),
-  CONSTRAINT `purchases_ibfk_1` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`shop_id`) ON DELETE CASCADE,
-  CONSTRAINT `purchases_ibfk_2` FOREIGN KEY (`owner_id`) REFERENCES `auth_users` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `purchases_ibfk_3` FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`supplier_id`) ON DELETE SET NULL,
-  CONSTRAINT `purchases_ibfk_4` FOREIGN KEY (`created_by`) REFERENCES `auth_users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS expenses (
+  expense_id INT AUTO_INCREMENT PRIMARY KEY,
+  shop_id VARCHAR(36) NOT NULL,
+  owner_id VARCHAR(36),
+  expense_date DATE DEFAULT (CURRENT_DATE),
+  category VARCHAR(255) NOT NULL,
+  amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+  gst_included BOOLEAN DEFAULT FALSE,
+  payment_method VARCHAR(50) DEFAULT 'cash',
+  vendor VARCHAR(255),
+  notes TEXT,
+  receipt_url LONGTEXT,
+  created_by VARCHAR(36),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE,
+  FOREIGN KEY (owner_id) REFERENCES auth_users(id) ON DELETE SET NULL,
+  FOREIGN KEY (created_by) REFERENCES auth_users(id) ON DELETE SET NULL
+);
 
--- Table structure for table `sales`
-DROP TABLE IF EXISTS `sales`;
-CREATE TABLE `sales` (
-  `sale_id` int NOT NULL AUTO_INCREMENT,
-  `owner_id` varchar(36) DEFAULT NULL,
-  `shop_id` varchar(36) DEFAULT NULL,
-  `receipt_number` varchar(255) DEFAULT NULL,
-  `buyer_name` text,
-  `buyer_phone` text,
-  `items` json DEFAULT NULL,
-  `total_amount` decimal(15,2) DEFAULT '0.00',
-  `total_cost` decimal(15,2) DEFAULT '0.00',
-  `total_profit` decimal(15,2) DEFAULT '0.00',
-  `total_quantity` int DEFAULT '0',
-  `tax_amount` decimal(15,2) DEFAULT '0.00',
-  `payment_status` varchar(50) DEFAULT NULL,
-  `payment_method` varchar(50) DEFAULT NULL,
-  `notes` text,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`sale_id`),
-  KEY `owner_id` (`owner_id`),
-  KEY `shop_id` (`shop_id`),
-  CONSTRAINT `sales_ibfk_1` FOREIGN KEY (`owner_id`) REFERENCES `auth_users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `sales_ibfk_2` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`shop_id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS purchases (
+  purchase_id INT AUTO_INCREMENT PRIMARY KEY,
+  shop_id VARCHAR(36) NOT NULL,
+  owner_id VARCHAR(36),
+  supplier_id INT,
+  bill_number VARCHAR(255),
+  purchase_date DATE DEFAULT (CURRENT_DATE),
+  items JSON,
+  subtotal DECIMAL(15,2) NOT NULL DEFAULT 0,
+  tax_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+  total_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+  payment_status VARCHAR(50) DEFAULT 'paid',
+  paid_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+  due_date DATE,
+  notes TEXT,
+  created_by VARCHAR(36),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE,
+  FOREIGN KEY (owner_id) REFERENCES auth_users(id) ON DELETE SET NULL,
+  FOREIGN KEY (supplier_id) REFERENCES suppliers(supplier_id) ON DELETE SET NULL,
+  FOREIGN KEY (created_by) REFERENCES auth_users(id) ON DELETE SET NULL
+);
 
--- Table structure for table `shop_memberships`
-DROP TABLE IF EXISTS `shop_memberships`;
-CREATE TABLE `shop_memberships` (
-  `membership_id` varchar(36) NOT NULL DEFAULT (uuid()),
-  `shop_id` varchar(36) NOT NULL,
-  `user_id` varchar(36) NOT NULL,
-  `role` varchar(50) NOT NULL,
-  `status` varchar(50) NOT NULL DEFAULT 'active',
-  `invited_by` varchar(36) DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`membership_id`),
-  UNIQUE KEY `shop_id` (`shop_id`,`user_id`),
-  KEY `invited_by` (`invited_by`),
-  KEY `shop_memberships_user_shop_idx` (`user_id`,`shop_id`),
-  CONSTRAINT `shop_memberships_ibfk_1` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`shop_id`) ON DELETE CASCADE,
-  CONSTRAINT `shop_memberships_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `auth_users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `shop_memberships_ibfk_3` FOREIGN KEY (`invited_by`) REFERENCES `auth_users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS stock_movements (
+  movement_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  shop_id VARCHAR(36) NOT NULL,
+  product_id INT,
+  product_name_snapshot TEXT,
+  movement_type VARCHAR(50) NOT NULL,
+  quantity_change DECIMAL(15,2) NOT NULL,
+  quantity_base_unit DECIMAL(15,2),
+  display_quantity DECIMAL(15,2),
+  unit VARCHAR(50),
+  batch_id BIGINT,
+  old_stock_base_unit DECIMAL(15,2),
+  new_stock_base_unit DECIMAL(15,2),
+  cost_price_snapshot DECIMAL(15,2),
+  selling_price_snapshot DECIMAL(15,2),
+  movement_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  reason TEXT,
+  related_sale_id INT,
+  related_purchase_id INT,
+  owner_id VARCHAR(36),
+  reference_type VARCHAR(50),
+  reference_id VARCHAR(255),
+  notes TEXT,
+  created_by VARCHAR(36),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE,
+  FOREIGN KEY (owner_id) REFERENCES auth_users(id) ON DELETE SET NULL,
+  FOREIGN KEY (created_by) REFERENCES auth_users(id) ON DELETE SET NULL
+);
 
--- Table structure for table `shops`
-DROP TABLE IF EXISTS `shops`;
-CREATE TABLE `shops` (
-  `shop_id` varchar(36) NOT NULL,
-  `owner_id` varchar(36) DEFAULT NULL,
-  `shop_name` text,
-  `shop_description` text,
-  `shop_logo` longtext,
-  `address` text,
-  `phone` text,
-  `currency` text,
-  `receipt_prefix` varchar(50) DEFAULT 'INV',
-  `tax_percent` decimal(10,2) DEFAULT '0.00',
-  `thank_you_message` text,
-  `theme` text,
-  `accent_color` text,
-  `gstin` text,
-  `default_invoice_type` varchar(50) DEFAULT 'tax_invoice',
-  `default_payment_method` varchar(50) DEFAULT 'cash',
-  `default_terms` text,
-  `receipt_size` varchar(50) DEFAULT 'a4',
-  `print_mode` varchar(50) DEFAULT 'color',
-  `custom_units` json DEFAULT (_utf8mb4'[]'),
-  `drive_connected` tinyint(1) DEFAULT '0',
-  `drive_email` text,
-  `drive_last_synced` datetime DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `email` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`shop_id`),
-  KEY `owner_id` (`owner_id`),
-  CONSTRAINT `shops_ibfk_1` FOREIGN KEY (`owner_id`) REFERENCES `auth_users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS unit_conversions (
+  conversion_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  shop_id VARCHAR(36) NOT NULL,
+  product_id INT NOT NULL,
+  from_unit VARCHAR(50) NOT NULL,
+  to_unit VARCHAR(50) NOT NULL,
+  conversion_rate DECIMAL(15,4) NOT NULL,
+  active BOOLEAN DEFAULT TRUE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE(product_id, from_unit, to_unit),
+  FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(product_id) ON DELETE CASCADE
+);
 
--- Table structure for table `stock_movements`
-DROP TABLE IF EXISTS `stock_movements`;
-CREATE TABLE `stock_movements` (
-  `movement_id` bigint NOT NULL AUTO_INCREMENT,
-  `shop_id` varchar(36) NOT NULL,
-  `product_id` int DEFAULT NULL,
-  `product_name_snapshot` text,
-  `movement_type` varchar(50) NOT NULL,
-  `quantity_change` decimal(15,2) NOT NULL,
-  `quantity_base_unit` decimal(15,2) DEFAULT NULL,
-  `display_quantity` decimal(15,2) DEFAULT NULL,
-  `unit` varchar(50) DEFAULT NULL,
-  `batch_id` bigint DEFAULT NULL,
-  `old_stock_base_unit` decimal(15,2) DEFAULT NULL,
-  `new_stock_base_unit` decimal(15,2) DEFAULT NULL,
-  `cost_price_snapshot` decimal(15,2) DEFAULT NULL,
-  `selling_price_snapshot` decimal(15,2) DEFAULT NULL,
-  `movement_date` datetime DEFAULT CURRENT_TIMESTAMP,
-  `reason` text,
-  `related_sale_id` int DEFAULT NULL,
-  `related_purchase_id` int DEFAULT NULL,
-  `owner_id` varchar(36) DEFAULT NULL,
-  `reference_type` varchar(50) DEFAULT NULL,
-  `reference_id` varchar(255) DEFAULT NULL,
-  `notes` text,
-  `created_by` varchar(36) DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`movement_id`),
-  KEY `shop_id` (`shop_id`),
-  KEY `owner_id` (`owner_id`),
-  KEY `created_by` (`created_by`),
-  CONSTRAINT `stock_movements_ibfk_1` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`shop_id`) ON DELETE CASCADE,
-  CONSTRAINT `stock_movements_ibfk_2` FOREIGN KEY (`owner_id`) REFERENCES `auth_users` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `stock_movements_ibfk_3` FOREIGN KEY (`created_by`) REFERENCES `auth_users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS product_batches (
+  batch_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  product_id INT NOT NULL,
+  shop_id VARCHAR(36) NOT NULL,
+  owner_id VARCHAR(36),
+  product_name_snapshot TEXT NOT NULL,
+  purchase_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  quantity_purchased DECIMAL(15,2) NOT NULL DEFAULT 0,
+  quantity_remaining DECIMAL(15,2) NOT NULL DEFAULT 0,
+  quantity_purchased_base_unit DECIMAL(15,2) NOT NULL DEFAULT 0,
+  quantity_remaining_base_unit DECIMAL(15,2) NOT NULL DEFAULT 0,
+  unit VARCHAR(50) NOT NULL DEFAULT 'piece',
+  primary_unit_snapshot VARCHAR(50),
+  secondary_unit_snapshot VARCHAR(50),
+  conversion_rate_snapshot DECIMAL(15,4),
+  cost_price DECIMAL(15,2) NOT NULL DEFAULT 0,
+  cost_price_base_unit DECIMAL(15,2) NOT NULL DEFAULT 0,
+  selling_price DECIMAL(15,2) NOT NULL DEFAULT 0,
+  supplier_id INT,
+  supplier_name_snapshot TEXT,
+  purchase_invoice_no VARCHAR(255),
+  notes TEXT,
+  source VARCHAR(50) DEFAULT 'purchase',
+  created_by VARCHAR(36),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE,
+  FOREIGN KEY (owner_id) REFERENCES auth_users(id) ON DELETE SET NULL
+);
 
--- Table structure for table `suppliers`
-DROP TABLE IF EXISTS `suppliers`;
-CREATE TABLE `suppliers` (
-  `supplier_id` int NOT NULL AUTO_INCREMENT,
-  `shop_id` varchar(36) NOT NULL,
-  `owner_id` varchar(36) DEFAULT NULL,
-  `name` varchar(255) NOT NULL,
-  `phone` varchar(50) DEFAULT NULL,
-  `email` varchar(255) DEFAULT NULL,
-  `gstin` varchar(50) DEFAULT NULL,
-  `address` text,
-  `opening_balance` decimal(15,2) DEFAULT '0.00',
-  `upi_id` varchar(255) DEFAULT NULL,
-  `qr_image_url` longtext,
-  `custom_fields` json DEFAULT NULL,
-  `due_date` date DEFAULT NULL,
-  `payment_status` varchar(50) DEFAULT 'due',
-  `notes` text,
-  `is_deleted` tinyint(1) DEFAULT '0',
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`supplier_id`),
-  KEY `shop_id` (`shop_id`),
-  KEY `owner_id` (`owner_id`),
-  CONSTRAINT `suppliers_ibfk_1` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`shop_id`) ON DELETE CASCADE,
-  CONSTRAINT `suppliers_ibfk_2` FOREIGN KEY (`owner_id`) REFERENCES `auth_users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS estimates (
+  estimate_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  shop_id VARCHAR(36) NOT NULL,
+  owner_id VARCHAR(36),
+  estimate_number VARCHAR(255) NOT NULL,
+  customer_id INT,
+  customer_name TEXT,
+  customer_phone VARCHAR(50),
+  customer_email VARCHAR(255),
+  customer_gstin VARCHAR(50),
+  billing_address TEXT,
+  place_of_supply VARCHAR(255),
+  valid_until DATE,
+  items JSON,
+  subtotal DECIMAL(15,2) NOT NULL DEFAULT 0,
+  discount_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+  taxable_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+  tax_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+  cgst_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+  sgst_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+  igst_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+  total_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+  notes TEXT,
+  terms TEXT,
+  status VARCHAR(50) NOT NULL DEFAULT 'draft',
+  converted_sale_id INT,
+  created_by VARCHAR(36),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE (shop_id, estimate_number),
+  FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE,
+  FOREIGN KEY (owner_id) REFERENCES auth_users(id) ON DELETE SET NULL,
+  FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE SET NULL,
+  FOREIGN KEY (created_by) REFERENCES auth_users(id) ON DELETE SET NULL
+);
 
--- Table structure for table `team_invitations`
-DROP TABLE IF EXISTS `team_invitations`;
-CREATE TABLE `team_invitations` (
-  `invite_id` bigint NOT NULL AUTO_INCREMENT,
-  `shop_id` varchar(36) NOT NULL,
-  `invited_email` varchar(255) NOT NULL,
-  `invited_name` text,
-  `role` varchar(50) NOT NULL,
-  `token` varchar(255) NOT NULL,
-  `status` varchar(50) NOT NULL DEFAULT 'pending',
-  `invited_by` varchar(36) DEFAULT NULL,
-  `accepted_by` varchar(36) DEFAULT NULL,
-  `expires_at` datetime NOT NULL,
-  `accepted_at` datetime DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`invite_id`),
-  UNIQUE KEY `token` (`token`),
-  KEY `invited_by` (`invited_by`),
-  KEY `accepted_by` (`accepted_by`),
-  KEY `team_invitations_shop_email_status_idx` (`shop_id`,`invited_email`,`status`),
-  KEY `team_invitations_token_idx` (`token`),
-  CONSTRAINT `team_invitations_ibfk_1` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`shop_id`) ON DELETE CASCADE,
-  CONSTRAINT `team_invitations_ibfk_2` FOREIGN KEY (`invited_by`) REFERENCES `auth_users` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `team_invitations_ibfk_3` FOREIGN KEY (`accepted_by`) REFERENCES `auth_users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE IF NOT EXISTS payments (
+  payment_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  shop_id VARCHAR(36) NOT NULL,
+  sale_id INT,
+  purchase_id INT,
+  customer_id INT,
+  supplier_id INT,
+  amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+  payment_method VARCHAR(50) DEFAULT 'cash',
+  direction VARCHAR(50) DEFAULT 'received',
+  notes TEXT,
+  payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  created_by VARCHAR(36),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE
+);
 
-SET FOREIGN_KEY_CHECKS=1;
+CREATE TABLE IF NOT EXISTS platform_settings (
+  setting_key VARCHAR(100) PRIMARY KEY,
+  setting_value LONGTEXT,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS banned_ips (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  ip_address VARCHAR(45) UNIQUE,
+  reason TEXT,
+  banned_by VARCHAR(36),
+  banned_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ai_logs (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  shop_id VARCHAR(36),
+  user_id VARCHAR(36),
+  request_type VARCHAR(50),
+  prompt_summary TEXT,
+  tokens_used INT DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE SET NULL,
+  FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE SET NULL
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS shop_memberships_user_shop_idx ON shop_memberships (user_id, shop_id);
+CREATE INDEX IF NOT EXISTS audit_events_shop_created_idx ON audit_events (shop_id, created_at);
+CREATE INDEX IF NOT EXISTS team_invitations_shop_email_status_idx ON team_invitations (shop_id, invited_email, status);
+CREATE INDEX IF NOT EXISTS team_invitations_token_idx ON team_invitations (token);

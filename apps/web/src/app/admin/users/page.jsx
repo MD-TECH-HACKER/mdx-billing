@@ -97,7 +97,7 @@ export default function AdminUsers() {
             <Loader2 size={32} style={{ animation: "spin 1s linear infinite", color: "#F97316" }} />
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ width: "100%", overflow: "visible" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "800px" }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border, #E5E7EB)", background: "var(--bg-elev, #F9FAFB)" }}>
