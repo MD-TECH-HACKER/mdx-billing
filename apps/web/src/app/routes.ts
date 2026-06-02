@@ -40,6 +40,7 @@ const dashboardRoutes = layout('./_dashboard.layout.jsx', [
 const publicRoutes: RouteConfigEntry[] = [
 	index('./page.jsx'),
 	route('account/signin', './account/signin/page.jsx'),
+	route('account/mobile-login', './account/mobile-login/page.jsx'),
 	route('account/signup', './account/signup/page.jsx'),
 	route('account/logout', './account/logout/page.jsx'),
 	route('maintenance', './maintenance/page.jsx'),
