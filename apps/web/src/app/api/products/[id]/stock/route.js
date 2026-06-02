@@ -180,9 +180,9 @@ export async function POST(request, { params }) {
         `;
       }
       
-      const [productRow] = await tx`SELECT * FROM products WHERE product_id = ${id}`;
-      const [batchRow] = await tx`SELECT * FROM product_batches WHERE batch_id = ${batchId}`;
-      const [purchaseRow] = await tx`SELECT * FROM purchases WHERE purchase_id = ${purchaseId}`;
+      const productRow = await tx`SELECT * FROM products WHERE product_id = ${id}`;
+      const batchRow = await tx`SELECT * FROM product_batches WHERE batch_id = ${batchId}`;
+      const purchaseRow = await tx`SELECT * FROM purchases WHERE purchase_id = ${purchaseId}`;
       return { product: productRow[0], batch: batchRow[0], purchase: purchaseRow[0] };
     });
 
@@ -194,9 +194,9 @@ export async function POST(request, { params }) {
     });
     return Response.json(
       {
-        product: rows[0]?.product,
-        batch: rows[0]?.batch,
-        purchase: rows[0]?.purchase,
+        product: result.product,
+        batch: result.batch,
+        purchase: result.purchase,
       },
       { status: 201 },
     );

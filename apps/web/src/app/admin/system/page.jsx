@@ -247,7 +247,7 @@ export default function AdminSystemPage() {
   const renderExport = () => (
     <div style={{ animation: "fadeIn 0.3s ease" }}>
       <CardHeader 
-        icon={Download} 
+        icon={Upload} 
         title="Database Export" 
         description="Download JSON exports or a full ZIP backup including uploads and logo files."
         color="#3B82F6"
@@ -255,7 +255,7 @@ export default function AdminSystemPage() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
         {[
-          { id: "full", name: "Full ZIP Backup", desc: "Exports all tables plus user uploads, shop logos, product logos, and app logo assets.", icon: Download },
+          { id: "full", name: "Full ZIP Backup", desc: "Exports all tables plus user uploads, shop logos, product logos, and app logo assets.", icon: Upload },
           { id: "users", name: "Users Only", desc: "Exports the auth_users table data.", icon: Users },
           { id: "shops", name: "Shops Only", desc: "Exports shop configuration and details.", icon: Store },
           { id: "products", name: "Products & Inventory", desc: "Exports all product catalogs.", icon: Package },
@@ -297,7 +297,7 @@ export default function AdminSystemPage() {
                 opacity: exportLoading ? 0.7 : 1
               }}
             >
-              {exportLoading ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
+              {exportLoading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
               {item.id === "full" ? "Export ZIP" : "Export JSON"}
             </button>
           </div>
@@ -309,7 +309,7 @@ export default function AdminSystemPage() {
   const renderImport = () => (
     <div style={{ animation: "fadeIn 0.3s ease" }}>
       <CardHeader 
-        icon={Upload} 
+        icon={Download} 
         title="Database Import" 
         description="Restore from a full ZIP backup or a legacy JSON export. Warning: proceed with caution."
         color="#8B5CF6"
@@ -383,7 +383,7 @@ export default function AdminSystemPage() {
                   cursor: importLoading ? "not-allowed" : "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" 
                 }}
               >
-                {importLoading ? <RefreshCw size={16} className="animate-spin" /> : <Upload size={16} />}
+                {importLoading ? <RefreshCw size={16} className="animate-spin" /> : <Download size={16} />}
                 Start Import
               </button>
             </div>
@@ -560,14 +560,14 @@ export default function AdminSystemPage() {
           <TabButton 
             active={activeTab === "export"} 
             onClick={() => setActiveTab("export")} 
-            icon={Download} 
+            icon={Upload} 
             label="Database Export" 
             description="Download JSON backups" 
           />
           <TabButton 
             active={activeTab === "import"} 
             onClick={() => setActiveTab("import")} 
-            icon={Upload} 
+            icon={Download} 
             label="Database Import" 
             description="Restore from backup" 
           />

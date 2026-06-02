@@ -328,6 +328,7 @@ export async function ensureBusinessFeatureSchema() {
         'ALTER TABLE sales ADD COLUMN receipt_email_sent_at DATETIME',
         'ALTER TABLE sales ADD COLUMN receipt_email_error TEXT',
         'ALTER TABLE sales ADD COLUMN email_message_id VARCHAR(255)',
+        'CREATE INDEX idx_sales_shop_created ON sales (shop_id, created_at DESC)',
       ];
       for (const alter of salesAlters) {
         try { await sql(alter); } catch (e) { /* column might already exist */ }
@@ -347,6 +348,15 @@ export async function ensureBusinessFeatureSchema() {
       ];
       for (const alter of productsAlters) {
         try { await sql(alter); } catch (e) { /* column might already exist */ }
+      }
+
+      // Add performance indexes
+      const indexAlters = [
+        'CREATE INDEX idx_purchases_shop_created ON purchases (shop_id, purchase_date DESC, created_at DESC)',
+        'CREATE INDEX idx_expenses_shop_created ON expenses (shop_id, expense_date DESC, created_at DESC)'
+      ];
+      for (const alter of indexAlters) {
+        try { await sql(alter); } catch (e) { /* index might already exist */ }
       }
     })();
   }

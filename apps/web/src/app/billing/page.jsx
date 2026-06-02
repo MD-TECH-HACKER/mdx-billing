@@ -105,7 +105,7 @@ export default function BillingPage() {
   const location = useLocation();
   const hydratedEstimateId = useRef(null);
   const syncedCartSignature = useRef("");
-  const [items, setItems] = useState(() => cart.map(productLine));
+  const [items, setItems] = useState(() => cart.map(item => productLine(item)));
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -150,7 +150,7 @@ export default function BillingPage() {
     const signature = cartSignature(cart);
     if (signature === syncedCartSignature.current) return;
     syncedCartSignature.current = signature;
-    setItems(cart.map(productLine));
+    setItems(cart.map(item => productLine(item)));
     setItemsError("");
   }, [cart, sourceEstimate]);
 

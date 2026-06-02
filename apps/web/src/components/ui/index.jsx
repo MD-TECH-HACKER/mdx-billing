@@ -164,6 +164,8 @@ export function Select({
               left: position.left,
               top: position.top,
               width: position.width,
+              background: "var(--bg-surface, #ffffff)",
+              border: "1px solid var(--border, #E5E7EB)"
             }}
           >
             {options.map((opt) => {

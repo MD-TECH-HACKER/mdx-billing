@@ -247,7 +247,7 @@ export async function POST(request) {
       }
 
       // Fetch the full inserted purchase row to return
-      const [insertedRows] = await tx`SELECT * FROM purchases WHERE purchase_id = ${purchaseId}`;
+      const insertedRows = await tx`SELECT * FROM purchases WHERE purchase_id = ${purchaseId}`;
       return insertedRows[0];
     });
 
@@ -259,7 +259,7 @@ export async function POST(request) {
     return Response.json({ purchase }, { status: 201 });
   } catch (error) {
     if (error instanceof AccessError) return accessErrorResponse(error);
-    if (error?.code === "22012" || /division by zero/i.test(String(error?.message))) {
+    if (error?.code === "22012" || error?.code === "ER_DIVISION_BY_ZERO" || /division by zero/i.test(String(error?.message))) {
       return Response.json({ error: "Products changed before the purchase was posted. Refresh and try again." }, { status: 409 });
     }
     console.error("POST /api/purchases", error);

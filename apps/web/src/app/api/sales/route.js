@@ -501,8 +501,8 @@ export async function POST(request) {
         `;
       }
 
-      const [saleRow] = await tx`SELECT * FROM sales WHERE sale_id = ${saleId}`;
-      return saleRow[0];
+      const saleRows = await tx`SELECT * FROM sales WHERE sale_id = ${saleId}`;
+      return saleRows[0];
     });
     await writeAuditEvent(context, "sale.create", "sale", sale.sale_id, {
       receiptNumber,
@@ -535,7 +535,7 @@ export async function POST(request) {
     if (/quantity|unit|stock|manual item/i.test(String(error?.message))) {
       return Response.json({ error: error.message }, { status: 400 });
     }
-    if (error?.code === "22012" || /division by zero/i.test(String(error?.message))) {
+    if (error?.code === "22012" || error?.code === "ER_DIVISION_BY_ZERO" || /division by zero/i.test(String(error?.message))) {
       return Response.json(
         {
           error: isEstimateConversion
@@ -545,7 +545,7 @@ export async function POST(request) {
         { status: 409 },
       );
     }
-    if (error?.code === "23505" && /checkout_session/i.test(String(error?.detail))) {
+    if ((error?.code === "23505" || error?.code === "ER_DUP_ENTRY") && /checkout_session/i.test(String(error?.message || error?.detail || ""))) {
       return Response.json({ error: "This bill was already saved. Please refresh." }, { status: 409 });
     }
     console.error("POST /api/sales", error);
