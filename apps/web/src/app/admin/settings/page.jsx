@@ -17,10 +17,8 @@ import { Select } from "@/components/ui";
 const DEFAULT_SETTINGS = {
   platformName: "MDX Billing App",
   supportEmail: "support@mdx-billing.app",
-  senderEmail: "receipts@mdxbilling.app",
+  senderEmail: "receipts@mdx-billing.app",
   enableEmailReceipts: true,
-  enableSmsNotifications: false,
-  enableGstFeatures: true,
   allowNewSignups: true,
   maintenanceMode: false,
   currencyDefault: "INR",
@@ -238,7 +236,6 @@ export default function AdminSettings() {
       <SettingsSection icon={Mail} title="Email & Communication" description="Transactional email defaults used by platform-controlled messages." color="#8B5CF6">
         <InputGroup label="Default Sender Email" value={settings.senderEmail} onChange={(event) => handleChange("senderEmail", event.target.value)} />
         <ToggleRow label="Enable Email Receipts" description="Allow shops to send digital receipts to customers via email." enabled={!!settings.enableEmailReceipts} onChange={() => handleChange("enableEmailReceipts", !settings.enableEmailReceipts)} />
-        <ToggleRow label="Enable SMS Notifications" description="Reserved for shop alerts and receipt notifications." enabled={!!settings.enableSmsNotifications} onChange={() => handleChange("enableSmsNotifications", !settings.enableSmsNotifications)} />
       </SettingsSection>
 
       <SettingsSection icon={Globe} title="Localization & Formats" description="Set regional defaults for new shops." color="#F59E0B">
@@ -249,7 +246,6 @@ export default function AdminSettings() {
       </SettingsSection>
 
       <SettingsSection icon={Settings} title="Platform Features" description="Enable or disable core functionality platform-wide." color="#10B981">
-        <ToggleRow label="GST / Tax Features" description="Enable GST compliance features and tax reporting for all shops." enabled={!!settings.enableGstFeatures} onChange={() => handleChange("enableGstFeatures", !settings.enableGstFeatures)} />
         <ToggleRow label="Allow New Signups" description="When disabled, public signup buttons are blocked." enabled={!!settings.allowNewSignups} onChange={() => handleChange("allowNewSignups", !settings.allowNewSignups)} />
         <ToggleRow label="Enforce 2FA for Shop Owners" description="Require two-factor authentication for users managing a shop." enabled={!!settings.enforce2FA} onChange={() => handleChange("enforce2FA", !settings.enforce2FA)} />
         <ToggleRow label="Automated Telegram Backups" description="Run database and upload-folder backups on the configured interval." enabled={!!settings.autoBackup} onChange={() => handleChange("autoBackup", !settings.autoBackup)} />

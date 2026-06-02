@@ -5,7 +5,7 @@ import { ArrowLeft, Loader2, Package, PackagePlus, Plus, Receipt, Trash2 } from 
 import useUser from "@/utils/useUser";
 import useShop from "@/utils/useShop";
 import useCart from "@/utils/useCart";
-import { clearCart } from "@/utils/cartStore";
+import { clearCart, readCartSellingPrice } from "@/utils/cartStore";
 import { showToast } from "@/components/Toast";
 import { formatMoney } from "@/utils/currency";
 import { Button, Card, Input, Modal, Select, Textarea } from "@/components/ui";
@@ -25,14 +25,13 @@ const PAYMENT_METHODS = [
 ];
 const BILLING_TYPES = [
   { value: "invoice", label: "Invoice", help: "Normal sale invoice, stock reduces" },
-  { value: "gst_invoice", label: "GST Invoice", help: "Tax invoice with GST split" },
   { value: "estimate", label: "Estimate / Quotation", help: "Quote only, no stock out" },
   { value: "receipt", label: "Receipt", help: "Simple paid or balance receipt" },
 ];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function normalizeBillingType(value) {
-  if (value === "tax_invoice") return "gst_invoice";
+  if (value === "tax_invoice" || value === "gst_invoice") return "invoice";
   return BILLING_TYPES.some((type) => type.value === value) ? value : "invoice";
 }
 
@@ -47,7 +46,7 @@ function readProductId(item) {
 }
 
 function readSellingPrice(item) {
-  return item?.selling_price ?? item?.sellingPrice ?? item?.price ?? item?.unitPrice ?? 0;
+  return readCartSellingPrice(item);
 }
 
 function productLine(item, quotedUnitPrice = null) {

@@ -1,12 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { Store, Plus, ArrowRight, Sparkles } from "lucide-react";
+import { Store, Plus, ArrowRight, Sparkles, Ban } from "lucide-react";
 import useUser from "@/utils/useUser";
 import { setActiveShopId, shopHeaders } from "@/utils/shopContext";
 import { AppLoader } from "@/components/ui";
 
+const SUPPORT_EMAIL = "support@mdx-billing.app";
+
 function roleLabel(role) {
   return role === "owner" ? "Owner" : role === "manager" ? "Manager" : "Cashier";
+}
+
+function isShopSuspended(shop) {
+  return String(shop?.status || "active").toLowerCase() === "suspended";
 }
 
 export default function SelectShopPage() {
@@ -38,6 +44,7 @@ export default function SelectShopPage() {
   }, [user, navigate]);
 
   const handleSelectShop = (shop) => {
+    if (isShopSuspended(shop)) return;
     setSelecting(shop.shop_id);
     setActiveShopId(shop.shop_id);
     // Small delay for visual feedback
@@ -85,15 +92,17 @@ export default function SelectShopPage() {
         <div className="space-y-3 mb-5">
           {shops.map((shop) => {
             const isSelecting = selecting === shop.shop_id;
+            const suspended = isShopSuspended(shop);
+            const isDisabled = !!selecting || suspended;
             return (
               <button
                 key={shop.shop_id}
                 onClick={() => handleSelectShop(shop)}
-                disabled={!!selecting}
+                disabled={isDisabled}
                 className={`
                   w-full flex items-center gap-4 p-4 rounded-2xl
                   t-card
-                  hover:border-[var(--accent)] hover:shadow-lg
+                  ${suspended ? "opacity-55 grayscale cursor-not-allowed border-red-200 bg-slate-100/80" : "hover:border-[var(--accent)] hover:shadow-lg"}
                   transition-all duration-300 text-left
                   disabled:opacity-60 disabled:cursor-wait
                   ${isSelecting ? "ring-2 ring-[var(--accent)] scale-[0.98]" : ""}
@@ -122,9 +131,19 @@ export default function SelectShopPage() {
                   <div className="mt-1 inline-flex items-center rounded-full bg-orange-100 border border-orange-200 px-2 py-0.5 text-[10px] font-bold text-orange-700">
                     {roleLabel(shop.access_role)}
                   </div>
+                  {suspended ? (
+                    <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-[10px] font-bold text-red-700">
+                      <Ban className="w-3 h-3" /> Shop suspended
+                    </div>
+                  ) : null}
                   {shop.shop_description ? (
                     <div className="t-dim text-xs mt-0.5 truncate">
                       {shop.shop_description}
+                    </div>
+                  ) : null}
+                  {suspended ? (
+                    <div className="text-red-700 text-xs mt-2">
+                      Contact {SUPPORT_EMAIL} to unlock this shop.
                     </div>
                   ) : null}
                   {shop.address ? (
@@ -136,7 +155,11 @@ export default function SelectShopPage() {
 
                 {/* Arrow */}
                 <div className={`flex-shrink-0 transition-transform duration-300 ${isSelecting ? "translate-x-1" : ""}`}>
-                  {isSelecting ? (
+                  {suspended ? (
+                    <div className="w-8 h-8 rounded-full bg-red-50 border border-red-200 flex items-center justify-center">
+                      <Ban className="w-4 h-4 text-red-600" />
+                    </div>
+                  ) : isSelecting ? (
                     <div className="w-8 h-8 rounded-full bg-violet-500/30 flex items-center justify-center">
                       <div className="w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
                     </div>

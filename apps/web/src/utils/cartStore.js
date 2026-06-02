@@ -19,8 +19,31 @@ function readProductId(item) {
   return item?.product_id ?? item?.productId ?? item?.id ?? null;
 }
 
-function readSellingPrice(item) {
-  return item?.selling_price ?? item?.sellingPrice ?? item?.price ?? item?.unitPrice ?? 0;
+export function parseMoney(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (value === undefined || value === null) return 0;
+  const normalized = String(value).replace(/[^\d.-]/g, "");
+  if (!normalized || normalized === "-" || normalized === ".") return 0;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function readCartSellingPrice(item) {
+  return parseMoney(
+    item?.selling_price ??
+      item?.sellingPrice ??
+      item?.sale_price ??
+      item?.salePrice ??
+      item?.unit_selling_price ??
+      item?.unitSellingPrice ??
+      item?.pricePerUnitAtSale ??
+      item?.price_per_unit ??
+      item?.pricePerUnit ??
+      item?.unit_price ??
+      item?.unitPrice ??
+      item?.price ??
+      0,
+  );
 }
 
 function normalizeCartItem(item) {
@@ -28,7 +51,7 @@ function normalizeCartItem(item) {
   if (!productId) return null;
   const stock = Number(item.stock) || Number(item.stock_base_unit) || 0;
   const quantity = Math.max(1, Number(item.quantity) || 1);
-  const primaryUnit = sanitizeProductUnit(item.primary_unit || item.primaryUnit, {
+  const primaryUnit = sanitizeProductUnit(item.primary_unit || item.primaryUnit || item.selectedUnit || item.unit, {
     fallback: "piece",
   });
   const secondaryUnit = sanitizeProductUnit(item.secondary_unit || item.secondaryUnit, {
@@ -40,7 +63,7 @@ function normalizeCartItem(item) {
     product_id: productId,
     title: item.title || item.name || item.productNameSnapshot || "",
     image_url: item.image_url || item.imageUrl || null,
-    selling_price: Number(readSellingPrice(item)) || 0,
+    selling_price: readCartSellingPrice(item),
     stock,
     quantity: stock > 0 ? Math.min(quantity, stock) : quantity,
     primary_unit: primaryUnit,
@@ -94,7 +117,7 @@ export function addToCart(product, qty = 1) {
     const exceeded = existing.quantity + wantQty > stock;
     existing.quantity = newQty;
     existing.stock = stock;
-    existing.selling_price = Number(readSellingPrice(product));
+    existing.selling_price = readCartSellingPrice(product);
     existing.primary_unit = primaryUnit;
     existing.secondary_unit = secondaryUnit;
     existing.conversion_rate = Number(product.conversion_rate) || null;
@@ -111,7 +134,7 @@ export function addToCart(product, qty = 1) {
     title: product.title,
     description: product.description,
     image_url: product.image_url,
-    selling_price: Number(readSellingPrice(product)),
+    selling_price: readCartSellingPrice(product),
     stock,
     quantity: finalQty,
     primary_unit: primaryUnit,

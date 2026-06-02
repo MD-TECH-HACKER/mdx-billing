@@ -38,8 +38,7 @@ const NAV = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard", roles: ["owner", "manager"] },
   { label: "Products", icon: Package, href: "/products", roles: ["owner", "manager"] },
   { label: "Billing", icon: ShoppingCart, href: "/billing" },
-  { label: "Estimate", icon: FileText, href: "/estimate", roles: ["owner", "manager"] },
-  { label: "Stock Estimate", icon: FileText, href: "/stock-estimate", roles: ["owner", "manager"] },
+  { label: "Stock Estimate", mobileLabel: "Stock", icon: FileText, href: "/stock-estimate", roles: ["owner", "manager"] },
   { label: "Sales", icon: Receipt, href: "/sales" },
   { label: "Customers", icon: ContactRound, href: "/customers" },
   { label: "Suppliers", icon: Truck, href: "/suppliers", roles: ["owner", "manager"] },
@@ -51,6 +50,7 @@ const NAV = [
   { label: "Audit Log", icon: ShieldCheck, href: "/audit-log", roles: ["owner"] },
   { label: "Settings", icon: Settings, href: "/settings" },
 ];
+const MOBILE_NAV_HREFS = ["/dashboard", "/products", "/billing", "/stock-estimate", "/sales"];
 
 // Prefetch fetch helpers for snappy nav
 function prefetchRoute(qc, href, shopId) {
@@ -180,6 +180,7 @@ export default function DashboardShell({
         : "t-muted hover:bg-[var(--bg-elev)] hover:t-text"
     }`;
   const availableNav = role === "owner" ? NAV : NAV.filter((item) => !item.roles || item.roles.includes(role));
+  const mobileNav = MOBILE_NAV_HREFS.map((href) => availableNav.find((item) => item.href === href)).filter(Boolean);
   const homePath = role === "cashier" ? "/billing" : "/dashboard";
 
   return (
@@ -474,7 +475,7 @@ export default function DashboardShell({
       {/* Mobile bottom nav */}
       <nav className="lg:hidden fixed bottom-3 left-3 right-3 z-30 no-print" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="t-card scroll-card px-2 py-2 flex items-center justify-start gap-1 max-w-full">
-          {availableNav.slice(0, 5).map((item) => {
+          {mobileNav.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
@@ -498,12 +499,12 @@ export default function DashboardShell({
                   }}
                 />
                 <span
-                  className="text-[10px] font-medium"
+                  className="text-[10px] font-medium leading-tight text-center whitespace-nowrap"
                   style={{
                     color: active ? "var(--accent)" : "var(--text-muted)",
                   }}
                 >
-                  {item.label}
+                  {item.mobileLabel || item.label}
                 </span>
                 {item.href === "/billing" && cartCount > 0 ? (
                   <span

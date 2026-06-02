@@ -11,6 +11,7 @@ describe("admin action contracts", () => {
     const dbSchema = read("../../db.sql");
     const shopsRoute = read("src/app/api/admin/shops/route.js");
     const shopsPage = read("src/app/admin/shops/page.jsx");
+    const selectShopPage = read("src/app/select-shop/page.jsx");
 
     expect(dbSchema).toContain("status VARCHAR(50) NOT NULL DEFAULT 'active'");
     expect(shopsRoute).toContain("export async function POST");
@@ -20,6 +21,11 @@ describe("admin action contracts", () => {
     expect(shopsPage).toContain("Reactivate Shop");
     expect(shopsPage).not.toContain("Mock status logic");
     expect(shopsPage).not.toContain('includes("suspended")');
+    expect(selectShopPage).toContain("isShopSuspended");
+    expect(selectShopPage).toContain("Shop suspended");
+    expect(selectShopPage).toContain('const SUPPORT_EMAIL = "support@mdx-billing.app"');
+    expect(selectShopPage).toContain("to unlock this shop.");
+    expect(selectShopPage).toContain("disabled={isDisabled}");
   });
 
   test("user admin actions are explicit and cannot ban a platform admin", () => {

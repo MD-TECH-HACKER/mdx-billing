@@ -70,6 +70,43 @@ describe("cartStore product units", () => {
     ]);
   });
 
+  test("normalizes older price field names and formatted money strings", () => {
+    localStorage.setItem(
+      "mdx_cart_v3:unselected",
+      JSON.stringify([
+        {
+          id: 31,
+          name: "Formatted price",
+          unit_price: "2,323.00",
+          quantity: 2,
+          selectedUnit: "piece",
+        },
+        {
+          productId: 32,
+          title: "Sale snapshot",
+          pricePerUnitAtSale: "455.00",
+          quantity: 1,
+          unit: "box",
+        },
+      ]),
+    );
+
+    expect(getCart()).toEqual([
+      expect.objectContaining({
+        product_id: 31,
+        selling_price: 2323,
+        quantity: 2,
+        primary_unit: "piece",
+      }),
+      expect.objectContaining({
+        product_id: 32,
+        selling_price: 455,
+        quantity: 1,
+        primary_unit: "box",
+      }),
+    ]);
+  });
+
   test("clearCart removes unit snapshots with all cart data", () => {
     addToCart({ product_id: 1, title: "Bottle", selling_price: 10, cost_price: 5, stock: 1, primary_unit: "bottle" }, 1);
     clearCart();

@@ -23,7 +23,10 @@ describe("platform settings contracts", () => {
     expect(backupStatusRoute).toContain("readTelegramBackupConfig");
     expect(platformSettings).toContain("telegram_bot_token");
     expect(platformSettings).toContain("telegram_chat_id");
+    expect(platformSettings).toContain('defaultValue: "receipts@mdx-billing.app"');
     expect(page).not.toContain("resendApiKey");
+    expect(page).not.toContain("Enable SMS Notifications");
+    expect(page).not.toContain("GST / Tax Features");
   });
 
   test("localization settings use the app custom select popup", () => {

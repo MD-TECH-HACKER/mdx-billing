@@ -45,7 +45,7 @@ const TIMEZONE_IDS = new Set([
 const SETTINGS = {
   platformName: { key: "platform_name", type: "string", defaultValue: "MDX Billing App" },
   supportEmail: { key: "support_email", type: "string", defaultValue: "support@mdx-billing.app" },
-  senderEmail: { key: "sender_email", type: "string", defaultValue: "receipts@mdxbilling.app" },
+  senderEmail: { key: "sender_email", type: "string", defaultValue: "receipts@mdx-billing.app" },
   enableEmailReceipts: { key: "enable_email_receipts", type: "boolean", defaultValue: true },
   enableSmsNotifications: { key: "enable_sms_notifications", type: "boolean", defaultValue: false },
   enableGstFeatures: { key: "enable_gst_features", type: "boolean", defaultValue: true },

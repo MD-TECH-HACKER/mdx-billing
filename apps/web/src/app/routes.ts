@@ -21,7 +21,6 @@ const dashboardRoutes = layout('./_dashboard.layout.jsx', [
 	route('dashboard', './dashboard/page.jsx'),
 	route('products', './products/page.jsx'),
 	route('billing', './billing/page.jsx'),
-	route('estimate', './estimate/page.jsx'),
 	route('stock-estimate', './stock-estimate/page.jsx'),
 	route('sales', './sales/page.jsx'),
 	route('sales/:id', './sales/[id]/page.jsx'),

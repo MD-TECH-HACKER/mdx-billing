@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { getCart } from "@/utils/cartStore";
+import { getCart, readCartSellingPrice } from "@/utils/cartStore";
 
 export default function useCart() {
   const [cart, setCart] = useState(() =>
@@ -27,7 +27,7 @@ export default function useCart() {
 
   const count = cart.reduce((a, c) => a + c.quantity, 0);
   const totalAmount = cart.reduce(
-    (a, c) => a + Number(c.selling_price ?? c.sellingPrice ?? c.price ?? c.unitPrice ?? 0) * c.quantity,
+    (a, c) => a + readCartSellingPrice(c) * c.quantity,
     0,
   );
   return { cart, count, totalAmount, refresh };

@@ -34,4 +34,13 @@ describe("mobile responsive layout contracts", () => {
     expect(products).toContain("openingStockUnit");
     expect(products).toContain("Opening stock unit");
   });
+
+  test("mobile bottom navigation skips Estimate and keeps Stock label compact", () => {
+    const shell = read("../components/DashboardShell.jsx");
+
+    expect(shell).toContain("const MOBILE_NAV_HREFS");
+    expect(shell).toContain('"/stock-estimate"');
+    expect(shell).toContain('mobileLabel: "Stock"');
+    expect(shell).not.toContain("availableNav.slice(0, 5)");
+  });
 });
