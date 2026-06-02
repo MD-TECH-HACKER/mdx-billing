@@ -33,6 +33,34 @@ function SignInPage() {
     };
   }, []);
 
+  const handleGoogle = async () => {
+    setGoogleLoading(true);
+    setError(null);
+    try {
+      await verifySecurity();
+      const params = new URLSearchParams(window.location.search);
+      const cb = params.get("callbackUrl");
+      await signInWithGoogle({
+        callbackUrl: cb || "/",
+        redirect: true,
+      });
+    } catch (e) {
+      console.error(e);
+      setError(e.message || "Security check failed. Please try again.");
+      setGoogleLoading(false);
+    }
+  };
+
+  // Auto trigger Google sign in if requested by mobile app
+  useEffect(() => {
+    if (securityReady) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("auto") === "google") {
+        handleGoogle();
+      }
+    }
+  }, [securityReady]);
+
   const verifySecurity = async () => {
     if (!securityReady) throw new Error("Security settings are loading. Please try again.");
     if (!turnstileEnabled) return;
@@ -81,21 +109,7 @@ function SignInPage() {
     }
   };
 
-  const handleGoogle = async () => {
-    setGoogleLoading(true);
-    setError(null);
-    try {
-      await verifySecurity();
-      await signInWithGoogle({
-        callbackUrl: "/",
-        redirect: true,
-      });
-    } catch (e) {
-      console.error(e);
-      setError(e.message || "Security check failed. Please try again.");
-      setGoogleLoading(false);
-    }
-  };
+
 
   return (
     <div className="min-h-screen w-full relative overflow-hidden flex items-center justify-center px-4 py-10 font-inter">

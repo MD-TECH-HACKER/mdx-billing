@@ -142,13 +142,14 @@ function createMobileGoogleAuthUrl(url) {
     const bridgeUrl = new URL("/api/auth/mobile-success", WEB_APP_URL);
     bridgeUrl.searchParams.set("returnTo", returnTo);
 
-    const signInUrl = new URL("/api/auth/signin/google", WEB_APP_URL);
+    const signInUrl = new URL("/account/signin", WEB_APP_URL);
+    signInUrl.searchParams.set("auto", "google");
     signInUrl.searchParams.set("callbackUrl", bridgeUrl.toString());
     return signInUrl.toString();
   } catch {
     // Fallback: build a default auth URL
     const bridgeUrl = `${WEB_APP_URL}/api/auth/mobile-success?returnTo=%2F`;
-    return `${WEB_APP_URL}/api/auth/signin/google?callbackUrl=${encodeURIComponent(bridgeUrl)}`;
+    return `${WEB_APP_URL}/account/signin?auto=google&callbackUrl=${encodeURIComponent(bridgeUrl)}`;
   }
 }
 
@@ -341,8 +342,8 @@ export default function Index() {
   }, [openGoogleInExternalBrowser]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" backgroundColor="#ffffff" />
+    <View style={styles.safeArea}>
+      <StatusBar hidden={true} />
 
       {/* ── Thin progress bar at top (only AFTER initial load is done) ── */}
       {!isInitialLoad && <TopProgressBar visible={isLoading} />}
@@ -410,7 +411,7 @@ export default function Index() {
           </View>
         </View>
       ) : null}
-    </SafeAreaView>
+    </View>
   );
 }
 
