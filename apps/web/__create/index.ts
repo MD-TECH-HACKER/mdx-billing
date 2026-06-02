@@ -112,26 +112,6 @@ if (process.env.AUTH_SECRET) {
           return session;
         },
       },
-      cookies: {
-        csrfToken: {
-          options: {
-            secure: useSecureAuthCookies,
-            sameSite: 'lax',
-          },
-        },
-        sessionToken: {
-          options: {
-            secure: useSecureAuthCookies,
-            sameSite: 'lax',
-          },
-        },
-        callbackUrl: {
-          options: {
-            secure: useSecureAuthCookies,
-            sameSite: 'lax',
-          },
-        },
-      },
       providers: [
         // Google OAuth
         ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
