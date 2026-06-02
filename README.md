@@ -62,11 +62,11 @@ releases/apk/
 |---|---|
 | ![Dashboard](screenshots/dashboard.png) | ![Billing](screenshots/billing.png) |
 
-| Products | Settings |
+| Products | Receipt |
 |---|---|
 | ![Products](screenshots/products.png) | ![Receipt](screenshots/receipt.png) |
 
-Replace these images with real app screenshots before public release.
+
 
 ---
 
