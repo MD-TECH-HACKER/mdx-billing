@@ -280,9 +280,17 @@ if (process.env.AUTH_SECRET) {
     }))
   );
 }
-// Integrations proxy removed — running locally
-
-app.use('/api/auth/callback/google', async (c, next) => { const url = new URL(c.req.url); if (url.searchParams.has('iss')) { url.searchParams.delete('iss'); const newReq = new Request(url.href, c.req.raw); Object.defineProperty(c.req, 'raw', { value: newReq, writable: true }); } await next(); });
+// Middleware to intercept Auth.js responses and prevent Auth.js from overriding custom signin pages
+app.use('/api/auth/callback/google', async (c, next) => {
+  const url = new URL(c.req.url);
+  if (url.searchParams.has('iss')) {
+    // Force the exact issuer Auth.js expects to bypass the "unexpected iss" bug
+    url.searchParams.set('iss', 'https://accounts.google.com');
+    const newReq = new Request(url.href, c.req.raw);
+    Object.defineProperty(c.req, 'raw', { value: newReq, writable: true });
+  }
+  await next();
+});
 
 app.use('/api/auth/*', async (c, next) => {
   if (isAuthAction(c.req.path)) {
