@@ -282,6 +282,8 @@ if (process.env.AUTH_SECRET) {
 }
 // Integrations proxy removed — running locally
 
+app.use('/api/auth/callback/google', async (c, next) => { const url = new URL(c.req.url); if (url.searchParams.has('iss')) { url.searchParams.delete('iss'); const newReq = new Request(url.href, c.req.raw); Object.defineProperty(c.req, 'raw', { value: newReq, writable: true }); } await next(); });
+
 app.use('/api/auth/*', async (c, next) => {
   if (isAuthAction(c.req.path)) {
     // Auth.js throws UnknownAction on GET /api/auth/signin/<provider> when
