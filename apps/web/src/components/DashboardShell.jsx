@@ -45,7 +45,6 @@ const NAV = [
   { label: "Purchases", icon: ClipboardList, href: "/purchases", roles: ["owner", "manager"] },
   { label: "Expenses", icon: Wallet, href: "/expenses", roles: ["owner", "manager"] },
   { label: "Analytics", icon: BarChart3, href: "/analytics", roles: ["owner", "manager"] },
-  { label: "AI Assistant", icon: Sparkles, href: "/ai", roles: ["owner", "manager"] },
   { label: "Team", icon: Users, href: "/team", roles: ["owner"] },
   { label: "Audit Log", icon: ShieldCheck, href: "/audit-log", roles: ["owner"] },
   { label: "Settings", icon: Settings, href: "/settings" },
@@ -392,16 +391,7 @@ export default function DashboardShell({
 
               <div className="flex-1" />
 
-              {role !== "cashier" ? (
-                <Link
-                  to="/ai"
-                  className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl t-elev hover:bg-[var(--bg-input-focus)] t-text"
-                  title="AI Assistant"
-                >
-                  <Sparkles className="w-4 h-4 t-accent-text" />
-                  <span className="text-xs font-semibold">AI</span>
-                </Link>
-              ) : null}
+              {/* Removed AI Assistant link */}
               <Link
                 to="/billing"
                 className="relative flex items-center gap-2 px-3 py-1.5 rounded-xl t-elev hover:bg-[var(--bg-input-focus)] t-text"

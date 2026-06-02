@@ -7,6 +7,7 @@ const RECEIPT_FROM = "MDX Billing Receipts <receipt@mdx-billing.app>";
 
 function shopFromSale(sale) {
   return {
+    shop_id: sale.shop_id,
     shop_name: sale.shop_name,
     shop_description: sale.shop_description,
     shop_logo: sale.shop_logo,
