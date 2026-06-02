@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   BackHandler,
@@ -13,6 +13,12 @@ import { StatusBar } from "expo-status-bar";
 import { WebView } from "react-native-webview";
 
 const WEB_APP_URL = process.env.EXPO_PUBLIC_BASE_URL || "https://mdx-billing.app";
+const WEB_VIEW_SOURCE = {
+  uri: WEB_APP_URL,
+  headers: WEB_APP_URL.includes(".ngrok-free.dev")
+    ? { "ngrok-skip-browser-warning": "1" }
+    : undefined,
+};
 
 export default function Index() {
   const webViewRef = useRef(null);
@@ -42,7 +48,7 @@ export default function Index() {
       <StatusBar style="light" backgroundColor="#0f0c29" />
       <WebView
         ref={webViewRef}
-        source={{ uri: WEB_APP_URL }}
+        source={WEB_VIEW_SOURCE}
         style={styles.webView}
         originWhitelist={["*"]}
         javaScriptEnabled
@@ -51,6 +57,7 @@ export default function Index() {
         thirdPartyCookiesEnabled
         allowsBackForwardNavigationGestures
         setSupportMultipleWindows={false}
+        userAgent="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36"
         onLoadStart={() => setIsLoading(true)}
         onLoadEnd={() => setIsLoading(false)}
         onNavigationStateChange={(navState) => setCanGoBack(navState.canGoBack)}

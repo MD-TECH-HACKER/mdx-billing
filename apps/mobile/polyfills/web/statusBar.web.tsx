@@ -46,7 +46,7 @@ export const StatusBar = React.forwardRef<any, StatusBarProps>(
       postColorToParent(styleToBarColor(style, colorScheme));
     }, [style, colorScheme]);
 
-    return <ExpoStatusBar ref={ref} style={style} {...props} />;
+    return <ExpoStatusBar style={style} {...props} />;
   }
 );
 

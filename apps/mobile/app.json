@@ -26,9 +26,6 @@
       ],
       "package": "app.mdx.billing"
     },
-    "react-native-google-mobile-ads": {
-      "android_app_id": "ca-app-pub-3940256099942544~3347511713"
-    },
     "plugins": [
       [
         "expo-router",
@@ -63,6 +60,13 @@
       "expo-font",
       "expo-secure-store",
       "expo-web-browser",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
+          "iosAppId": "ca-app-pub-3940256099942544~3347511713"
+        }
+      ],
       "./expo-plugins/withGradleProperties.js"
     ],
     "web": {

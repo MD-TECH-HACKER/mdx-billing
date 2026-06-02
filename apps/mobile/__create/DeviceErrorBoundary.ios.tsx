@@ -95,7 +95,7 @@ export class DeviceErrorBoundaryWrapper extends React.Component<
       );
     }
     reportErrorToRemote({ error })
-      .then(({ success, error: fetchError }) => {
+      .then(({ success }) => {
         this.setState({ hasError: true, sentLogs: success });
       })
       .catch((reportError) => {
