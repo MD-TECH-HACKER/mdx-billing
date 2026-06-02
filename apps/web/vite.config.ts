@@ -19,10 +19,6 @@ export default defineConfig({
   optimizeDeps: {
     include: ['fast-glob', 'lucide-react'],
     exclude: [
-      '@hono/auth-js',
-      '@hono/auth-js/react',
-      '@auth/create/react',
-      '@auth/create',
       '@auth/core',
       'hono/context-storage',
       '@auth/core/errors',
