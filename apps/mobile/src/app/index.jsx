@@ -135,23 +135,7 @@ function isGoogleAuthUrl(url) {
   }
 }
 
-function createMobileGoogleAuthUrl(url) {
-  try {
-    const requested = new URL(url);
-    const returnTo = normalizeReturnTo(requested.searchParams.get("callbackUrl"));
-    const bridgeUrl = new URL("/api/auth/mobile-success", WEB_APP_URL);
-    bridgeUrl.searchParams.set("returnTo", returnTo);
 
-    const signInUrl = new URL("/account/signin", WEB_APP_URL);
-    signInUrl.searchParams.set("auto", "google");
-    signInUrl.searchParams.set("callbackUrl", bridgeUrl.toString());
-    return signInUrl.toString();
-  } catch {
-    // Fallback: build a default auth URL
-    const bridgeUrl = `${WEB_APP_URL}/api/auth/mobile-success?returnTo=%2F`;
-    return `${WEB_APP_URL}/account/signin?auto=google&callbackUrl=${encodeURIComponent(bridgeUrl)}`;
-  }
-}
 
 function getQueryValue(queryParams, key) {
   const value = queryParams?.[key];
@@ -287,24 +271,29 @@ export default function Index() {
   }, [completeMobileGoogleAuth]);
 
   /**
-   * Opens Google sign-in in the ACTUAL Chrome / default browser app.
-   * Uses Linking.openURL — NOT Chrome Custom Tab.
-   * After Google auth completes, the server redirects to mdxbilling://auth
-   * which brings the user back to this app via the deep link listener above.
+   * Opens Google sign-in in a Chrome Custom Tab.
+   * Uses WebBrowser.openAuthSessionAsync for a seamless, in-app feel.
+   * We hit a special seamless endpoint that immediately fires the OAuth POST
+   * so the user never sees a second login button.
    */
-  const openGoogleInExternalBrowser = useCallback(async (url) => {
+  const openGoogleInExternalBrowser = useCallback(async () => {
     if (googleAuthInProgress.current) return;
     googleAuthInProgress.current = true;
 
     try {
-      const authUrl = createMobileGoogleAuthUrl(url || `${WEB_APP_URL}/api/auth/signin/google?callbackUrl=/`);
-      // Opens the ACTUAL Chrome browser / default browser on the phone
-      await Linking.openURL(authUrl);
+      const authUrl = `${WEB_APP_URL}/account/mobile-login?callbackUrl=mdxbilling://auth`;
+      
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, MOBILE_AUTH_CALLBACK);
+      
+      if (result.type === 'success' && result.url) {
+        completeMobileGoogleAuth(result.url);
+      }
+      googleAuthInProgress.current = false;
     } catch (err) {
       setError(err?.message || "Could not open Google sign-in");
       googleAuthInProgress.current = false;
     }
-  }, []);
+  }, [completeMobileGoogleAuth]);
 
   /** Handle messages from injected JavaScript (Layer 1: click interception) */
   const handleWebViewMessage = useCallback((event) => {
