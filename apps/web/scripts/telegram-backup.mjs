@@ -136,10 +136,12 @@ async function collectFiles(stageDir) {
     path.join(appDir, "uploads"),
     path.join(rootDir, "uploads"),
     path.join(appDir, "public", "logo.png"),
+    path.join(appDir, "public", "logo-orange.png"),
     path.join(appDir, "public", "favicon.ico"),
     path.join(appDir, "public", "apple-touch-icon.png"),
     path.join(rootDir, "apps", "mobile", "assets", "images", "icon.png"),
     path.join(rootDir, "apps", "mobile", "assets", "images", "adaptive-icon.png"),
+    path.join(rootDir, "apps", "mobile", "assets", "images", "splash-icon.png"),
   ];
 
   for (const candidate of candidates) {
@@ -171,9 +173,9 @@ async function createArchive(stageDir, archivePath) {
   }
 }
 
-async function sendTelegram(archivePath, caption) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
+async function sendTelegram(archivePath, caption, config) {
+  const token = config.botToken || process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = config.chatId || process.env.TELEGRAM_CHAT_ID;
   if (!token || !chatId) {
     throw new Error("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required.");
   }
@@ -202,18 +204,25 @@ async function readBackupConfig() {
     const connection = await mysql.createConnection(databaseUrl());
     try {
       const [rows] = await connection.query(
-        "SELECT setting_key, setting_value FROM platform_settings WHERE setting_key IN ('auto_backup', 'backup_interval_hours')",
+        "SELECT setting_key, setting_value FROM platform_settings WHERE setting_key IN ('auto_backup', 'backup_interval_hours', 'telegram_bot_token', 'telegram_chat_id')",
       );
       const map = Object.fromEntries(rows.map((row) => [row.setting_key, row.setting_value]));
       return {
         autoBackup: map.auto_backup !== "false",
         intervalHours: Math.max(1, Math.min(168, Number(map.backup_interval_hours || fallbackInterval) || fallbackInterval)),
+        botToken: map.telegram_bot_token || process.env.TELEGRAM_BOT_TOKEN || "",
+        chatId: map.telegram_chat_id || process.env.TELEGRAM_CHAT_ID || "",
       };
     } finally {
       await connection.end();
     }
   } catch {
-    return { autoBackup: true, intervalHours: fallbackInterval };
+    return {
+      autoBackup: true,
+      intervalHours: fallbackInterval,
+      botToken: process.env.TELEGRAM_BOT_TOKEN || "",
+      chatId: process.env.TELEGRAM_CHAT_ID || "",
+    };
   }
 }
 
@@ -237,7 +246,8 @@ export async function runBackup() {
     const archivePath = await createArchive(stageDir, archiveTarget);
     const stat = await fs.stat(archivePath);
     const caption = `MDX Billing backup ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`;
-    await sendTelegram(archivePath, caption);
+    const config = await readBackupConfig();
+    await sendTelegram(archivePath, caption, config);
     await fs.rm(stageDir, { recursive: true, force: true });
 
     const finalStatus = {

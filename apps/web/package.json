@@ -6,7 +6,8 @@
 		"dev": "react-router dev",
 		"build": "react-router build && node scripts/obfuscate.cjs",
 		"build:fast": "react-router build",
-		"start": "node --env-file=.env build/server/index.js",
+		"start": "node --env-file=.env scripts/start-production.mjs",
+		"start:web": "node --env-file=.env build/server/index.js",
 		"backup:telegram": "node --env-file=.env scripts/telegram-backup.mjs",
 		"backup:telegram:watch": "node --env-file=.env scripts/telegram-backup.mjs --watch",
 		"typecheck": "react-router typegen && tsc --noEmit"
@@ -31,6 +32,7 @@
 		"@types/babel__core": "^7.20.5",
 		"@vis.gl/react-google-maps": "^0.8.3",
 		"@vitejs/plugin-basic-ssl": "^2.3.0",
+		"adm-zip": "^0.5.16",
 		"argon2": "^0.43.0",
 		"classnames": "^2.5.1",
 		"clean-stack": "^5.2.0",

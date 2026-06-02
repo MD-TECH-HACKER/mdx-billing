@@ -56,6 +56,8 @@ const SETTINGS = {
   enforce2FA: { key: "enforce_2fa", type: "boolean", defaultValue: false },
   autoBackup: { key: "auto_backup", type: "boolean", defaultValue: true },
   backupIntervalHours: { key: "backup_interval_hours", type: "number", defaultValue: 5 },
+  telegramBotToken: { key: "telegram_bot_token", type: "secret", defaultValue: "" },
+  telegramChatId: { key: "telegram_chat_id", type: "secret", defaultValue: "" },
 };
 
 const KEY_TO_SETTING = Object.fromEntries(
@@ -90,6 +92,7 @@ function parseSetting(value, config) {
   }
   if (config.type === "currency") return normalizeCurrency(value, config.defaultValue);
   if (config.type === "timezone") return normalizeTimezone(value, config.defaultValue);
+  if (config.type === "secret") return String(value).trim();
   return String(value).trim().slice(0, 300) || config.defaultValue;
 }
 
@@ -136,6 +139,7 @@ export async function savePlatformSettings(input = {}) {
   for (const [settingName, value] of Object.entries(input)) {
     const config = SETTINGS[settingName];
     if (!config) continue;
+    if (config.type === "secret" && !String(value || "").trim()) continue;
     const settingValue = serializeSetting(value, config);
     await sql`
       INSERT INTO platform_settings (setting_key, setting_value)
@@ -146,6 +150,27 @@ export async function savePlatformSettings(input = {}) {
   }
 
   return { ...(await readPlatformSettings()), ...saved };
+}
+
+export async function readTelegramBackupConfig() {
+  const settings = await readPlatformSettings();
+  return {
+    botToken: settings.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN || "",
+    chatId: settings.telegramChatId || process.env.TELEGRAM_CHAT_ID || "",
+    tokenSource: settings.telegramBotToken ? "database" : process.env.TELEGRAM_BOT_TOKEN ? "env" : null,
+    chatSource: settings.telegramChatId ? "database" : process.env.TELEGRAM_CHAT_ID ? "env" : null,
+    intervalHours: settings.backupIntervalHours || Number(process.env.BACKUP_INTERVAL_HOURS || 5) || 5,
+    autoBackup: settings.autoBackup,
+  };
+}
+
+export function adminPlatformSettings(settings) {
+  const sanitized = { ...settings };
+  delete sanitized.telegramBotToken;
+  delete sanitized.telegramChatId;
+  sanitized.telegramBotTokenConfigured = Boolean(settings.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN);
+  sanitized.telegramChatIdConfigured = Boolean(settings.telegramChatId || process.env.TELEGRAM_CHAT_ID);
+  return sanitized;
 }
 
 export function publicPlatformSettings(settings) {

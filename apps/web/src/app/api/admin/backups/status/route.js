@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { readPlatformSettings } from "@/app/api/utils/platformSettings";
+import { readTelegramBackupConfig } from "@/app/api/utils/platformSettings";
 import { auth } from "@/auth";
 import { isAdmin } from "@/utils/adminAccess";
 
@@ -27,12 +27,14 @@ export async function GET() {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const settings = await readPlatformSettings();
+    const config = await readTelegramBackupConfig();
     return Response.json({
-      telegramConfigured: Boolean(process.env.TELEGRAM_BOT_TOKEN),
-      chatConfigured: Boolean(process.env.TELEGRAM_CHAT_ID),
-      intervalHours: settings.backupIntervalHours || Number(process.env.BACKUP_INTERVAL_HOURS || 5) || 5,
-      autoBackup: settings.autoBackup,
+      telegramConfigured: Boolean(config.botToken),
+      chatConfigured: Boolean(config.chatId),
+      tokenSource: config.tokenSource,
+      chatSource: config.chatSource,
+      intervalHours: config.intervalHours,
+      autoBackup: config.autoBackup,
       lastRun: await readLastRun(),
     });
   } catch (error) {

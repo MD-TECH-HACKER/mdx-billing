@@ -1,6 +1,6 @@
-import sql from "@/app/api/utils/sql";
 import { auth } from "@/auth";
 import { isAdmin } from "@/utils/adminAccess";
+import { createFullBackupZip, exportDatabaseData } from "@/app/api/utils/systemBackup";
 
 export async function POST(request) {
   try {
@@ -9,36 +9,23 @@ export async function POST(request) {
       return Response.json({ error: "Forbidden: Admin access required" }, { status: 403 });
     }
 
-    const body = await request.json();
-    const type = body.type || 'full'; // 'users', 'shops', 'products', 'sales', 'full'
-    
-    let data = {};
-
-    if (type === 'users' || type === 'full') {
-      data.users = await sql`SELECT * FROM auth_users`;
-    }
-    if (type === 'shops' || type === 'full') {
-      data.shops = await sql`SELECT * FROM shops`;
-    }
-    if (type === 'products' || type === 'full') {
-      data.products = await sql`SELECT * FROM products`; 
-    }
-    if (type === 'sales' || type === 'full') {
-      data.sales = await sql`SELECT * FROM sales`; 
-    }
-    if (type === 'full') {
-      data.customers = await sql`SELECT * FROM customers`;
-      data.suppliers = await sql`SELECT * FROM suppliers`;
-      data.categories = await sql`SELECT * FROM categories`;
-      data.expenses = await sql`SELECT * FROM expenses`;
-      data.purchases = await sql`SELECT * FROM purchases`;
-      data.payments = await sql`SELECT * FROM payments`;
-      data.estimates = await sql`SELECT * FROM estimates`;
-    }
-
-    // Log the export action (if audit log table exists, we could write to it, but standard logging works)
+    const body = await request.json().catch(() => ({}));
+    const type = body.type || "full";
     console.log(`[ADMIN EXPORT] User ${session.user.email} exported ${type} data.`);
 
+    if (type === "full") {
+      const zip = await createFullBackupZip();
+      const fileName = `mdx_billing_full_backup_${Date.now()}.zip`;
+      return new Response(zip, {
+        headers: {
+          "Content-Type": "application/zip",
+          "Content-Disposition": `attachment; filename="${fileName}"`,
+          "X-MDX-Export-Type": "zip",
+        },
+      });
+    }
+
+    const data = await exportDatabaseData(type);
     return Response.json({ success: true, data, timestamp: new Date().toISOString() });
   } catch (err) {
     console.error("POST /api/admin/system/export error:", err);

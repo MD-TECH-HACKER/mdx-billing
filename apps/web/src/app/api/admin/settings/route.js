@@ -1,4 +1,8 @@
-import { readPlatformSettings, savePlatformSettings } from "@/app/api/utils/platformSettings";
+import {
+  adminPlatformSettings,
+  readPlatformSettings,
+  savePlatformSettings,
+} from "@/app/api/utils/platformSettings";
 import { auth } from "@/auth";
 import { isAdmin } from "@/utils/adminAccess";
 
@@ -9,7 +13,7 @@ export async function GET() {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    return Response.json({ settings: await readPlatformSettings() });
+    return Response.json({ settings: adminPlatformSettings(await readPlatformSettings()) });
   } catch (error) {
     console.error("GET /api/admin/settings", error);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
@@ -25,7 +29,7 @@ export async function POST(request) {
 
     const body = await request.json().catch(() => ({}));
     const settings = await savePlatformSettings(body.settings || {});
-    return Response.json({ settings });
+    return Response.json({ settings: adminPlatformSettings(settings) });
   } catch (error) {
     console.error("POST /api/admin/settings", error);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });

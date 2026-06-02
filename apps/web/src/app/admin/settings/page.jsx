@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { CURRENCIES } from "@/utils/currency";
 import { TIMEZONE_OPTIONS } from "@/utils/timezones";
+import { Select } from "@/components/ui";
 
 const DEFAULT_SETTINGS = {
   platformName: "MDX Billing App",
@@ -27,6 +28,10 @@ const DEFAULT_SETTINGS = {
   enforce2FA: false,
   autoBackup: true,
   backupIntervalHours: 5,
+  telegramBotToken: "",
+  telegramChatId: "",
+  telegramBotTokenConfigured: false,
+  telegramChatIdConfigured: false,
 };
 
 const fieldStyle = {
@@ -64,11 +69,11 @@ const SettingsSection = ({ icon: Icon, title, description, children, color = "#F
   </div>
 );
 
-const InputGroup = ({ label, description, type = "text", value, onChange, min, max }) => (
+const InputGroup = ({ label, description, type = "text", value, onChange, min, max, placeholder, autoComplete = "off" }) => (
   <div style={{ marginBottom: "20px" }}>
     <label style={{ display: "block", margin: "0 0 6px", fontSize: "14px", fontWeight: 600, color: "var(--text)" }}>{label}</label>
     {description && <p style={{ margin: "0 0 10px", fontSize: "13px", color: "var(--text-dim)" }}>{description}</p>}
-    <input type={type} min={min} max={max} value={value ?? ""} onChange={onChange} style={fieldStyle} />
+    <input type={type} min={min} max={max} value={value ?? ""} onChange={onChange} placeholder={placeholder} autoComplete={autoComplete} style={fieldStyle} />
   </div>
 );
 
@@ -76,13 +81,9 @@ const SelectGroup = ({ label, description, value, onChange, options }) => (
   <div style={{ marginBottom: "20px" }}>
     <label style={{ display: "block", margin: "0 0 6px", fontSize: "14px", fontWeight: 600, color: "var(--text)" }}>{label}</label>
     {description && <p style={{ margin: "0 0 10px", fontSize: "13px", color: "var(--text-dim)" }}>{description}</p>}
-    <select value={value} onChange={onChange} style={fieldStyle}>
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
+    <div style={{ maxWidth: "500px" }}>
+      <Select value={value} onChange={onChange} options={options} />
+    </div>
   </div>
 );
 
@@ -242,8 +243,8 @@ export default function AdminSettings() {
 
       <SettingsSection icon={Globe} title="Localization & Formats" description="Set regional defaults for new shops." color="#F59E0B">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "20px" }}>
-          <SelectGroup label="Default Currency" value={settings.currencyDefault || "INR"} onChange={(event) => handleChange("currencyDefault", event.target.value)} options={currencyOptions} />
-          <SelectGroup label="Default Timezone" value={settings.timezoneDefault || "Asia/Kolkata"} onChange={(event) => handleChange("timezoneDefault", event.target.value)} options={TIMEZONE_OPTIONS} />
+          <SelectGroup label="Default Currency" value={settings.currencyDefault || "INR"} onChange={(value) => handleChange("currencyDefault", value)} options={currencyOptions} />
+          <SelectGroup label="Default Timezone" value={settings.timezoneDefault || "Asia/Kolkata"} onChange={(value) => handleChange("timezoneDefault", value)} options={TIMEZONE_OPTIONS} />
         </div>
       </SettingsSection>
 
@@ -257,9 +258,26 @@ export default function AdminSettings() {
       </SettingsSection>
 
       <SettingsSection icon={DatabaseBackup} title="Telegram Backups" description="Backup archive status and delivery configuration." color="#0EA5E9">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "20px", marginBottom: "20px" }}>
+          <InputGroup
+            label="Telegram Bot Token"
+            type="password"
+            value={settings.telegramBotToken || ""}
+            placeholder={settings.telegramBotTokenConfigured ? "Configured - enter a new token to replace" : "Paste bot token"}
+            description="Saved in platform settings. It is never returned to the browser after saving."
+            onChange={(event) => handleChange("telegramBotToken", event.target.value)}
+          />
+          <InputGroup
+            label="Telegram Chat ID"
+            value={settings.telegramChatId || ""}
+            placeholder={settings.telegramChatIdConfigured ? "Configured - enter a new chat id to replace" : "Paste chat id"}
+            description="Telegram user, group, or channel chat id that receives backups."
+            onChange={(event) => handleChange("telegramChatId", event.target.value)}
+          />
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
-          <BackupMetric label="Telegram Bot" value={backup?.telegramConfigured ? "Configured" : "Missing TELEGRAM_BOT_TOKEN"} />
-          <BackupMetric label="Telegram Chat" value={backup?.chatConfigured ? "Configured" : "Missing TELEGRAM_CHAT_ID"} />
+          <BackupMetric label="Telegram Bot" value={backup?.telegramConfigured ? `Configured (${backup.tokenSource || "saved"})` : "Not configured"} />
+          <BackupMetric label="Telegram Chat" value={backup?.chatConfigured ? `Configured (${backup.chatSource || "saved"})` : "Not configured"} />
           <BackupMetric label="Interval" value={`${backup?.intervalHours || settings.backupIntervalHours || 5} hours`} />
           <BackupMetric label="Status" value={backupStatus} />
           <BackupMetric label="Last Run" value={backup?.lastRun?.finishedAt || backup?.lastRun?.startedAt} />
