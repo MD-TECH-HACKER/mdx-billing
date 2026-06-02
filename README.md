@@ -64,7 +64,7 @@ releases/apk/
 
 | Products | Settings |
 |---|---|
-| ![Products](screenshots/products.png) | ![Receipt](screenshots/settings.png) |
+| ![Products](screenshots/products.png) | ![Receipt](screenshots/receipt.png) |
 
 Replace these images with real app screenshots before public release.
 
