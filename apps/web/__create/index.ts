@@ -112,6 +112,28 @@ if (process.env.AUTH_SECRET) {
           return session;
         },
       },
+      cookies: {
+        pkceCodeVerifier: {
+          name: '__Secure-authjs.pkce.code_verifier',
+          options: { httpOnly: true, sameSite: 'none', path: '/', secure: true, maxAge: 900 }
+        },
+        state: {
+          name: '__Secure-authjs.state',
+          options: { httpOnly: true, sameSite: 'none', path: '/', secure: true, maxAge: 900 }
+        },
+        csrfToken: {
+          name: '__Host-authjs.csrf-token',
+          options: { httpOnly: true, sameSite: 'none', path: '/', secure: true }
+        },
+        sessionToken: {
+          name: '__Secure-authjs.session-token',
+          options: { httpOnly: true, sameSite: 'none', path: '/', secure: true }
+        },
+        callbackUrl: {
+          name: '__Secure-authjs.callback-url',
+          options: { httpOnly: true, sameSite: 'none', path: '/', secure: true }
+        }
+      },
       providers: [
         // Google OAuth
         ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
