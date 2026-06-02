@@ -15,6 +15,11 @@ import {
 import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
 import { WebView } from "react-native-webview";
+import {
+  buildMobileLoginUrl,
+  getReturnToFromGoogleAuthUrl,
+  normalizeReturnTo,
+} from "../utils/mobileGoogleAuth";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -53,9 +58,15 @@ const INJECTED_GOOGLE_INTERCEPT_JS = `
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
+        var targetUrl = href || action || window.location.href;
+        var returnTo = window.location.pathname + window.location.search + window.location.hash;
+        try {
+          var parsedTarget = new URL(targetUrl, window.location.origin);
+          returnTo = parsedTarget.searchParams.get('callbackUrl') || returnTo;
+        } catch (_) {}
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'GOOGLE_SIGN_IN',
-          url: window.location.origin + '/api/auth/signin/google?callbackUrl=' + encodeURIComponent(window.location.pathname || '/')
+          returnTo: returnTo
         }));
         return false;
       }
@@ -72,9 +83,14 @@ const INJECTED_GOOGLE_INTERCEPT_JS = `
       url.indexOf('/api/auth/signin/google') !== -1 ||
       url.indexOf('accounts.google.com') !== -1
     )) {
+      var returnTo = window.location.pathname + window.location.search + window.location.hash;
+      try {
+        var parsedTarget = new URL(url, window.location.origin);
+        returnTo = parsedTarget.searchParams.get('callbackUrl') || returnTo;
+      } catch (_) {}
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'GOOGLE_SIGN_IN',
-        url: window.location.origin + '/api/auth/signin/google?callbackUrl=' + encodeURIComponent(window.location.pathname || '/')
+        returnTo: returnTo
       }));
       return true;
     }
@@ -97,9 +113,14 @@ const INJECTED_GOOGLE_INTERCEPT_JS = `
     if (typeof action === 'string' && action.indexOf('/api/auth/signin/google') !== -1) {
       e.preventDefault();
       e.stopPropagation();
+      var returnTo = window.location.pathname + window.location.search + window.location.hash;
+      try {
+        var parsedAction = new URL(action, window.location.origin);
+        returnTo = parsedAction.searchParams.get('callbackUrl') || returnTo;
+      } catch (_) {}
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'GOOGLE_SIGN_IN',
-        url: action
+        returnTo: returnTo
       }));
       return false;
     }
@@ -107,18 +128,6 @@ const INJECTED_GOOGLE_INTERCEPT_JS = `
 })();
 true;
 `;
-
-function normalizeReturnTo(callbackUrl) {
-  if (!callbackUrl) return "/";
-  try {
-    if (callbackUrl.startsWith("/")) return callbackUrl.startsWith("//") ? "/" : callbackUrl;
-    const parsed = new URL(callbackUrl);
-    const appOrigin = new URL(WEB_APP_URL).origin;
-    return parsed.origin === appOrigin ? `${parsed.pathname}${parsed.search}${parsed.hash}` : "/";
-  } catch {
-    return "/";
-  }
-}
 
 /** Returns true if the URL is our Google sign-in endpoint OR Google's OAuth page */
 function isGoogleAuthUrl(url) {
@@ -229,7 +238,7 @@ export default function Index() {
   const completeMobileGoogleAuth = useCallback((callbackUrl) => {
     const parsed = Linking.parse(callbackUrl);
     const token = getQueryValue(parsed.queryParams, "token");
-    const returnTo = normalizeReturnTo(getQueryValue(parsed.queryParams, "returnTo"));
+    const returnTo = normalizeReturnTo(getQueryValue(parsed.queryParams, "returnTo"), WEB_APP_URL);
     if (!token) {
       setError("Google sign-in did not return a session. Please try again.");
       return;
@@ -276,12 +285,12 @@ export default function Index() {
    * We hit a special seamless endpoint that immediately fires the OAuth POST
    * so the user never sees a second login button.
    */
-  const openGoogleInExternalBrowser = useCallback(async () => {
+  const openGoogleInExternalBrowser = useCallback(async (returnTo = "/") => {
     if (googleAuthInProgress.current) return;
     googleAuthInProgress.current = true;
 
     try {
-      const authUrl = `${WEB_APP_URL}/account/mobile-login?callbackUrl=mdxbilling://auth`;
+      const authUrl = buildMobileLoginUrl(WEB_APP_URL, returnTo);
       
       const result = await WebBrowser.openAuthSessionAsync(authUrl, MOBILE_AUTH_CALLBACK);
       
@@ -300,7 +309,7 @@ export default function Index() {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === "GOOGLE_SIGN_IN") {
-        openGoogleInExternalBrowser(data.url);
+        openGoogleInExternalBrowser(data.returnTo || "/");
       }
     } catch {
       // Not our message, ignore
@@ -326,7 +335,7 @@ export default function Index() {
         webViewRef.current.goBack();
       }
       // Open in external browser
-      openGoogleInExternalBrowser(null);
+      openGoogleInExternalBrowser("/");
     }
   }, [openGoogleInExternalBrowser]);
 
@@ -357,7 +366,7 @@ export default function Index() {
         /* Layer 2: Catch Google URLs that slip past injected JS */
         onShouldStartLoadWithRequest={(request) => {
           if (isGoogleAuthUrl(request.url)) {
-            openGoogleInExternalBrowser(request.url);
+            openGoogleInExternalBrowser(getReturnToFromGoogleAuthUrl(request.url, WEB_APP_URL));
             return false;
           }
           return true;

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import useAuth from "@/utils/useAuth";
+import { buildMobileSuccessCallback } from "@/utils/mobileAuthCallback";
 
 export default function MobileLogin() {
   const { signInWithGoogle } = useAuth();
@@ -7,7 +8,8 @@ export default function MobileLogin() {
   useEffect(() => {
     let active = true;
     const params = new URLSearchParams(window.location.search);
-    const cb = params.get("callbackUrl") || "mdxbilling://auth";
+    const returnTo = params.get("returnTo") || "/";
+    const cb = buildMobileSuccessCallback(returnTo);
     
     // Trigger Google Sign-in immediately
     signInWithGoogle({

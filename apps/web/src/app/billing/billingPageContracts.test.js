@@ -9,7 +9,7 @@ describe("billing page contracts", () => {
   test("billing lines stay synced with the product cart", () => {
     expect(pageSource).toContain("function cartSignature(cart)");
     expect(pageSource).toContain("const syncedCartSignature = useRef");
-    expect(pageSource).toContain("setItems(cart.map(productLine))");
+    expect(pageSource).toMatch(/setItems\(\s*cart\.map\(\s*(?:productLine|item\s*=>\s*productLine\(item\))\s*\)\s*\)/);
   });
 
   test("billing product lines preserve cart snapshot prices before product queries finish", () => {

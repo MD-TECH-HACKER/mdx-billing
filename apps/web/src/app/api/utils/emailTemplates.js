@@ -103,7 +103,7 @@ export function teamInviteEmailTemplate({ shop, invitedName, role, inviterName, 
       <td style="padding: 32px 24px;">
         <div style="text-align: center;">
           <img src="${logo}" alt="Shop Logo" width="64" height="64" style="border-radius: 8px; margin-bottom: 24px; border: 1px solid ${BORDER}; background: #fff;" />
-          <h1 style="margin: 0 0 16px 0; font-size: 24px; color: ${TEXT_LIGHT}; font-weight: 600;">You're invited!</h1>
+          <h1 style="margin: 0 0 16px 0; font-size: 24px; color: ${TEXT_LIGHT}; font-weight: 600;">You are invited to join ${escapeHtml(BRAND)}</h1>
           <p style="margin: 0 0 32px 0; font-size: 15px; color: ${TEXT_MUTED}; line-height: 1.6;">
             Hi ${invitee},<br>
             <strong style="color: ${TEXT_LIGHT};">${text(inviterName, "The shop owner")}</strong> has invited you to join <strong style="color: ${TEXT_LIGHT};">${shopName}</strong> as a <strong style="color: ${TEXT_LIGHT};">${escapeHtml(roleText)}</strong>.
@@ -211,7 +211,7 @@ export function receiptEmailTemplate({ sale, shop, receiptUrl, downloadUrl }) {
     <!-- Content Body -->
     <tr>
       <td style="padding: 32px 24px;">
-        <h2 style="margin: 0 0 8px 0; font-size: 18px; color: ${TEXT_LIGHT}; font-weight: 600;">Hi there,</h2>
+        <h2 style="margin: 0 0 8px 0; font-size: 18px; color: ${TEXT_LIGHT}; font-weight: 600;">Your receipt is ready</h2>
         <p style="margin: 0 0 24px 0; font-size: 14px; color: ${TEXT_MUTED};">Thank you for your purchase from ${shopName}.</p>
 
         <!-- Receipt Status Tracker (Flipkart Style) -->
@@ -222,7 +222,7 @@ export function receiptEmailTemplate({ sale, shop, receiptUrl, downloadUrl }) {
             </td>
             <td style="vertical-align: top;">
               <div style="font-size: 16px; font-weight: 600; color: ${TEXT_LIGHT};">${shopName}</div>
-              <div style="font-size: 12px; color: ${TEXT_MUTED}; margin-top: 4px;">Receipt: #${text(sale?.receipt_number)}</div>
+              <div style="font-size: 12px; color: ${TEXT_MUTED}; margin-top: 4px;">Receipt #${text(sale?.receipt_number)}</div>
               <div style="font-size: 12px; color: ${TEXT_MUTED}; margin-top: 2px;">Date: ${escapeHtml(dateTime(sale?.created_at))}</div>
             </td>
           </tr>
@@ -275,7 +275,7 @@ export function receiptEmailTemplate({ sale, shop, receiptUrl, downloadUrl }) {
         <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-top: 32px;">
           <tr>
             <td align="center">
-              <a href="${escapeHtml(receiptUrl)}" style="display: inline-block; background-color: ${HEADER_BG}; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 32px; border-radius: 2px;">View Full Receipt</a>
+              <a href="${escapeHtml(receiptUrl)}" style="display: inline-block; background-color: ${HEADER_BG}; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 32px; border-radius: 2px;">View Receipt</a>
               ${downloadUrl ? `<div style="margin-top: 16px;"><a href="${escapeHtml(downloadUrl)}" style="color: ${HEADER_BG}; text-decoration: none; font-size: 13px; font-weight: 500;">Download PDF</a></div>` : ""}
             </td>
           </tr>
