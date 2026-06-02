@@ -64,7 +64,7 @@ releases/apk/
 
 | Products | Receipt |
 |---|---|
-| ![Products](screenshots/products.png) | ![Receipt](screenshots/receipt.png) |
+| ![Products](screenshots/products.png) | ![Receipt](screenshots/receipts.png) |
 
 
 
