@@ -284,6 +284,18 @@ if (process.env.AUTH_SECRET) {
 
 app.use('/api/auth/*', async (c, next) => {
   if (isAuthAction(c.req.path)) {
+    // Auth.js throws UnknownAction on GET /api/auth/signin/<provider> when
+    // custom pages.signIn is configured. Intercept these and redirect to our
+    // custom sign-in page. POST requests (from the signIn() client) still
+    // pass through to authHandler which handles the actual OAuth flow.
+    if (c.req.method === 'GET') {
+      const signinMatch = c.req.path.match(/^\/api\/auth\/signin\/(.+)/);
+      if (signinMatch) {
+        const url = new URL(c.req.url);
+        const callbackUrl = url.searchParams.get('callbackUrl') || '/';
+        return c.redirect(`/account/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+      }
+    }
     return authHandler()(c, next);
   }
   return next();
