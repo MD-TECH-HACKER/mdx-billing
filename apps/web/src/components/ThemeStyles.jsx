@@ -245,6 +245,46 @@ export default function ThemeStyles() {
         background: var(--bg-page);
       }
 
+      /* Public welcome page is always light so the APK landing screen stays readable. */
+      .welcome-page {
+        background:
+          radial-gradient(circle at top left, rgba(var(--accent-rgb), 0.14), transparent 34rem),
+          linear-gradient(180deg, #ffffff 0%, #f8fafc 44%, #eef2ff 100%);
+        color: #111827;
+      }
+      .welcome-page .prism-bg {
+        background:
+          radial-gradient(circle at top right, rgba(99, 102, 241, 0.12), transparent 28rem),
+          linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      }
+      .welcome-page .t-text {
+        color: #111827;
+      }
+      .welcome-page .t-muted {
+        color: #4b5563;
+      }
+      .welcome-page .t-dim {
+        color: #64748b;
+      }
+      .welcome-page .t-dim2 {
+        color: #94a3b8;
+      }
+      .welcome-page .t-elev,
+      .welcome-page .t-card {
+        background: rgba(255, 255, 255, 0.92);
+        border-color: rgba(203, 213, 225, 0.95);
+        box-shadow: 0 18px 45px -30px rgba(15, 23, 42, 0.35);
+      }
+      .welcome-page .t-btn {
+        background: #ffffff;
+        color: #111827;
+        border-color: #dbe3ef;
+        box-shadow: 0 12px 28px -24px rgba(15, 23, 42, 0.55);
+      }
+      .welcome-page .t-btn:hover {
+        background: #f8fafc;
+      }
+
       /* skeleton */
       @keyframes mdx-pulse {
         0%, 100% { opacity: 0.5; }

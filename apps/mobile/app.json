@@ -3,9 +3,10 @@
     "name": "MDX Billing",
     "slug": "mdx-billing",
     "version": "1.0.0",
+    "scheme": "mdxbilling",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,

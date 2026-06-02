@@ -1,12 +1,5 @@
-TypeError: Body is unusable: Body has already been read
-TypeError: Body is unusable: Body has already been read
-    at consumeBody (node:internal/deps/undici/undici:6961:31)
-    at _Response.json (node:internal/deps/undici/undici:6912:18)
-    at getNativeModuleVersionsAsync (C:\Users\MDX-SERVER\Videos\MDX BILLING APP\apps\mobile\node_modules\expo\node_modules\@expo\cli\src\api\getNativeModuleVersions.ts:47:31)
-    at getVersionedNativeModulesAsync (C:\Users\MDX-SERVER\Videos\MDX BILLING APP\apps\mobile\node_modules\expo\node_modules\@expo\cli\src\start\doctor\dependencies\bundledNativeModules.ts:33:14)
-    at getCombinedKnownVersionsAsync (C:\Users\MDX-SERVER\Videos\MDX BILLING APP\apps\mobile\node_modules\expo\node_modules\@expo\cli\src\start\doctor\dependencies\getVersionedPackages.ts:58:7)
-    at mutatePackagesWithKnownVersionsAsync (C:\Users\MDX-SERVER\Videos\MDX BILLING APP\apps\mobile\node_modules\expo\node_modules\@expo\cli\src\start\doctor\dependencies\getMissingPackages.ts:105:27)
-    at getMissingPackagesAsync (C:\Users\MDX-SERVER\Videos\MDX BILLING APP\apps\mobile\node_modules\expo\node_modules\@expo\cli\src\start\doctor\dependencies\getMissingPackages.ts:94:3)
-    at ensureDependenciesAsync (C:\Users\MDX-SERVER\Videos\MDX BILLING APP\apps\mobile\node_modules\expo\node_modules\@expo\cli\src\start\doctor\dependencies\ensureDependenciesAsync.ts:40:23)
-    at TypeScriptProjectPrerequisite._ensureDependenciesInstalledAsync (C:\Users\MDX-SERVER\Videos\MDX BILLING APP\apps\mobile\node_modules\expo\node_modules\@expo\cli\src\start\doctor\typescript\TypeScriptProjectPrerequisite.ts:106:14)
-    at TypeScriptProjectPrerequisite.assertImplementation (C:\Users\MDX-SERVER\Videos\MDX BILLING APP\apps\mobile\node_modules\expo\node_modules\@expo\cli\src\start\doctor\typescript\TypeScriptProjectPrerequisite.ts:43:5)
+The /android project does not contain any URI schemes. Expo CLI will not be able to use links to launch the project. You can configure a custom URI scheme using the --scheme option.
+Failed to construct transformer:  Error: Failed to start watch mode.
+    at Timeout._onTimeout (C:\Users\MDX-SERVER\Videos\MDX BILLING APP\apps\mobile\node_modules\expo\node_modules\metro-file-map\src\Watcher.js:161:24)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7)

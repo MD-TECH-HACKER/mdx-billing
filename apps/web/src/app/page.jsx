@@ -69,7 +69,7 @@ export default function WelcomePage() {
   };
 
   return (
-    <div className="min-h-screen w-full relative font-inter">
+    <div className="welcome-page min-h-screen w-full relative font-inter">
       <div className="prism-bg" />
       {/* Floating glows */}
       <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden hidden" data-theme-only="glass">
