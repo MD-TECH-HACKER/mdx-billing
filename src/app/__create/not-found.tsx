@@ -3,6 +3,10 @@ import type { Route } from './+types/not-found';
 import { useNavigate } from 'react-router';
 import { useCallback, useEffect, useState } from 'react';
 
+export async function action() {
+  return new Response("Not Found", { status: 404 });
+}
+
 export async function loader({ params }: Route.LoaderArgs) {
   const matches = await fg('src/**/page.{js,jsx,ts,tsx}');
   return {

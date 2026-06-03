@@ -13,7 +13,7 @@ async function init() {
   
   try {
     const connection = await pool.getConnection();
-    const dbSqlPath = path.resolve(__dirname, '../../db.sql');
+    const dbSqlPath = path.resolve(__dirname, '../db.sql');
     const sqlContent = fs.readFileSync(dbSqlPath, 'utf8');
 
     // Simple split by semicolons that are not inside quotes is complex,
