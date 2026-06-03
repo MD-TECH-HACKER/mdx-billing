@@ -32,7 +32,7 @@ function appDir() {
 }
 
 function rootDir() {
-  return path.resolve(appDir(), "../..");
+  return appDir();
 }
 
 function escapeIdentifier(identifier) {
@@ -80,19 +80,15 @@ export async function exportDatabaseData(type = "full") {
 }
 
 const FILE_CANDIDATES = [
-  "apps/web/public/uploads",
-  "apps/web/public/upload",
-  "apps/web/public/user",
-  "apps/web/public/user/upload",
-  "apps/web/uploads",
+  "public/uploads",
+  "public/upload",
+  "public/user",
+  "public/user/upload",
   "uploads",
-  "apps/web/public/logo.png",
-  "apps/web/public/logo-orange.png",
-  "apps/web/public/favicon.ico",
-  "apps/web/public/apple-touch-icon.png",
-  "apps/mobile/assets/images/icon.png",
-  "apps/mobile/assets/images/adaptive-icon.png",
-  "apps/mobile/assets/images/splash-icon.png",
+  "public/logo.png",
+  "public/logo-orange.png",
+  "public/favicon.ico",
+  "public/apple-touch-icon.png",
 ];
 
 async function pathExists(filePath) {

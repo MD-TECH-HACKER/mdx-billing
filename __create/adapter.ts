@@ -40,6 +40,10 @@ interface MySQLAdapter extends Adapter {
   }): Promise<void>;
 }
 
+function redactSqlParams(params: any[] = []) {
+  return params.map((value) => (value == null ? value : '[redacted]'));
+}
+
 export default function MySQLAdapter(client: Pool): MySQLAdapter {
   const query = async (sql: string, params: any[] = []) => {
     try {
@@ -50,7 +54,7 @@ export default function MySQLAdapter(client: Pool): MySQLAdapter {
         insertId: (rows as any).insertId,
       };
     } catch (e) {
-      console.error('ADAPTER SQL ERROR:', e, sql, params);
+      console.error('ADAPTER SQL ERROR:', e instanceof Error ? e.message : e, sql, redactSqlParams(params));
       throw e;
     }
   };

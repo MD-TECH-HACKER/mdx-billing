@@ -39,9 +39,10 @@ export async function GET(request, { params }) {
       });
     }
 
-    // If it's a URL, redirect to it
-    if (image.startsWith("http") || image.startsWith("/")) {
-      return Response.redirect(image.startsWith("/") ? new URL(image, request.url).href : image);
+    // Only redirect to local asset paths. External URLs are used directly by
+    // email/UI callers and should not turn this endpoint into a redirector.
+    if (image.startsWith("/") && !image.startsWith("//")) {
+      return Response.redirect(new URL(image, request.url).href);
     }
 
     return new Response("Not found", { status: 404 });

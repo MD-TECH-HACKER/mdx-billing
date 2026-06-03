@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.resolve(scriptDir, "..");
-const rootDir = path.resolve(appDir, "../..");
+const rootDir = appDir;
 const backupRoot = path.join(rootDir, "scratch", "backups");
 const statusPath = path.join(rootDir, "scratch", "telegram-backup-status.json");
 
@@ -134,14 +134,10 @@ async function collectFiles(stageDir) {
     path.join(appDir, "public", "user"),
     path.join(appDir, "public", "user", "upload"),
     path.join(appDir, "uploads"),
-    path.join(rootDir, "uploads"),
     path.join(appDir, "public", "logo.png"),
     path.join(appDir, "public", "logo-orange.png"),
     path.join(appDir, "public", "favicon.ico"),
     path.join(appDir, "public", "apple-touch-icon.png"),
-    path.join(rootDir, "apps", "mobile", "assets", "images", "icon.png"),
-    path.join(rootDir, "apps", "mobile", "assets", "images", "adaptive-icon.png"),
-    path.join(rootDir, "apps", "mobile", "assets", "images", "splash-icon.png"),
   ];
 
   for (const candidate of candidates) {

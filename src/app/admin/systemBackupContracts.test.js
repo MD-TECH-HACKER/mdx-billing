@@ -19,11 +19,11 @@ describe("admin system backup contracts", () => {
     expect(exportRoute).toContain('"Content-Type": "application/zip"');
     expect(backupUtil).toContain('zip.addFile("database.json"');
     expect(backupUtil).toContain("files/");
-    expect(backupUtil).toContain("apps/web/public/uploads");
-    expect(backupUtil).toContain("apps/mobile/assets/images/icon.png");
+    expect(backupUtil).toContain("public/uploads");
+    expect(backupUtil).not.toContain("apps/mobile/assets/images/icon.png");
     expect(telegramBackupScript).toContain('"public", "uploads"');
     expect(telegramBackupScript).toContain('"public", "logo-orange.png"');
-    expect(telegramBackupScript).toContain('"images", "splash-icon.png"');
+    expect(telegramBackupScript).not.toContain('"apps", "mobile"');
   });
 
   test("import accepts full ZIP backups and restores uploaded files", () => {

@@ -55,4 +55,17 @@ describe("email helpers", () => {
     expect(receiptHtml).toContain("Download PDF");
     expect(receiptHtml).not.toContain("Cashier");
   });
+
+  test("escapes untrusted image URLs in email attributes", () => {
+    const inviteHtml = teamInviteEmailTemplate({
+      shop: { shop_name: "Shop", shop_logo: 'https://cdn.example/logo.png" onerror="alert(1)' },
+      invitedName: "Rahul",
+      role: "manager",
+      inviterName: "Owner",
+      inviteUrl: "https://mdx-billing.app/invite/accept?token=abc",
+    });
+
+    expect(inviteHtml).toContain("https://cdn.example/logo.png&quot; onerror=&quot;alert(1)");
+    expect(inviteHtml).not.toContain('onerror="alert(1)');
+  });
 });

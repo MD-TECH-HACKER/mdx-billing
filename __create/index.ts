@@ -40,6 +40,7 @@ const useSecureAuthCookies = process.env.AUTH_URL
   : process.env.NODE_ENV === 'production';
 
 const app = new Hono();
+const isProduction = process.env.NODE_ENV === 'production';
 
 app.use('*', requestId());
 
@@ -52,15 +53,16 @@ app.use(contextStorage());
 
 app.onError((err, c) => {
   if (c.req.method !== 'GET') {
+    const payload: { error: string; details?: unknown } = {
+      error: 'An error occurred in your app',
+    };
+    if (!isProduction) payload.details = serializeError(err);
     return c.json(
-      {
-        error: 'An error occurred in your app',
-        details: serializeError(err),
-      },
+      payload,
       500
     );
   }
-  return c.html(getHTMLForErrorPage(err), 200);
+  return c.html(getHTMLForErrorPage(err, { showDetails: !isProduction }), 500);
 });
 
 if (process.env.CORS_ORIGINS) {

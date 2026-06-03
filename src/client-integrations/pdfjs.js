@@ -2,7 +2,7 @@
 
 import * as pdfjs from 'pdfjs-dist';
 
-import workerSrc from 'pdfjs-dist/build/pdf.worker.entry?worker';
+import workerSrc from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
 
@@ -29,7 +29,8 @@ export const extractTextFromPDF = async (file) => {
 		}
 		return undefined;
 	} catch (_error) {
-		URL.revokeObjectURL(blobUrl);
 		return undefined;
+	} finally {
+		URL.revokeObjectURL(blobUrl);
 	}
 };

@@ -83,7 +83,8 @@ export default function consoleToParent(): Plugin {
     },
     transform(code, id) {
       if (id.includes('node_modules')) return;
-      if (!id.includes('/apps/web/src/')) return;
+      const normalizedId = id.replace(/\\/g, '/');
+      if (!normalizedId.includes('/src/')) return;
       if (!/\.(js|ts|jsx|tsx)$/.test(id)) return;
       return {
         code: `import '${virtId}';\n${code}`,

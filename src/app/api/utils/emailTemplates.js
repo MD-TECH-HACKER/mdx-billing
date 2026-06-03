@@ -91,7 +91,7 @@ export function teamInviteEmailTemplate({ shop, invitedName, role, inviterName, 
         <table width="100%" border="0" cellpadding="0" cellspacing="0">
           <tr>
             <td style="font-size: 22px; font-weight: 700; color: #ffffff;">
-              <img src="${appLogo}" width="28" height="28" style="vertical-align: middle; margin-right: 8px; border-radius: 4px;" alt="Logo" />
+              <img src="${escapeHtml(appLogo)}" width="28" height="28" style="vertical-align: middle; margin-right: 8px; border-radius: 4px;" alt="Logo" />
               ${escapeHtml(BRAND)}
             </td>
           </tr>
@@ -102,7 +102,7 @@ export function teamInviteEmailTemplate({ shop, invitedName, role, inviterName, 
     <tr>
       <td style="padding: 32px 24px;">
         <div style="text-align: center;">
-          <img src="${logo}" alt="Shop Logo" width="64" height="64" style="border-radius: 8px; margin-bottom: 24px; border: 1px solid ${BORDER}; background: #fff;" />
+          <img src="${escapeHtml(logo)}" alt="Shop Logo" width="64" height="64" style="border-radius: 8px; margin-bottom: 24px; border: 1px solid ${BORDER}; background: #fff;" />
           <h1 style="margin: 0 0 16px 0; font-size: 24px; color: ${TEXT_LIGHT}; font-weight: 600;">You are invited to join ${escapeHtml(BRAND)}</h1>
           <p style="margin: 0 0 32px 0; font-size: 15px; color: ${TEXT_MUTED}; line-height: 1.6;">
             Hi ${invitee},<br>
@@ -171,7 +171,7 @@ export function receiptEmailTemplate({ sale, shop, receiptUrl, downloadUrl }) {
         <tr>
           ${itemImage ? `
           <td width="48" style="vertical-align: top; padding: 16px 12px 16px 0; border-bottom: 1px solid ${BORDER};">
-            <img src="${itemImage}" alt="${escapeHtml(name)}" width="48" height="48" style="border-radius: 6px; object-fit: cover; border: 1px solid ${BORDER}; background: #fff;" />
+            <img src="${escapeHtml(itemImage)}" alt="${escapeHtml(name)}" width="48" height="48" style="border-radius: 6px; object-fit: cover; border: 1px solid ${BORDER}; background: #fff;" />
           </td>
           <td style="padding: 16px 0; border-bottom: 1px solid ${BORDER}; vertical-align: top;">
           ` : `
@@ -197,7 +197,7 @@ export function receiptEmailTemplate({ sale, shop, receiptUrl, downloadUrl }) {
         <table width="100%" border="0" cellpadding="0" cellspacing="0">
           <tr>
             <td style="font-size: 20px; font-weight: 700; color: #ffffff;">
-              <img src="${appLogo}" width="26" height="26" style="vertical-align: middle; margin-right: 8px; border-radius: 4px;" alt="App Logo" />
+              <img src="${escapeHtml(appLogo)}" width="26" height="26" style="vertical-align: middle; margin-right: 8px; border-radius: 4px;" alt="App Logo" />
               ${escapeHtml(BRAND)}
             </td>
             <td align="right" style="font-size: 14px; font-weight: 600; color: #ffffff;">
@@ -218,7 +218,7 @@ export function receiptEmailTemplate({ sale, shop, receiptUrl, downloadUrl }) {
         <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 32px; border: 1px solid ${BORDER}; border-radius: 4px; padding: 16px;">
           <tr>
             <td width="60" style="padding-right: 16px; vertical-align: top;">
-               <img src="${logo}" width="60" height="60" style="border-radius: 4px; border: 1px solid ${BORDER}; background: #fff;" alt="Shop Logo" />
+               <img src="${escapeHtml(logo)}" width="60" height="60" style="border-radius: 4px; border: 1px solid ${BORDER}; background: #fff;" alt="Shop Logo" />
             </td>
             <td style="vertical-align: top;">
               <div style="font-size: 16px; font-weight: 600; color: ${TEXT_LIGHT};">${shopName}</div>

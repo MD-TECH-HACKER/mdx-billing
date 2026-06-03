@@ -12,6 +12,10 @@ import Google from "@auth/core/providers/google"
 
 import crypto from 'crypto';
 
+function redactSqlParams(params = []) {
+  return params.map((value) => (value == null ? value : "[redacted]"));
+}
+
 function Adapter(pool) {
   const query = async (sql, params = []) => {
     try {
@@ -19,7 +23,7 @@ function Adapter(pool) {
       // Mimic the pg result structure expected by the old code
       return { rowCount: rows.length || 0, rows: Array.isArray(rows) ? rows : [rows], insertId: rows.insertId };
     } catch (e) {
-      console.error('ADAPTER SQL ERROR:', e, sql, params);
+      console.error('ADAPTER SQL ERROR:', e?.message || e, sql, redactSqlParams(params));
       throw e;
     }
   };

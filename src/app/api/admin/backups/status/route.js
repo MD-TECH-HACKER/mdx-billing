@@ -7,9 +7,7 @@ import { isAdmin } from "@/utils/adminAccess";
 async function readLastRun() {
   const cwd = process.cwd();
   const candidates = [
-    path.resolve(cwd, "../../scratch/telegram-backup-status.json"),
     path.resolve(cwd, "scratch/telegram-backup-status.json"),
-    path.resolve(cwd, "../scratch/telegram-backup-status.json"),
   ];
 
   for (const candidate of candidates) {

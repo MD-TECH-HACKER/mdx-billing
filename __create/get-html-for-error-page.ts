@@ -1,13 +1,29 @@
-export const getHTMLForErrorPage = (err: unknown): string => {
-  const message = err instanceof Error ? err.message : 'An unexpected error occurred';
-  const stack = err instanceof Error ? err.stack : String(err);
+type ErrorPageOptions = {
+  showDetails?: boolean;
+};
+
+export const getHTMLForErrorPage = (err: unknown, options: ErrorPageOptions = {}): string => {
+  const showDetails = options.showDetails ?? process.env.NODE_ENV !== 'production';
+  const message =
+    showDetails && err instanceof Error
+      ? err.message
+      : 'An unexpected error occurred. Please try again.';
+  const stack = showDetails ? (err instanceof Error ? err.stack : String(err)) : '';
+  const detailsControl = showDetails
+    ? `<button class="toggle-btn" onclick="document.getElementById('details').classList.toggle('open')">
+      Show details
+    </button>
+    <div id="details" class="details">
+      <pre>${escapeHtml(stack || '')}</pre>
+    </div>`
+    : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Error · MDX Billing</title>
+  <title>Error - MDX Billing</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -102,13 +118,8 @@ export const getHTMLForErrorPage = (err: unknown): string => {
       <button class="btn-primary" onclick="window.location.href='/'">Go Home</button>
       <button class="btn-secondary" onclick="window.location.reload()">Retry</button>
     </div>
-    <button class="toggle-btn" onclick="document.getElementById('details').classList.toggle('open')">
-      ▶ Show details
-    </button>
-    <div id="details" class="details">
-      <pre>${escapeHtml(stack || '')}</pre>
-    </div>
-    <p class="footer">MDX Billing · Error Page</p>
+    ${detailsControl}
+    <p class="footer">MDX Billing - Error Page</p>
   </div>
 </body>
 </html>`;

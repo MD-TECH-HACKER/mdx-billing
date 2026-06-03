@@ -23,9 +23,10 @@ export async function GET(request, { params }) {
       });
     }
 
-    // If it's a URL, redirect to it
-    if (logo.startsWith("http") || logo.startsWith("/")) {
-      return Response.redirect(logo.startsWith("/") ? new URL(logo, request.url).href : logo);
+    // Only redirect to local asset paths. External URLs are used directly by
+    // email/UI callers and should not turn this endpoint into a redirector.
+    if (logo.startsWith("/") && !logo.startsWith("//")) {
+      return Response.redirect(new URL(logo, request.url).href);
     }
 
     return new Response("Not found", { status: 404 });

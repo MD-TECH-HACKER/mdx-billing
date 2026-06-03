@@ -149,7 +149,8 @@ export function addRenderIds(): PluginOption {
       if (!/\.([cm]?[jt]sx)(\?noLayout)?$/.test(id)) {
         return null;
       }
-      if (!id.includes('apps/web/src/')) {
+      const normalizedId = id.replace(/\\/g, '/');
+      if (!normalizedId.includes('/src/')) {
         return null;
       }
 

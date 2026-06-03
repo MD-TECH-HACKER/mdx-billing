@@ -8,7 +8,7 @@ function read(relativePath) {
 
 describe("admin action contracts", () => {
   test("shop suspension uses persisted shop status and a real admin action", () => {
-    const dbSchema = read("../../db.sql");
+    const dbSchema = read("db.sql");
     const shopsRoute = read("src/app/api/admin/shops/route.js");
     const shopsPage = read("src/app/admin/shops/page.jsx");
     const selectShopPage = read("src/app/select-shop/page.jsx");

@@ -2,13 +2,18 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { getAppUrl } from "./email";
 
 function secret() {
-  return (
+  const configuredSecret = (
     process.env.PUBLIC_RECEIPT_SECRET ||
     process.env.AUTH_SECRET ||
-    process.env.SESSION_SECRET ||
-    process.env.RESEND_API_KEY ||
-    "mdx-local-public-receipt-secret"
+    process.env.SESSION_SECRET
   );
+
+  if (configuredSecret) return configuredSecret;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("PUBLIC_RECEIPT_SECRET or AUTH_SECRET is required for public receipt links.");
+  }
+
+  return "mdx-local-public-receipt-secret";
 }
 
 function payloadForSale(sale) {
@@ -27,23 +32,14 @@ export function createPublicReceiptToken(sale) {
 
 export function verifyPublicReceiptToken(sale, token) {
   const received = String(token || "");
-  if (!received) {
-    console.log("verifyPublicReceiptToken: No received token provided");
-    return false;
-  }
+  if (!received) return false;
   const expected = createPublicReceiptToken(sale);
-  console.log("verifyPublicReceiptToken: verifying sale", sale?.sale_id);
-  console.log("verifyPublicReceiptToken: payload =", [sale?.sale_id, sale?.shop_id, sale?.receipt_number].map(v => String(v || "")).join("|"));
-  console.log("verifyPublicReceiptToken: expected =", expected);
-  console.log("verifyPublicReceiptToken: received =", received);
   const expectedBuffer = Buffer.from(expected);
   const receivedBuffer = Buffer.from(received);
-  const match = (
+  return (
     expectedBuffer.length === receivedBuffer.length &&
     timingSafeEqual(expectedBuffer, receivedBuffer)
   );
-  console.log("verifyPublicReceiptToken: match result =", match);
-  return match;
 }
 
 export function publicReceiptUrl(sale, { download = false } = {}) {
