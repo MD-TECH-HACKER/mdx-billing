@@ -1,8 +1,9 @@
-node_modules
+.DS_Store
+/node_modules/
 .env
 .env.*
-!.env.example
-dist
-build
-.DS_Store
-scratch/
+*.log
+
+# React Router
+/.react-router/
+/build/
