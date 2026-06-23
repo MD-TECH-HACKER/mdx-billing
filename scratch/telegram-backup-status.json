@@ -1,0 +1,14 @@
+{
+  "startedAt": "2026-06-17T07:33:25.902Z",
+  "ok": true,
+  "archiveName": "mdx-billing-backup-2026-06-17T07-33-25-902Z.zip",
+  "includedPaths": [
+    "public\\logo.png",
+    "public\\logo-orange.png",
+    "public\\favicon.ico",
+    "public\\apple-touch-icon.png"
+  ],
+  "finishedAt": "2026-06-17T07:33:38.147Z",
+  "archiveBytes": 17737391,
+  "databaseDumpMode": "json"
+}
